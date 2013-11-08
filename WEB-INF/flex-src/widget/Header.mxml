@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" xmlns:local="*">
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.enum.ImageEnum;			
+			import flash.net.navigateToURL;
+			
+			import mx.core.UIComponent;
+			import mx.core.IUIComponent;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.logging.LogEvent;
+			import mx.managers.PopUpManager;						
+			
+			import popup.UserPreferencePopup;									
+			
+			[Bindable]
+			private var _level1Tabs:Object;
+			
+			public function set level1Tabs(value: Object):void{
+				this._level1Tabs = value;				
+			}
+		
+			/**
+			 * Function to switch language between English and Chinese
+			 **/
+		    private function switchLang():void{
+		    	if(resourceManager.localeChain.toString() == "zh_CN,en_US"){
+		    		resourceManager.localeChain = ["en_US","zh_CN"];
+		    	}else{
+		    		resourceManager.localeChain = ["zh_CN","en_US"];
+		    	}
+		    }
+		    
+		    private function onClickExitBtn():void{
+				confirm(resourceManager.getString("Language","alert.logout"),
+			   		resourceManager.getString("Language","title.confirmation"), confirmLogoutFun);		   
+		    }		
+		    
+		    private function confirmLogoutFun(evt:CloseEvent):void{
+		    	if(evt.detail == Alert.YES){
+			    	var u:URLRequest = new URLRequest("javascript:window.location.reload();"); 
+			    	navigateToURL(u, "_self");
+		    	}
+		    }	
+		   	
+		   	private function onClickUserPreference():void{
+		   		var userPreferencePopup:UserPreferencePopup = UserPreferencePopup(PopUpManager.createPopUp(this, UserPreferencePopup));
+		   		userPreferencePopup.userName = model.currUser.userName;
+		   		PopUpManager.centerPopUp(userPreferencePopup);
+		   	}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Page Layout
+	  ===========================-->   	    
+	<mx:HBox width="100%">			
+		<mx:TabBar dataProvider="{_level1Tabs}"/>
+		<mx:LinkButton label="{resourceManager.getString('Language','lang')}" click="switchLang()"/>	
+		<mx:Spacer width="100%" height="10"/>
+		<mx:Label text="{resourceManager.getString('Language','label.welcome')} : {model.currUser.firstName + ' ' + model.currUser.lastName}" paddingTop="2" fontWeight="bold"/>
+		<mx:LinkButton label="{resourceManager.getString('Language', 'label.preference')}" click="onClickUserPreference()" useHandCursor="true"/>
+		<mx:LinkButton label="{resourceManager.getString('Language','label.logout')}" click="onClickExitBtn()" useHandCursor="true"/>
+		<mx:Spacer width="10" height="30"/>			    		
+	</mx:HBox>
+</mx:VBox>

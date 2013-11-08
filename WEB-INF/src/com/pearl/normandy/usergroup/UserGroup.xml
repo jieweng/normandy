@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="UserGroup">
+
+  <!-- Use type aliases to avoid typing the full classname every time. -->
+  <typeAlias alias="UserGroup" type="com.pearl.normandy.usergroup.UserGroupTo"/>
+
+  <resultMap id="UserGroupResult" class="UserGroup"> 
+    <result property="id" column="id"/>
+    <result property="groupName" column="groupName"/>
+    <result property="production" column="production"/>
+    <result property="state" column="state"/>    
+    <result property="description" column="description"/>
+    <result property="deleted" column="deleted"/>
+    <result property="version" column="version"/>
+  	<result property="createdDate" column="createdDate"/>
+	<result property="createdBy" column="createdBy"/>	  	    
+  	<result property="updatedDate" column="updatedDate"/>
+  	<result property="updatedBy" column="updatedBy"/>   
+  </resultMap>
+  
+  
+  <select id="selectUserGroups" parameterClass="java.util.Map" resultMap="UserGroupResult">
+	   select 
+			ug.ID				as id,
+			ug.GROUP_NAME		as groupName,
+			ug.PRODUCTION		as production,
+			ug.STATE			as state,
+			ug.DESCRIPTION		as description,
+			ug.DELETED			as deleted,
+			ug.VERSION			as version,
+			ug.CREATED_DATE		as createdDate,
+			ug.CREATED_BY		as createdBy,
+			ug.UPDATED_DATE		as updatedDate,
+			ug.UPDATED_BY		as updatedBy
+       from USER_GROUP ug
+       <dynamic>
+    	   <isNotNull prepend="where" property="production">
+			   ug.PRODUCTION = #production#
+		   </isNotNull>
+       </dynamic>
+  </select>
+  
+  <select id="selectUserGroupsById" parameterClass="java.util.Map" resultMap="UserGroupResult">
+  	  select distinct
+			ug.ID				as id,
+			ug.GROUP_NAME		as groupName,
+			ug.PRODUCTION		as production,
+			ug.STATE			as state,
+			ug.DESCRIPTION		as description,
+			ug.DELETED			as deleted,
+			ug.VERSION			as version,
+			ug.CREATED_DATE		as createdDate,
+			ug.CREATED_BY		as createdBy,
+			ug.UPDATED_DATE		as updatedDate,
+			ug.UPDATED_BY		as updatedBy
+       from USER_GROUP ug left join PROJECT_GROUP pg on ug.ID = pg.GROUP_ID
+	   <dynamic>
+	       <isNotNull prepend="where" property="projectId">
+			   pg.PROJECT_ID = #projectId#
+	       </isNotNull>
+	       <isNotNull prepend="where" property="groupId">
+			   ug.ID = #groupId#
+	       </isNotNull>
+	   </dynamic>
+  </select>
+  
+  <select id="selectUserGroupAs" resultClass="UserGroup">
+  	  SELECT ug.ID           as id,
+  	         ug.GROUP_NAME   as groupName
+       FROM USER_GROUP ug 
+       WHERE ug.ID='1' OR ug.ID='13' OR ug.ID='14' OR ug.ID='0' OR ug.ID='15'
+       ORDER BY LOCATE(ug.ID,'1,13,14,0,15')ASC
+  </select>
+  
+  <insert id="createUserGroup" parameterClass="UserGroup">
+		insert into USER_GROUP
+			(ID,
+			GROUP_NAME,
+			PRODUCTION,
+			DESCRIPTION,
+			DELETED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			UPDATED_DATE,
+			UPDATED_BY,
+			STATE)
+		values
+			(#id#,
+			#groupName#,
+			#production#,
+			#description#,
+			#deleted#,
+			#version#,
+			#createdDate#,
+			#createdBy#,
+			#updatedDate#,
+			#updatedBy#,
+			#state#
+			)
+	</insert>
+	
+	<update id="updateUserGroup" parameterClass="UserGroup">
+		update USER_GROUP
+		set GROUP_NAME     = #groupName#,
+			PRODUCTION     = #production#,
+			DESCRIPTION    = #description#,
+			DELETED        = #deleted#,
+			VERSION        = #version#,
+			CREATED_DATE   = #createdDate#,
+			CREATED_BY     = #createdBy#,
+			UPDATED_DATE   = #updatedDate#,
+			UPDATED_BY     = #updatedBy#,
+			STATE          = #state#
+		where ID           = #id#
+	</update>
+</sqlMap>

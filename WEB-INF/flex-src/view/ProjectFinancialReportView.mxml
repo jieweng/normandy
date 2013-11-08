@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="100%"
+	backgroundColor="#777777">
+	
+	<mx:Script source="../../script/DummyData.as"/>
+	<mx:Script>
+		<![CDATA[
+		  	/**
+		  	 * Function return sliced label
+		  	 **/
+		    public function getSliceLabel(item:Object, arg2:String, arg3:Number, arg4:Number):String{
+		        return item==null?"":item.project;
+		    }				
+		    
+		    
+		    private var temp:int = 0;
+		    private function monthChange():void{
+		    	if(temp == 0){
+		    		projectCostPieChar.dataProvider =  projectCostArray2;
+		    		temp = 1;
+		    	}
+		    	else{
+		    		projectCostPieChar.dataProvider = projectCostArray1;
+		    		temp = 0;
+		    	}
+		    }
+		    
+		    private var temp2:int = 0;
+		    private function projectChange():void{
+		    	if(temp2 == 0){
+		    		projectDetailColumnChart.dataProvider =  projectDetailArray1;
+		    		temp2 = 1;
+		    	}
+		    	else{
+		    		projectDetailColumnChart.dataProvider = projectDetailArray2;
+		    		temp2 = 0;
+		    	}
+		    }		    
+		]]>
+	</mx:Script>
+	
+	<mx:SeriesInterpolate id="interpolate" duration="1000" elementOffset="10"/>
+	<mx:Panel title="Monthly Cost" width="50%" height="100%">
+        <mx:LineChart id="monthlyCostLineChart" dataProvider="{monthlyCostArray}"
+        	width="100%" height="100%"  
+        	showDataTips="true"
+        	itemClick="monthChange()" >
+
+            <mx:horizontalAxis>
+                <mx:CategoryAxis categoryField="date"/>
+            </mx:horizontalAxis>
+
+            <mx:series>
+                <mx:LineSeries yField="cost"  showDataEffect="{interpolate}">
+                </mx:LineSeries>
+            </mx:series>
+
+            <mx:backgroundElements>
+                <mx:Array>
+                    <mx:GridLines direction="both">
+                        <mx:verticalStroke>
+                            <mx:Stroke weight="1" color="#CCCCCC"/>
+                        </mx:verticalStroke>
+                    </mx:GridLines>
+                </mx:Array>
+            </mx:backgroundElements>
+
+        </mx:LineChart>		
+	</mx:Panel>
+	
+	<mx:VBox width="50%" height="100%">
+		<mx:Panel title="Project Cost" width="100%" height="50%">
+            <mx:PieChart id="projectCostPieChar"
+            	width="100%" height="100%" 
+            	showDataTips="true"
+            	itemClick="projectChange()">
+
+                <mx:series>
+                    <mx:Array>
+                        <mx:PieSeries field="cost" nameField="project" labelPosition="callout"
+                                      labelFunction="getSliceLabel" showDataEffect="{interpolate}">
+                         <mx:fills>
+                            <mx:Array>
+                                <mx:RadialGradient>
+                                    <mx:entries>
+                                        <mx:Array>
+                                            <mx:GradientEntry color="#EF7651" ratio="0"/>
+                                            <mx:GradientEntry color="#994C34" ratio="1"/>
+                                        </mx:Array>
+                                    </mx:entries>
+                                </mx:RadialGradient>
+                                <mx:RadialGradient>
+                                    <mx:entries>
+                                        <mx:Array>
+                                            <mx:GradientEntry color="#E9C836" ratio="0"/>
+                                            <mx:GradientEntry color="#AA9127" ratio="1"/>
+                                        </mx:Array>
+                                    </mx:entries>
+                                </mx:RadialGradient>
+                                <mx:RadialGradient>
+                                    <mx:entries>
+                                        <mx:Array>
+                                            <mx:GradientEntry color="#6FB35F" ratio="0"/>
+                                            <mx:GradientEntry color="#497B54" ratio="1"/>
+                                        </mx:Array>
+                                    </mx:entries>
+                                </mx:RadialGradient>
+                                <mx:RadialGradient>
+                                    <mx:entries>
+                                        <mx:Array>
+                                            <mx:GradientEntry color="#A1AECF" ratio="0"/>
+                                            <mx:GradientEntry color="#47447A" ratio="1"/>
+                                        </mx:Array>
+                                    </mx:entries>
+                                </mx:RadialGradient>
+                                <mx:RadialGradient>
+                                    <mx:entries>
+                                        <mx:Array>
+                                            <mx:GradientEntry color="#BA9886" ratio="0"/>
+                                            <mx:GradientEntry color="#AE775B" ratio="1"/>
+                                        </mx:Array>
+                                    </mx:entries>
+                                </mx:RadialGradient>
+                            </mx:Array>
+                        </mx:fills>
+                        </mx:PieSeries>
+                    </mx:Array>
+                </mx:series>
+
+            </mx:PieChart>
+			
+		</mx:Panel>
+		
+		<mx:Panel title="Project Detail" width="100%" height="50%">
+            <mx:ColumnChart id="projectDetailColumnChart" 
+            	width="100%" height="100%" 
+            	showDataTips="true"
+            	type="stacked">
+    
+                <mx:horizontalAxis>
+                    <mx:CategoryAxis categoryField="date"/>
+                </mx:horizontalAxis>    
+    
+                <mx:series>
+                	<mx:ColumnSeries yField="production" showDataEffect="{interpolate}"/>
+                	<mx:ColumnSeries yField="fix" showDataEffect="{interpolate}"/>                                        
+                </mx:series>
+    
+                <mx:backgroundElements>
+                    <mx:Array>
+                        <mx:GridLines direction="both">
+                            <mx:verticalStroke>
+                                <mx:Stroke weight="1" color="#CCCCCC"/>
+                            </mx:verticalStroke>
+                        </mx:GridLines>
+                    </mx:Array>
+                </mx:backgroundElements>
+    
+            </mx:ColumnChart>			
+		</mx:Panel>
+	</mx:VBox>
+</mx:HBox>

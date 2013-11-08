@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProjectMemberAbility">
+	<typeAlias alias="ProjectMemberAbility" type="com.pearl.normandy.projectmemberability.ProjectMemberAbilityTo" />
+	<typeAlias alias="Performance" type="com.pearl.normandy.projectmemberability.Performance" />
+	<select id="selectProjectMemberAbility" parameterClass="java.util.Map" resultClass="ProjectMemberAbility">
+		SELECT	pma.ID									as id,
+				pma.PROJECT_ID							as projectId,
+				p.PROJECT_NAME							as projectName,
+				p.DIFFICULTY							as difficulty,
+				pma.USER_ID								as userId,
+				u.LEVEL_ID								as levelId,
+				ug.GROUP_NAME							as userGroupName,
+				CONCAT(u.FIRST_NAME," ",u.LAST_NAME)   	as userName,
+				u.USER_NAME								as name,
+				pma.YEAR								as year,
+				pma.MONTH								as month,
+				pma.HIGH_POLY							as highPoly,
+				pma.LOW_POLY							as lowPoly,
+				pma.ZBRUSH								as zbrush,
+				pma.TEXTURE								as texture,
+				pma.INTEGRATION							as integration,
+				pma.COLLIGATION							as colligation,
+				pma.ENGINE								as engine,
+				pma.INITIATIVE							as initiative,
+				pma.COMMUNICATE							as communication,
+				pma.ART_CULTURE							as artCulture,
+				pma.INNOVATION							as innovation,
+				IFNULL(up.NUMBER, 0)					as punctual,
+				pma.CONTRIBUTE							as contribute,
+				pma.REMARK								as remark
+		FROM PROJECT_MEMBER_ABILITY pma LEFT JOIN USER_PUNCTUAL up ON pma.USER_ID = up.USER_ID 
+				 AND up.YEAR = #year# AND up.MONTH = #month#, 
+			 PROJECT p, 
+			 USER u,
+			 USER_GROUP ug
+		WHERE pma.PROJECT_ID = p.ID
+			AND pma.USER_ID	= u.ID
+			AND u.USER_GROUP_ID = ug.ID
+			AND pma.YEAR = #year#
+			AND pma.MONTH = #month#
+			<dynamic>
+		      	 <isNotNull prepend="and" property="project">
+		      		pma.project_id=#project.id#
+		      	 </isNotNull>
+		     </dynamic>
+	</select>
+	
+	<select id="selectProjectMemberActivityByAct" parameterClass="java.util.Map" resultClass="ProjectMemberAbility">
+		SELECT DISTINCT
+			   IFNULL(pma.ID, 0)					as id,
+		       IFNULL(pma.PROJECT_ID, 0)			as projectId,
+		       IFNULL(pma.YEAR, 0)					as year,
+		       IFNULL(pma.MONTH, 0)					as month,
+		       a.RESOURCE_ID						as userId,
+		       CONCAT(u.FIRST_NAME, u.LAST_NAME)	as userName,
+		       ug.GROUP_NAME						as userGroupName,
+			   pma.HIGH_POLY						as highPoly,
+		       pma.LOW_POLY							as lowPoly,
+		       pma.ZBRUSH							as zbrush,
+		       pma.TEXTURE							as texture,
+		       pma.INTEGRATION						as integration,
+		       pma.COLLIGATION						as colligation,
+		       pma.ENGINE							as engine,
+		       pma.INITIATIVE						as initiative,
+		       pma.COMMUNICATE						as communicate,
+		       pma.ART_CULTURE						as artCulture,
+		       pma.INNOVATION						as innovation,
+		       pma.PUNCTUAL							as punctual,
+		       pma.CONTRIBUTE						as contribute,
+		       IFNULL(pma.REMARK, '')				as remark
+		FROM ACTIVITY a 
+			 	LEFT JOIN PROJECT_MEMBER_ABILITY pma 
+				ON a.RESOURCE_ID = pma.USER_ID AND a.PROJECT_ID = pma.PROJECT_ID 
+				 AND pma.YEAR = #year# AND pma.MONTH = #month#,
+		     USER u, USER_GROUP ug
+		WHERE a.PROJECT_ID = #projectId#
+		  AND (YEAR(a.START_TIME) = #year# OR YEAR(a.END_TIME) = #year#)
+		  AND (MONTH(a.START_TIME) = #month# OR MONTH(a.END_TIME) = #month#)
+		  AND a.RESOURCE_ID = u.ID
+		  AND u.USER_GROUP_ID = ug.ID;
+	</select>
+	
+	
+	<select id="selectPerformance" parameterClass="java.util.Map" resultClass="Performance">
+		select
+	  		u.id                                                                                  as userId,
+	  		u.employee_no                                                                         as employeeNo,
+	  		concat(u.first_name,u.last_name,'(',u.english_first_name,' ',u.english_last_name,')') as userName,
+	  		ug.id                                                                                 as groupId,
+		    ug.group_name                                                                         as groupName,
+		    a.project_id                                                                         as projectId,
+		  	a.start_time                                                                          as startTime,
+		  	a.end_time                                                                            as endTime,
+		  	a.actual_staff_days                                                                   as actualStaffDays,
+		  	a.assigned_effort                                                                     as assignedEffort,
+		  	a.medal                                                                               as medal,
+		  	a.activity_type																		  as activityType
+		from activity a,user u,user_group ug
+		where a.resource_id = u.id and ug.id = u.user_group_id and (a.deleted is null or a.deleted != 'Y')
+			  and (a.activity_type = 'Production' or a.activity_type = 'Feedback') and a.actual_staff_days != 0
+			  and u.user_group_id in (0,1,13,14,15)
+		      and ((a.start_time <![CDATA[ < ]]> #start# and a.end_time <![CDATA[ > ]]> #end#)
+		      or (a.start_time <![CDATA[ >= ]]> #start# and a.start_time <![CDATA[ <= ]]> #end#)
+		      or (a.end_time <![CDATA[ >= ]]> #start# and a.end_time <![CDATA[ <= ]]> #end#))
+		      <dynamic>
+		      	 <isNotNull prepend="and" property="project">
+		      		a.project_id=#project.id#
+		      	 </isNotNull>
+		      	 <isNotNull prepend="and" property="group">
+		      		u.user_group_id =#group.id#
+		      	 </isNotNull>
+		      </dynamic>
+		order by u.id,a.project_id			      
+	</select>
+	
+	<insert id="insert"  parameterClass="ProjectMemberAbility">
+		INSERT INTO PROJECT_MEMBER_ABILITY(
+			PROJECT_ID,
+			USER_ID,
+			YEAR,
+			MONTH,
+			HIGH_POLY,
+			LOW_POLY,
+			ZBRUSH,
+			TEXTURE,
+			INTEGRATION,
+			COLLIGATION,
+			ENGINE,
+			INITIATIVE,
+			COMMUNICATE,
+			ART_CULTURE,
+			INNOVATION,
+			PUNCTUAL,
+			CONTRIBUTE,
+			REMARK
+		) VALUES (
+			#projectId#,
+			#userId#,
+			#year#,
+			#month#,
+			#highPoly#,
+			#lowPoly#,
+			#zbrush#,
+			#texture#,
+			#integration#,
+			#colligation#,
+			#engine#,
+			#initiative#,
+			#communicate#,
+			#artCulture#,
+			#innovation#,
+			#punctual#,
+			#contribute#,
+			#remark#
+		);
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="ProjectMemberAbility">
+		UPDATE PROJECT_MEMBER_ABILITY
+		SET	HIGH_POLY	= #highPoly#,
+			LOW_POLY	= #lowPoly#,
+			ZBRUSH		= #zbrush#,
+			TEXTURE		= #texture#,
+			INTEGRATION	= #integration#,
+			COLLIGATION	= #colligation#,
+			ENGINE		= #engine#,
+			INITIATIVE	= #initiative#,
+			COMMUNICATE	= #communicate#,
+			ART_CULTURE	= #artCulture#,
+			INNOVATION	= #innovation#,
+			PUNCTUAL	= #punctual#,
+			CONTRIBUTE	= #contribute#,
+			REMARK		= #remark#
+		WHERE ID = #id#
+	</update>
+</sqlMap>

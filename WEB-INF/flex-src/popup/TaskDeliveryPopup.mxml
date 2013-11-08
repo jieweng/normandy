@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="800" height="600" borderAlpha="1" 
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+
+			import com.pearl.normandy.vo.TaskVO;
+
+			
+			private var _taskIds:ArrayCollection;
+			[Bindable]
+			public function set taskIds(value:ArrayCollection):void{
+				this._taskIds = value;
+				taskRo.getTaskByIds(taskIds);
+			}
+			
+			public function get taskIds():ArrayCollection{
+				return this._taskIds;
+			}
+
+
+			//==============================
+		    //Methods
+		    //==============================
+		     private function nameLabelFunc(item:Object, column:AdvancedDataGridColumn):String{
+		     	var task:TaskVO = item as TaskVO;		     	
+		     	return task.parentName + " (" + task.name + ")";
+		     }	
+
+
+			//==============================
+		    //Remote Object Handler
+		    //==============================			
+			private function getTaskByIdsHandler(event:ResultEvent):void{
+				tasks = event.result as ArrayCollection;
+			}
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	  Services
+	===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getTaskByIds" result="getTaskByIdsHandler(event)"/>
+	</mx:RemoteObject>	
+
+	<!--==========================
+	  Variables
+	===========================--> 
+	<mx:ArrayCollection id="tasks"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:AdvancedDataGrid id="taskDataGrid" width="100%" height="100%"
+		dataProvider="{tasks}" doubleClickEnabled="true"
+		itemDoubleClick="showViewTaskWindow(event.itemRenderer.data)">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn width="120" dataField="projectName"
+					headerText="{resourceManager.getString('Language','label.project_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="id" width="100"
+					headerText="{resourceManager.getString('Language','label.task_id')}"/>
+				<mx:AdvancedDataGridColumn labelFunction="nameLabelFunc" width="180"
+					headerText="{resourceManager.getString('Language','label.task_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="priority" width="100"
+					headerText="{resourceManager.getString('Language','label.priority')}"
+					itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPriorityImageRenderer"/>
+				<mx:AdvancedDataGridColumn dataField="owner" width="100"
+					headerText="{resourceManager.getString('Language','label.lead')}"/>
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+</mx:TitleWindow>

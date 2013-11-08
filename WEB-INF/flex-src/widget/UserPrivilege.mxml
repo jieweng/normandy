@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" xmlns:validator="com.pearl.normandy.validator.*" 
+	xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.CloseEvent;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.UserContractVO;
+			import com.pearl.normandy.controls.NormandyDateField;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridNumberEditor;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.controls.Alert;
+			import mx.containers.Box;
+			import mx.events.ResizeEvent;
+			import mx.utils.StringUtil;
+			import mx.validators.Validator;
+			import com.pearl.normandy.vo.UserPrivilegeVO;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.enum.ImageEnum;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.UserVO;
+			import mx.core.UIComponent;
+			import flash.net.FileReference;
+			import flash.display.Loader;
+			import mx.graphics.codec.PNGEncoder;
+			
+
+			
+			private var _user:UserVO;
+			
+			public function get user():UserVO{
+				return this._user;
+			}
+			[Bindable]
+			private var up:UserPrivilegeVO;
+			public function set user(value:UserVO):void{
+				this._user = value;				
+				userPrivilegeRo.getUserPrivilegeByUserId(user.id);
+				if(user.id == 0){
+					submitBtn.enabled = false;
+				}else{
+					submitBtn.enabled = true;
+				}
+			}
+			private function submit():void{
+				up.userId = user.id;
+				up.project = projectCB.selectedLabel;
+				up.resource = resourceCB.selectedLabel;
+				up.report = reportCB.selectedLabel;
+				up.user = userCB.selectedLabel;
+				up.userGroup = groupCB.selectedLabel;
+				up.holiday = holidayCB.selectedLabel;
+				up.userPunctual = userPunctualCB.selectedLabel;
+				up.loginPicture = loginPictureCB.selectedLabel;
+				up.levelShow = levelShowCB.selectedLabel;
+				if(up.id == 0){
+					userPrivilegeRo.createUserPrivilege(up)
+				}else{
+					userPrivilegeRo.updateUserPrivilege(up);
+				}
+			}
+			
+			private function getUserPrivilegeByUserIdHandler(e:ResultEvent):void{
+				up=e.result as UserPrivilegeVO;
+				if(up==null){
+					up = new UserPrivilegeVO;
+				}
+				if(up.project =="R"){
+					projectCB.selectedIndex = 1;
+				}else if(up.project =="R/W"){
+					projectCB.selectedIndex = 2;
+				}
+				if(up.resource =="R"){
+					resourceCB.selectedIndex = 1;
+				}else if(up.resource =="R/W"){
+					resourceCB.selectedIndex = 2;
+				}
+				if(up.report =="Level2"){
+					reportCB.selectedIndex = 1;
+				}else if(up.report =="Level3"){
+					reportCB.selectedIndex = 2;
+				}
+				if(up.user =="Y"){
+					userCB.selectedIndex = 1;
+				}
+				if(up.userGroup =="Y"){
+					groupCB.selectedIndex = 1;
+				}
+				if(up.holiday =="Y"){
+					holidayCB.selectedIndex = 1;
+				}
+				if(up.userPunctual =="Y"){
+					userPunctualCB.selectedIndex = 1;
+				}
+				if(up.loginPicture =="Y"){
+					loginPictureCB.selectedIndex = 1;
+				}
+				if(up.levelShow =="Y"){
+					levelShowCB.selectedIndex = 1;
+				}
+			}
+			
+			private function createUserPrivilegeHandler(e:ResultEvent):void{
+				var id:int = e.result as int;
+				up.id = id;
+			}
+		]]>
+	</mx:Script>
+	<mx:RemoteObject id="userPrivilegeRo" destination="ro.userPrivilege" showBusyCursor="true">
+		<mx:method name="getUserPrivilegeByUserId" result="getUserPrivilegeByUserIdHandler(event)"/>
+		<mx:method name="createUserPrivilege" result="createUserPrivilegeHandler(event)"/>
+		<mx:method name="deleteUserPrivilege"/>
+		<mx:method name="updateUserPrivilege"/>
+	</mx:RemoteObject>
+	
+	<mx:HBox width="100%" horizontalAlign="center">		
+		<mx:Form>
+			<mx:FormItem label="{resourceManager.getString('Language','label.project')}:" required="true">
+				<mx:ComboBox id="projectCB" dataProvider="{Constants.USER_PRIVILEGE}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.resource_management')}:" required="true">
+				<mx:ComboBox id="resourceCB" dataProvider="{Constants.USER_PRIVILEGE}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.reports_home')}:" required="true">
+				<mx:ComboBox id="reportCB" dataProvider="{Constants.USER_PRIVILEGE2}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.user_management')}:" required="true">
+				<mx:ComboBox id="userCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.group')}:" required="true">
+				<mx:ComboBox id="groupCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','title.maintain_holiday')}:" required="true">
+				<mx:ComboBox id="holidayCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.user_punctual')}:" required="true">
+				<mx:ComboBox id="userPunctualCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.login_picture')}:" required="true">
+				<mx:ComboBox id="loginPictureCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.level_show')}:" required="true">
+				<mx:ComboBox id="levelShowCB" dataProvider="{Constants.USER_PRIVILEGE3}"/>
+			</mx:FormItem>
+		</mx:Form>	
+	</mx:HBox>
+	<mx:VBox width="100%" horizontalAlign="center">
+		<mx:Button id="submitBtn" label="{resourceManager.getString('Language', 'label.submit')}" click="submit()"/>
+	</mx:VBox>	
+</mx:VBox>

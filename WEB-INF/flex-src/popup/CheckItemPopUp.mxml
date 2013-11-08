@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:code="http://code.google.com/p/flexlib/" 
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','label.checkitem')}"
+	width="800" height="600" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)" 
+	showCloseButton="true"
+	close="PopUpManager.removePopUp(this);">	
+	 
+	<mx:Script source="../script/CommonScript.as"/> 
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.ListOfValue;
+			import com.pearl.normandy.vo.CheckItemVO;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			import mx.managers.PopUpManager;
+						
+			[Bindable]
+			public var CHECK_ITEM_STATUS:String;
+						
+			[Bindable]
+			private var selectedCheckItem:CheckItemVO;
+						
+			[Bindable]
+			public var searchFilter:String="";		
+			
+			[Bindable]
+			public var submitedTimeFilter:Date = null;	
+							
+ 		    //==============================
+		    //Methods
+		    //==============================   		
+			private function init():void{
+				this.setFocus();				
+			}		
+			
+			private function resetFilter():void{
+
+				searchTI.text = "";
+				searchFilter = "";
+				
+				submitedTime.selectedDate = null;
+				submitedTimeFilter = null;
+			}	   
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }		
+		    
+		    private function onSubmitClick():void{
+		    	checkItemWidget.submit();
+		    }					
+		]]>
+	</mx:Script> 	
+	
+	 <!--==========================
+	    Page Layout
+  	 ===========================-->	
+  	 <mx:VBox width="100%" height="100%">
+			<mx:HBox width="100%">
+				<code:PromptingTextInput id="searchTI" width="300" prompt="{resourceManager.getString('Language','label.search.task_or_user')}" 
+					change="searchFilter=searchTI.text"/>		
+				<mx:DateField id="submitedTime" width="120" text="{resourceManager.getString('Language','label.checkitem.submitted_time')}" 
+					change="submitedTimeFilter=submitedTime.selectedDate"/>				
+				<mx:Button width="24" height="24"
+					textAlign="center"
+					icon="{ImageEnum.IMAGECLASS_RESET}"
+					styleName="iconButton"
+					toolTip="{resourceManager.getString('Language','label.reset')}" 
+					click="resetFilter()"/>				
+		    	<mx:Button width="24" height="24" id="expandButton"
+		    		textAlign="center" 				    		
+		      		icon="{ImageEnum.IMAGECLASS_EXPAND}" 
+		      		styleName="iconButton"
+		      		toolTip="{resourceManager.getString('Language','button.expand')}"
+		      		click="checkItemWidget.expand()"/>
+		    	<mx:Button width="24" height="24" id="collapseButton"
+		    		textAlign="center"
+		      		icon="{ImageEnum.IMAGECLASS_COLLAPSE}" 
+		      		styleName="iconButton"
+		      		toolTip="{resourceManager.getString('Language','button.collapse')}"
+		      		click="checkItemWidget.collapse()"/>										
+				<mx:Button label="{resourceManager.getString('Language','button.record.feedback')}" click="recordFeedback()"
+					enabled="{model.selectedCheckItem!=null?true:false}"/>																								
+			</mx:HBox>  	 	  	 	  		  	
+		  	
+		  	
+		  	<mx:TabBar dataProvider="{checkItemVS}"/>
+		  		
+		  	<mx:ViewStack id="checkItemVS" width="100%" height="100%">
+			  	<widget:CheckItem id="checkItemWidget" label="{resourceManager.getString('Language','label.checkitem')}" width="100%" height="100%"
+			  		CHECK_ITEM_STATUS="{CHECK_ITEM_STATUS}" searchFilter="{searchFilter}"
+			  		submitedTimeFilter="{submitedTimeFilter}"/>		  
+			  	<widget:CheckItemLog label="{resourceManager.getString('Language','label.checkitem.history')}" width="100%" height="100%"
+			  	    searchFilter="{searchFilter}" submitedTimeFilter="{submitedTimeFilter}"/>		
+		  	</mx:ViewStack>
+		  			  	 	
+  	 </mx:VBox>  	 
+
+	<mx:ControlBar width="100%" horizontalAlign="center">
+			<mx:Button label="{resourceManager.getString('Language','button.submit')}" click="onSubmitClick()"/>
+			<mx:Button label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this)"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

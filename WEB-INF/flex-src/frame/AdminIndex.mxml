@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:widget="widget.*"
+	xmlns:window="window.*"
+	width="100%" height="100%">
+		
+				
+	  <!--==========================
+	    Page Layout
+	  ===========================-->		
+	<widget:Header level1Tabs="{mainScreenVS}"/>
+	<mx:ViewStack id="mainScreenVS" width="100%" height="100%">		
+		<window:UserManagementWindow label="{resourceManager.getString('Language','label.user_management')}" width="100%" height="100%"/>
+		<window:UserGroupMgmtWindow id="groupmg" label="{resourceManager.getString('Language','label.usergroup_mgmt')}" width="100%" height="100%"/>
+		<window:HolidayMgmtWindow label="{resourceManager.getString('Language','title.maintain_holiday')}" width="100%" height="100%"/>
+	</mx:ViewStack>																									
+</mx:VBox>

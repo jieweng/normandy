@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProcessStep">
+
+	  <!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ProcessStep" type="com.pearl.normandy.processstep.ProcessStepTo"/>
+	
+	<resultMap id="ProcessStepResult" class="ProcessStep">
+	    <result property="id" column="ID"/>
+	    <result property="productionProcessId" column="PRODUCTION_PROCESS_ID"/>
+	    <result property="step" column="STEP"/>
+	    <result property="sequence" column="SEQUENCE"/>
+	    <result property="deliverable" column="DELIVERABLE"/>
+	    <result property="description" column="DESCRIPTION"/>
+		<result property="deleted" column="DELETED"/>	  	 
+		<result property="version" column="VERSION"/>	
+		<result property="createdDate" column="CREATED_DATE"/>	
+		<result property="createdBy" column="CREATED_BY"/>	
+		<result property="updatedDate" column="UPDATED_DATE"/>	   
+		<result property="updatedBy" column="UPDATED_BY"/>
+	</resultMap>
+	
+	<select id="selectProcessStepByProductionProcessId" parameterClass="Integer" resultMap="ProcessStepResult">
+		SELECT * 
+		FROM process_step 
+		WHERE (process_step.deleted IS NULL or process_step.deleted != 'Y')
+		AND production_process_id=#value#
+	</select>
+	
+	<select id="selectProcessStepByProjectId" parameterClass="Integer" resultMap="ProcessStepResult">
+		SELECT * 
+		FROM process_step, production_process, project
+		WHERE (process_step.deleted IS NULL or process_step.deleted != 'Y')
+		AND project.id = production_process.PROJECT_ID
+		AND production_process.id =  process_step.PRODUCTION_PROCESS_ID
+		AND project.id = #projectId#
+	</select>
+	
+	<select id="selectProcessStepByTaskId" parameterClass="java.lang.String" resultMap="ProcessStepResult">
+		select * 
+		from PROCESS_STEP ps
+		where ps.ID in (SELECT s.PROCESS_STEP_ID FROM subtask s where s.TASK_ID=#value#)
+	</select>
+	
+	<insert id="insert" parameterClass="ProcessStep">
+		insert into PROCESS_STEP 
+			(
+			ID,
+			PRODUCTION_PROCESS_ID,
+			STEP,
+			SEQUENCE,
+			DELIVERABLE,
+			DESCRIPTION,
+			DELETED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			UPDATED_DATE,
+			UPDATED_BY
+			)
+		values
+			(
+			#id#,
+			#productionProcessId#,
+			#step#,
+			#sequence#,
+			#deliverable#,
+			#description#,
+			#deleted#,
+			#version#,
+			#createdDate#,
+			#createdBy#,
+			#updatedDate#,
+			#updatedBy#
+			)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+	</insert>
+	
+	<update id="update" parameterClass="ProcessStep">
+		update PROCESS_STEP set
+			ID=#id#,
+			PRODUCTION_PROCESS_ID=#productionProcessId#,
+			STEP=#step#,
+			SEQUENCE=#sequence#,
+			DELIVERABLE=#deliverable#,
+			DESCRIPTION=#description#,
+			DELETED=#deleted#,
+			VERSION=#version#,
+			CREATED_DATE=#createdDate#,
+			CREATED_BY=#createdBy#,
+			UPDATED_DATE=#updatedDate#,
+			UPDATED_BY=#updatedBy#
+		where ID=#id#
+	</update>
+	
+	<update id="delete" parameterClass="java.lang.Integer">
+		update PROCESS_STEP
+		set	DELETED='Y'
+		where ID=#value#
+	</update>  
+	
+	<update id="deleteByProcessId" parameterClass="java.lang.Integer">
+		update PROCESS_STEP
+		set	DELETED='Y'
+		where PRODUCTION_PROCESS_ID=#value#
+	</update>  
+</sqlMap>

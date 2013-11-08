@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="CheckItemLog">
+
+  	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="CheckItemLog" type="com.pearl.normandy.checkitemlog.CheckItemLogTo"/>
+	
+	<!--============================= Select ============================-->
+	<select id="selectCheckItemLogByUserName" parameterClass="java.lang.String" resultClass="CheckItemLog">
+	select
+		p.ID					as projectId,
+	  	p.PROJECT_NAME			as projectName,
+	  	t.ID					as taskId,
+		t.TASK_NAME				as taskName,
+		t.TASK_CATEGORY			as taskCategory,
+		t.TASK_GROUP			as taskGroup,
+		t.OWNER_ID   			as ownerId,
+		concat(u2.EMPLOYEE_NO," ", u2.FIRST_NAME, u2.LAST_NAME)		as owner,
+	    lp.LIST_VALUE    	 	as priority,
+	    concat(u.FIRST_NAME, u.LAST_NAME, " (", u.ENGLISH_FIRST_NAME, " ", u.ENGLISH_LAST_NAME, ")")	as resourceName,
+	    a.NAME					as activityName,
+	    cil.ID					as id,
+	    cil.CHECK_ITEM_ID		as checkItemId,
+	    cil.STATUS				as status,
+	    cil.COMMENT				as comment,
+	    cil.CREATED_DATE		as createdDate,
+	    cil.CREATED_BY			as createdBy
+	from PROJECT p, TASK t left outer join USER u2 on u2.ID=t.OWNER_ID,
+	    ACTIVITY a, CHECK_ITEM ci, CHECK_ITEM_LOG cil, USER u,
+	    LIST_OF_VALUE lp
+	where cil.CREATED_BY = #value#
+		and cil.CHECK_ITEM_ID=ci.ID
+	  	and ci.ACTIVITY_ID=a.ID
+	  	and a.TASK_ID=t.ID	  		  		 
+		and (t.DELETED is null or t.DELETED != 'Y')
+		and p.ID=t.PROJECT_ID
+		and lp.ID=t.TASK_PRIORITY_ID
+	  	and a.RESOURCE_ID=u.ID			
+	</select>	
+	
+	
+	
+	<!--====================== Insert/Update/Delete =====================-->	
+	<insert id="insert" parameterClass="CheckItemLog">
+		insert into CHECK_ITEM_LOG
+		(ID,
+		CHECK_ITEM_ID,
+		STATUS,
+		COMMENT,
+		CREATED_DATE,
+		CREATED_BY)		
+		values
+		
+		(#id#,
+		#checkItemId#,
+		#status#,
+		#comment#,
+		#createdDate#,
+		#createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+</sqlMap>

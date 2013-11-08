@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:utils="com.pearl.normandy.utils.*"
+    showCloseButton="true"
+    close="PopUpManager.removePopUp(this)" 
+    title="{resourceManager.getString('Language','title.query.condition')}"
+    keyDown="onKeyDownHandler(event)"
+	creationComplete="init()">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.UserGroupVO;
+			import mx.events.CollectionEvent;
+			import mx.events.CloseEvent;
+			import mx.utils.StringUtil;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			import mx.utils.ObjectUtil;
+			import mx.events.ValidationResultEvent;
+			import ilog.heatmap.ValuedHeatMap;
+			import mx.validators.Validator;
+			import mx.rpc.events.ResultEvent;
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.managers.PopUpManager;
+			
+			[Bindable]
+			private var projects:ArrayCollection;
+			
+			[Bindable]
+			private var empGroupDP:ArrayCollection;
+			
+			private function getUserGroupAsHandler(e:ResultEvent):void{
+				empGroupDP = e.result as ArrayCollection;
+				empGroupDP.addItemAt("--All--",0);
+				empGroupCB.dataProvider = empGroupDP;
+				
+			}
+			
+			private function init():void{
+				projectRo.getProjectByUser(model.currUser);
+				userGroupRo.getUserGroupAs();
+				ok.enabled = model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3;
+			}
+			
+			private function getProjectByUserHandler(e:ResultEvent):void{
+				projects = e.result as ArrayCollection;
+				projects.addItemAt("--All--",0);
+				projectCB.dataProvider = projects;
+			}
+			
+			private function onKeyDownHandler(e:KeyboardEvent):void{
+				if (e.keyCode == Keyboard.ESCAPE){
+					PopUpManager.removePopUp(this);
+				}
+			}
+			
+			private function okBtnClick():void{				
+				var valResult:Array = Validator.validateAll(validates);
+				if(valResult.length <= 0){
+					var startDate:Date = ObjectUtil.copy(startField.selectedDate) as Date;
+					var endDate:Date   = ObjectUtil.copy(endField.selectedDate) as Date;
+					endDate.setHours(23,59,59,999);
+					var project:ProjectVO;
+					var empGroup:UserGroupVO;
+					if(ObjectUtil.dateCompare(startDate, endDate) == 1){
+						Alert.show(resourceManager.getString('Language','alert.report.date_confirmation'),resourceManager.getString('Language','title.confirmation'));
+					}else{
+						if(projectCB.selectedLabel == "--All--"){
+							project = null;
+						}else{
+							project = projectCB.selectedItem as ProjectVO;
+						}
+						if(empGroupCB.selectedLabel == "--All--"){
+							empGroup = null;
+						}else{
+							empGroup = empGroupCB.selectedItem as UserGroupVO;
+						}
+						
+						reportRo.createEfficiencyQualityReport(startDate,endDate,project,empGroup);
+					}
+				}
+			}
+			
+			private function createEfficiencyQualityReportHandler(e:ResultEvent):void{				
+				var num:int = e.result as int;
+				var start:String = df.format(startField.selectedDate);
+				var end:String   = df.format(endField.selectedDate);
+				if(num > 0){
+					confirm(resourceManager.getString('Language','confirm.efficiency_quality'),null,confirmHandler);					
+				}else{
+					var text:String = StringUtil.substitute(resourceManager.getString('Language','alert.report.no_record'),start,end);
+					Alert.show(text);
+				}
+			}
+			
+			private function confirmHandler(e:CloseEvent):void{
+				if(e.detail == Alert.YES){
+					var start:String = df.format(startField.selectedDate);
+					var end:String   = df.format(endField.selectedDate);
+					fileDownload.DOWNLOAD_URL = model.metaData.reportUrl+Constants.REPORT_EFFICIENCY_QUALITY_CHART+"_"+start+"-"+end+".xls";
+					fileDownload.startDownload();
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject id="projectRo" destination="ro.project">
+		<mx:method name="getProjectByUser" result="getProjectByUserHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="createEfficiencyQualityReport" result="createEfficiencyQualityReportHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="userGroupRo" destination="ro.usergroup" showBusyCursor="true">
+		<mx:method name="getUserGroupAs" result="getUserGroupAsHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init(ProgressBarWindow,null ,this);" />
+	
+	<mx:Array id="validates">
+		<mx:DateValidator id="startValidator" required="true" source="{startField}" property="text"/>
+		<mx:DateValidator id="endValidator" required="true" source="{endField}" property="text"/>
+	</mx:Array>	
+	
+	<mx:DateFormatter id="df" formatString="YYYY_MM_DD"/>
+	
+	<mx:Form width="100%">	
+		<mx:FormItem label="{resourceManager.getString('Language','label.start_date')}:" width="100%" required="true">
+			<mx:DateField id="startField" yearNavigationEnabled="true" width="150"/>
+		</mx:FormItem>	
+		
+		<mx:FormItem label="{resourceManager.getString('Language','label.end_date')}:" width="100%" required="true">
+			<mx:DateField id="endField" yearNavigationEnabled="true" width="150"/>
+		</mx:FormItem>
+	
+		<mx:FormItem label="{resourceManager.getString('Language','label.project_name')}:" width="100%">
+			<mx:HBox>
+				<mx:ComboBox id="projectCB" width="150"  labelField="projectName" rowCount="15"/>
+			</mx:HBox>			
+		</mx:FormItem>
+
+		<mx:FormItem label="{resourceManager.getString('Language','label.employee_group')}:" width="100%">
+			<mx:ComboBox id="empGroupCB" width="150" labelField="groupName" rowCount="6"/>
+		</mx:FormItem>
+	
+	</mx:Form>
+	<mx:ControlBar horizontalAlign="center">
+		<mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}" click="okBtnClick()"/>
+		<mx:Button id="close" label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this)"/>
+	</mx:ControlBar>
+	
+</mx:TitleWindow>

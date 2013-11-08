@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml" width="800" height="600"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*" 
+	xmlns:advancedImage="com.pearl.normandy.component.advancedImage.*"
+	xmlns:widget="widget.*"	
+	title="{_imageName}" titleIcon="{ImageEnum.IMAGECLASS_LOGO}"
+	borderAlpha="1" 
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#D1D5DC, #F0F1F4]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xEEF2FB" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	creationComplete="browserCanvas.init()" >
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.NormandyModel;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+			[Bindable]
+			private var _imageName:String;
+			public function set imageName(val:String):void{
+				_imageName = val;
+			}
+			
+			public function get imageName():String{
+				return _imageName;
+			}
+			
+			[Bindable]
+			private var _selectedItem:Object;
+			public function set selectedItem(val:Object):void{
+				_selectedItem = val;
+			}
+			
+			public function get selectedItem():Object{
+				return _selectedItem;
+			}
+			
+			private var _selectedTarget:Object;
+			[Bindable]
+			public function set selectedTarget(val:Object):void{
+				_selectedTarget = val;
+				var selectedIndex:int = selectedTarget.selectedIndex;
+				selectedItem = selectedTarget.selectedItem;
+				if(selectedItem.id == 0){
+					browserCanvas.url = model.metaData.referenceTempUrl + selectedItem.url;
+					imageName = selectedItem.url;
+				}else{
+					browserCanvas.url = model.metaData.referenceUrl + selectedItem.url;
+					imageName = selectedItem.url;
+				}
+			}
+			
+			public function get selectedTarget():Object{
+				return _selectedTarget;
+			}
+			
+			private function onPreviousImage():void{
+				var selectedIndex:int = selectedTarget.selectedIndex;
+				var imageData:Object;
+				if(selectedIndex > 0){
+					imageData = (selectedTarget.dataProvider as ArrayCollection).getItemAt(selectedIndex - 1);
+					if(imageData.id == 0){
+						browserCanvas.url = model.metaData.referenceTempUrl + imageData.url;
+						imageName = imageData.url;
+					}else{
+						browserCanvas.url = model.metaData.referenceUrl + imageData.url;
+						imageName = imageData.url;
+					}
+					selectedTarget.selectedItem = selectedItem = imageData;
+				}
+			}
+			
+			private function onNextImage():void{
+			
+				var selectedIndex:int = selectedTarget.selectedIndex;
+				var imageData:Object;
+				if((selectedTarget.dataProvider as ArrayCollection).length - 1 > selectedIndex){
+					imageData = (selectedTarget.dataProvider as ArrayCollection).getItemAt(selectedIndex + 1);
+					if(imageData.id == 0){
+						browserCanvas.url = model.metaData.referenceTempUrl + imageData.url;
+						imageName = imageData.url;
+					}else{
+						browserCanvas.url = model.metaData.referenceUrl + imageData.url;
+						imageName = imageData.url;
+					}
+					selectedTarget.selectedItem = selectedItem = imageData;
+				}
+			}
+			
+		]]>
+	</mx:Script>
+	<widget:BrowserCanvas id="browserCanvas" width="100%" height="100%"
+		horizontalScrollPolicy="auto" 
+		verticalScrollPolicy="auto"  
+		borderStyle="none"
+		shadowDistance="0"
+		shadowDirection="center"
+		left="0" right="0" top="0" bottom="0"
+		selectedTarget="{selectedTarget}"
+		/>
+	<mx:ApplicationControlBar width="100%" height="30" horizontalAlign="center" dock="true">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Button id="previousImage" toolTip="{resourceManager.getString('Language','label.previous.image')}" click="onPreviousImage()" icon="{ImageEnum.IMAGECLASS_PREVIOUS}" 
+				/>		 
+			<mx:Button id="nextImage"  toolTip="{resourceManager.getString('Language','label.next.image')}" click="onNextImage()" icon="{ImageEnum.IMAGECLASS_NEXT}" 
+				/>		  
+			<mx:VRule height="20"/>
+
+			<mx:Button  mouseDown="browserCanvas.onFit(event)" toolTip="{resourceManager.getString('Language','label.fit.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_FIT}"
+				/>
+			<mx:Button  mouseDown="browserCanvas.onFact(event)" toolTip="{resourceManager.getString('Language','label.actual.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_ACTUAL}"
+				visible="{selectedTarget}"
+				/>
+			<mx:VRule height="20"/>
+			<mx:Button  mouseDown="browserCanvas.onZoomOut(event)" toolTip="{resourceManager.getString('Language','label.zoom_out')}" icon="{ImageEnum.IMAGECLASS_ZOOM_IN}"
+				visible="{selectedTarget}"
+				/>
+			<mx:Button  mouseDown="browserCanvas.onZoomIn(event)" toolTip="{resourceManager.getString('Language','label.zoom_in')}" icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}"
+				visible="{selectedTarget}"
+				/>  
+			<mx:VRule/>   
+		</mx:HBox>
+	</mx:ApplicationControlBar>
+	<mx:Metadata>
+		[Event("remove")]
+	</mx:Metadata>
+</advancedPanel:AdvancedPanel>

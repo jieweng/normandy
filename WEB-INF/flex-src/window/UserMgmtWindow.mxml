@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"	
+	xmlns:view="view.*"
+	width="100%" height="100%"
+	creationComplete="init()">
+	
+	
+	<mx:Script source="../script/CommonScript.as"/>	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.MenuEvent;
+			import popup.MaintainHolidayPopup;
+			import mx.events.ItemClickEvent;
+			import mx.data.events.DataServiceResultEvent;
+			import mx.data.events.DataServiceFaultEvent;
+			import mx.events.ValidationResultEvent;
+			import mx.events.CloseEvent;	
+			import mx.managers.PopUpManager;	
+			import mx.rpc.events.ResultEvent;													
+			import mx.validators.Validator;		
+			
+	        import mx.data.events.DataConflictEvent;
+	        import mx.data.Conflicts;
+	        import mx.data.Conflict;
+	        
+	        import com.pearl.normandy.enum.MenuEnum;
+	        import com.pearl.normandy.utils.NormandyModel;
+	        import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.UserVO;
+		
+		    //==============================
+		    //Control Attributes
+		    //==============================
+		    [Bindable]	
+			private var selectedUser:UserVO;
+			[Bindable]
+			private var allUser:Array;
+	
+		  //===========================
+		  //  Methods
+		  //===========================		
+		  	private function init():void{
+		  		userDs.fill(users);		
+		  		userRo.getAllUsers();		
+		  	}
+		  	
+	        private function newUser():void
+	        {
+	        
+//	        	userForm.isEdit = false;
+	        	var newUser:UserVO = new UserVO();
+	        	newUser.createdDate = new Date();
+	        	newUser.createdBy = NormandyModel.getInstance().currUser.userName;
+	        	
+	            users.addItem(newUser);
+	            userDataGrid.selectedIndex = users.length - 1;
+	            selectedUser = newUser;
+        	}
+		
+		
+	        private function deleteUser():void
+	        {
+	        	if(userForm.user != null){
+		    		confirm(resourceManager.getString("Language","alert.delete_user"),
+		    			resourceManager.getString("Language","title.confirmation"), confirmDeleteUserHandler);
+	        	}
+	        }			           
+	        		  	
+		  	
+		  	private function enableDeleteButton():Boolean{
+		  		return (userDataGrid.selectedItem!=null && userForm.user.id!=0)?true:false;
+		  	}
+		  	
+		  	
+	        private function validate():void{
+	        	
+//	        	userForm.isEdit = true;
+	        	var validators:Array = new Array();
+	        	if(userForm.employeeNoItem.visible){
+/*  	        		validators.push(userForm.employeeNoValidator);  */
+ 	        		validators.push(userForm.employeeNoDuplicateValidator);
+	        	}
+	        	
+	        	if(userForm.customerItem.visible){
+	        		validators.push(userForm.customerValidator);
+	        	}
+	        	
+/* 	        	validators.push(userForm.userNameValidator); */
+	        	validators.push(userForm.firstNameValidator);
+	        	validators.push(userForm.lastNameValidator);
+	        	validators.push(userForm.englishFirstNameValidator);
+	        	validators.push(userForm.englishLastNameValidator);
+	        	validators.push(userForm.entryDateValidator);
+/* 	        	validators.push(userForm.emailValidator); */
+	        	validators.push(userForm.userNameDuplicateValidator);
+	        	if(selectedUser.id == 0){
+	        		validators.push(userForm.emailDuplicateValidator); 
+	        	}
+ 				var validateResult:Array=Validator.validateAll(validators);  
+					
+				if(validateResult.length > 0){
+ 		   			 return;
+		   		}else{
+		   			if(selectedUser.userType == Constants.USER_TYPE_EMPLOYEE){
+		   				selectedUser.customerId = 0;
+		   			}
+		   			if(selectedUser.userType == Constants.USER_TYPE_CUSTOMER){
+		   				selectedUser.employeeNo = "";
+		   				selectedUser.manager = Constants.BOOLEAN_NO;
+		   			}
+		   			userDs.commit();
+		   		}  
+			}				  	
+			
+		  //===========================
+		  //  Remote Object Handlers
+		  //===========================		  			  				  
+			private function confirmDeleteUserHandler(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					userRo.deleteUser(selectedUser);
+				}
+			}
+			
+			private function confirmChangeUserHandler(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+//					userForm.isEdit = true;
+					userDs.revertChanges();
+					selectedUser = userDataGrid.selectedItem as UserVO;
+				}
+				else{
+					userDataGrid.selectedItem = selectedUser;
+				}
+			}			
+			
+			
+	        private function conflictHandler(event:DataConflictEvent):void
+	        {
+	            Alert.show("This user has been changed by someone else. The current state of the user has been reloaded.", "Conflict");
+	            var conflicts:Conflicts = userDs.conflicts;
+	            var conflict:Conflict;
+	            for (var i:int=0; i<conflicts.length; i++)
+	            {
+	                conflict = conflicts.getItemAt(i) as Conflict;
+	                if (!conflict.resolved)
+	                {
+	                    conflict.acceptServer();
+	                }
+	            }
+	        }			
+			
+			private function deleteUserHandler(event:ResultEvent):void{
+				users.removeItemAt(users.getItemIndex(selectedUser));
+				userDs.commit();		
+				selectedUser = null;		
+			}
+			
+			private function getAllUsersHandler(evt:ResultEvent):void{
+				allUser = evt.result.source as Array;
+			}
+			
+		  //===========================
+		  //  Event Handlers
+		  //===========================
+		  	private function onUserChange():void{
+		  		
+		  		if(selectedUser == null || !userDs.commitRequired){
+		  			selectedUser = userDataGrid.selectedItem as UserVO;
+//		  			userForm.isEdit = true;
+		  		}
+		  		else{
+		    		confirm(resourceManager.getString("Language","alert.change_user"),
+		    			resourceManager.getString("Language","title.confirmation"), confirmChangeUserHandler);		  			
+		  		}
+		  	}	
+		  	
+		  	private function onItemClick(e:MenuEvent):void{
+		  		if (e.label == "Maintain Holiday"){
+		  			showMaintainHoliday();
+		  		}
+		  	}
+		  	
+		  	private function showMaintainHoliday():void{
+		  		var maintainHolidayPopup:MaintainHolidayPopup = MaintainHolidayPopup(PopUpManager.createPopUp(this, MaintainHolidayPopup, true));
+		  		PopUpManager.centerPopUp(maintainHolidayPopup);
+		  	}
+		  					
+		]]>
+	</mx:Script>
+	
+	  <!--==========================
+	    Services
+	  ===========================-->	
+	<mx:DataService id="userDs" destination="ds.user" autoCommit="false" autoSyncEnabled="false" fault="faultHandler(event)"/>			
+	<mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+		<mx:method name="getAllUsers" result="getAllUsersHandler(event)"/>
+		<mx:method name="deleteUser" result="deleteUserHandler(event)" fault="customFaultHandler(event)"/>
+	</mx:RemoteObject>
+			
+	
+	  <!--==========================
+	    Variables
+	  ===========================-->	
+	<mx:ArrayCollection id="users"/>
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	<mx:VBox width="75%" height="100%">
+		<mx:MenuBar id="menus" dataProvider="{MenuEnum.sysSettingItems}" width="100%" styleName="ApplicationControlBarReverse" 
+			itemClick="onItemClick(event)"/>		
+		<mx:ApplicationControlBar width="100%" height="100%">	
+			<mx:AdvancedDataGrid id="userDataGrid" dataProvider="{users}"
+				itemClick="onUserChange()"
+				width="100%" height="100%">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="customerName" width="70"
+						headerText="{resourceManager.getString('Language','label.customer_name')}"/>					
+					<mx:AdvancedDataGridColumn dataField="employeeNo" width="70"
+						headerText="{resourceManager.getString('Language','label.employee_no')}"/>			
+					<mx:AdvancedDataGridColumn dataField="userGroupName" width="70"
+						headerText="{resourceManager.getString('Language','label.group')}">
+						<mx:itemRenderer>
+							<mx:Component>
+								<mx:Label text="{data.userType==Constants.USER_TYPE_EMPLOYEE?data.userGroupName:''}">
+									<mx:Script>
+										<![CDATA[
+											import com.pearl.normandy.utils.Constants;
+/* 											
+											private var _data:Object
+											
+											[Bindable]
+											override public function set data(data:Object):void{
+												this._data = data;
+												
+												if(data.userType==Constants.USER_TYPE_EMPLOYEE){
+													this.text = data.userGroupName;
+												}
+												else if(data.userType==Constants.USER_TYPE_CUSTOMER){
+													this.text = "";													
+												}
+											}
+											
+											override public function get data():Object{
+												return this._data;
+											} */
+										]]>
+									</mx:Script>
+								</mx:Label>
+							</mx:Component>
+						</mx:itemRenderer>						
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="firstName" width="70"
+						headerText="{resourceManager.getString('Language','label.first_name')}"/>
+					<mx:AdvancedDataGridColumn dataField="lastName" width="70"
+						headerText="{resourceManager.getString('Language','label.last_name')}"/>						
+					<mx:AdvancedDataGridColumn dataField="manager" width="70"
+						headerText="{resourceManager.getString('Language','label.privilege')}">
+						<mx:itemRenderer>
+							<mx:Component>
+								<mx:Label text="{data.manager==Constants.BOOLEAN_YES? 'Group Manager':''}">
+<!--													(data.userGroupName==Constants.GROUP_QA?'QA Manager':
+													(data.userGroupName==Constants.GROUP_CHARACTER?'Art Production Manager':
+													(data.userGroupName==Constants.GROUP_SCENEOBJECT?'Art Production Manager':'')))
+												:''}">-->
+									<mx:Script>
+										<![CDATA[
+											import com.pearl.normandy.utils.Constants;
+/* 											
+											private var _data:Object
+											
+											[Bindable]
+											override public function set data(data:Object):void{
+												this._data = data;
+												
+												if(data.manager==Constants.BOOLEAN_YES){
+													switch(data.userGroupName){
+														case Constants.GROUP_QA: this.text="QA Manager"; break;
+														case Constants.GROUP_CHARACTER: this.text="Art Production Manager"; break;
+														case Constants.GROUP_SCENEOBJECT: this.text="Art Production Manager"; break;
+														default: this.text=""; break;
+													}
+												}
+											}
+											
+											override public function get data():Object{
+												return this._data;
+											} */
+										]]>
+									</mx:Script>
+								</mx:Label>
+							</mx:Component>
+						</mx:itemRenderer>
+					</mx:AdvancedDataGridColumn>	
+					<mx:AdvancedDataGridColumn dataField="userName" width="100"
+						headerText="{resourceManager.getString('Language','label.user_name')}"/>
+					<mx:AdvancedDataGridColumn dataField="email" width="150"
+						headerText="{resourceManager.getString('Language','label.email')}"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+		</mx:ApplicationControlBar>
+	</mx:VBox>
+	
+	<mx:VBox width="25%" height="100%">			
+		<mx:ApplicationControlBar width="100%" height="100%">				
+			<view:UserDetailView id="userForm" user="{selectedUser}" allUser="{allUser}"/>
+		</mx:ApplicationControlBar>
+		
+        <mx:ControlBar>
+			<mx:Button label="{resourceManager.getString('Language','label.new')}"
+				click="newUser()" enabled="{!userDs.commitRequired}"     
+				toolTip="{resourceManager.getString('Language','label.new')}"/>        
+            <mx:Button label="{resourceManager.getString('Language','label.delete')}" 
+            	click="deleteUser()" toolTip="{resourceManager.getString('Language','label.delete')}"
+                enabled="{selectedUser!=null?(selectedUser.id!=0?true:false):false}"/>
+            <mx:Button id="okButton" label="{resourceManager.getString('Language','label.apply_changes')}"
+            	enabled="{userDs.commitRequired}"     
+            	click="validate()" toolTip="{resourceManager.getString('Language','label.apply_changes')}"/>
+            <mx:Button label="{resourceManager.getString('Language','label.cancel_changes')}"
+            	click="userDs.revertChanges()" toolTip="{resourceManager.getString('Language','label.cancel_changes')}"
+                enabled="{userDs.commitRequired}"/>
+        </mx:ControlBar>			
+	</mx:VBox>
+</mx:HBox>

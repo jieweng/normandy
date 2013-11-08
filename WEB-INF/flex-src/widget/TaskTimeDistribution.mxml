@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="50%">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.managers.PopUpManager;
+			import mx.managers.DragManager;									
+			import mx.messaging.messages.ErrorMessage;
+			import mx.messaging.messages.IMessage;
+			import mx.resources.ResourceManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.utils.StringUtil;
+
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProjectUserVO;			
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.DateUtil;
+			
+			//==============================
+		    //Control Attributes
+		    //==============================					
+			private var _selectedLead:ProjectUserVO;
+			[Bindable]
+			public function set selectedLead(value:ProjectUserVO):void{
+				this._selectedLead = value;
+				if(selectedLead){
+					taskRo.getTaskByProjectIdAndOwnerId(project.id, selectedLead.userId);
+				}
+			}
+			
+			public function get selectedLead():ProjectUserVO{
+				return this._selectedLead;
+			}
+			
+			private var _project:ProjectVO;
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				this.taskList = null;
+				selectedLead = null;
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+
+			//==============================
+		    //Data Attributes
+		    //==============================
+			private var dragTaskList:Array;
+			
+			[Bindable]
+			private var taskList:ArrayCollection = new ArrayCollection();
+			
+			//==============================
+		    //Methods
+		    //==============================				
+			private function onDragDrop(event:DragEvent):void{
+				
+				event.preventDefault();
+	        	event.currentTarget.hideDropFeedback(event);
+				if(!selectedLead){
+					return;
+				}
+				dragTaskList = event.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				if(dragTaskList == null || dragTaskList.length == 0){
+					return;
+				}
+				
+	        	var tempTask:TaskVO;
+				for each(var taskVo:TaskVO  in taskList){
+					
+					for(var i:int = 0; i < dragTaskList.length; i++){
+						
+						tempTask = dragTaskList[i] as TaskVO;
+						if(tempTask.id == taskVo.id){
+							dragTaskList.splice(i, 1);
+							i--;
+						}
+					}
+				}
+				confirmTask();
+ 			}
+			
+			private function confirmTask():void{
+				
+				var needConfirm:Boolean = false;
+				for each(var taskVo:TaskVO in dragTaskList){
+				
+					if(taskVo.ownerId != 0){
+						needConfirm = true;
+						break;
+					}
+				}
+				if(!needConfirm){
+					taskRo.assignTasks(dragTaskList, selectedLead, model.currUser);
+				}else{
+					if(dragTaskList.length == 1){
+						confirm(resourceManager.getString("Language","alert.reassign_task_single"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmTaskHandler);
+					}else{
+						confirm(resourceManager.getString("Language","alert.reassign_task_multi"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmTaskHandler);
+					}
+					
+				}
+			}  
+		 
+			private function confirmTaskHandler(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					taskRo.assignTasks(dragTaskList, selectedLead, model.currUser);
+				}
+			}
+			
+			private function updateTasks(updateTasks:Array):void{
+				
+				var tempTask:TaskVO;
+				for(var j:int = 0; j < updateTasks.length; j++){
+						
+					tempTask = updateTasks[j] as TaskVO;
+					tempTask.owner = selectedLead.name;
+					tempTask.ownerId = selectedLead.id;
+					taskList.addItem(tempTask);
+				}
+			}
+			
+			//==============================
+		    //Remote Object Handlers
+		    //==============================	
+		    private function getTaskByProjectIdAndOwnerIdHandler(event:ResultEvent):void{
+				taskList = event.result as ArrayCollection;
+			}			
+			
+			private function assignTasksHandler(event:ResultEvent):void{
+				updateTasks(dragTaskList);
+			}
+						  		
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getTaskByProjectIdAndOwnerId" result="getTaskByProjectIdAndOwnerIdHandler(event)"/>
+		<mx:method name="assignTasks" result="assignTasksHandler(event)"/>
+	</mx:RemoteObject>
+
+	
+	<!--==========================
+	    Page Layout
+	===========================--> 		
+	<mx:VBox width="100%" height="100%">
+		<mx:AdvancedDataGrid id="taskTimeDataGrid" dataProvider="{taskList}" 
+			width="100%" height="100%"
+			dataTipFunction="taskDataTip"
+			dropEnabled="true" 
+			dragDrop="onDragDrop(event)"
+			doubleClickEnabled="true"
+			itemDoubleClick="showViewTaskWindow(event.itemRenderer.data)">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="name" width="160"
+					headerText="{resourceManager.getString('Language','label.task_name')}"
+					showDataTips="true"/>
+				<mx:AdvancedDataGridColumn dataField="startTime" width="70"
+					labelFunction="formatDateShort"
+					headerText="{resourceManager.getString('Language','label.start_date')}"/>
+				<mx:AdvancedDataGridColumn dataField="endTime" width="70"
+					labelFunction="formatDateShort"
+					headerText="{resourceManager.getString('Language','label.end_date')}"/>
+			</mx:columns>
+		</mx:AdvancedDataGrid>			    		
+	</mx:VBox>
+</mx:VBox>

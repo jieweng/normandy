@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="600" height="500" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	 
+	<mx:Script source="../script/CommonScript.as"/> 
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.CheckItemVO;
+			import mx.managers.PopUpManager;
+
+						
+		    //==============================
+		    //Data Attributes
+		    //==============================
+		    [Bindable]
+			public var checkItem:CheckItemVO
+			
+			
+ 		    //==============================
+		    //Methods
+		    //==============================   		
+			private function init():void{
+				this.setFocus();				
+			}			
+			
+			private function updateComment():void{
+				checkItem.comment = parseHtml(content.htmlText);
+				checkItemRo.updateCheckItemComment(checkItem);
+				PopUpManager.removePopUp(this);
+			}    
+			
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================			
+
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }							
+		]]>
+	</mx:Script>
+	<!--==========================
+	    Services
+	===========================-->		
+	<mx:RemoteObject id="checkItemRo" destination="ro.checkitem">
+		<mx:method name="updateCheckItemComment"/>
+	</mx:RemoteObject>
+	
+	
+	 <!--==========================
+	    Page Layout
+  	 ===========================-->	
+	<mx:RichTextEditor id="content" htmlText="{checkItem.comment}" height="100%" width="100%"/>
+	
+	 <mx:ControlBar width="100%" horizontalAlign="center">
+		<mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}" click="updateComment()"/>
+        <mx:Button id="cancel" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

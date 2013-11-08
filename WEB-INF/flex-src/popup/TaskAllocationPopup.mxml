@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*"
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','label.task_management')} - [{project.projectName}]" 
+	width="1000" height="700" 
+	borderAlpha="1"
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#e2e2e2, #e2e2e2]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script>
+		<![CDATA[	
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			
+			import com.pearl.normandy.event.ChangeEvent;
+			import com.pearl.normandy.vo.MilestoneVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProjectUserVO;						
+			import com.pearl.normandy.utils.NormandyModel;		
+			import com.pearl.normandy.utils.Constants;						
+			
+			[Bindable]
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			[Bindable]
+			public var project:ProjectVO;
+			
+			[Bindable]
+			private var selectedLead:ProjectUserVO;			
+			
+		    //==============================
+		    //Method
+		    //==============================			
+			private function init():void{
+				this.setFocus();				
+			}				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+			private function onLeadChange(event:ChangeEvent):void{
+				this.selectedLead = event.data as ProjectUserVO;
+			}		    
+		    
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }					
+		]]>
+	</mx:Script>
+	
+	
+	  <!--==========================
+	    Data Binding
+	  ===========================-->
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.project"/> 	
+
+	
+	<mx:HDividedBox width="100%" height="100%">
+		<mx:VDividedBox width="50%" height="100%">
+			<widget:TaskLeadDistribution id="taskLeadManagement" height="30%" project="{project}" leadChange="onLeadChange(event)"/>
+			<widget:TaskTimeDistribution id="taskTimeManagement" height="70%" project="{project}" selectedLead="{selectedLead}"/>			
+		</mx:VDividedBox>		
+			
+		<widget:TaskList id="taskListManagement" width="50%" height="100%" project="{project}"/>										    							    		    		  
+	</mx:HDividedBox>
+</advancedPanel:AdvancedPanel>

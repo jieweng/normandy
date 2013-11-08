@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ActionLog">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ActionLog"
+		type="com.pearl.normandy.actionlog.ActionLogTo" />
+
+
+
+	<!--========================= Select ========================-->
+	
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="ActionLog">
+		insert into ACTION_LOG
+			(ID,
+			PROJECT_ID,
+			ENTITY,			
+			ENTITY_ID,
+			ENTITY_NAME,
+			FIELD,
+			ACTION,
+			OLD_VALUE,
+			NEW_VALUE,
+			ACTOR,
+			CREATED_DATE)
+		values
+			(#id#,
+			#projectId#,
+			#entity#,			
+			#entityId#,
+			#entityName#,
+			#field#,
+			#action#,
+			#oldValue#,
+			#newValue#,
+			#actor#,
+			#createdDate#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>				
+	</insert>
+</sqlMap>

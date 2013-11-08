@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	 xmlns:utils="com.pearl.normandy.utils.*"
+	 title="{resourceManager.getString('Language','title.import_tasks_from_mpp')}"
+	 creationComplete="init()">
+	 
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.event.TaskEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import com.pearl.normandy.component.progressWindow.IProgress;
+			import com.pearl.normandy.utils.Constants;
+			import mx.managers.PopUpManager;
+			
+			private var fileRef:FileReference;
+			
+			private var fileName:String;
+			
+			private var titleWindow:TitleWindow = null;
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			[Bindable]
+			private var btnEnable:Boolean = true;
+			
+			private function init():void{
+				fileRef = new FileReference();
+				fileRef.addEventListener(Event.SELECT,				selectHandler);
+				fileRef.addEventListener(Event.OPEN,				openHandler);
+				fileRef.addEventListener(ProgressEvent.PROGRESS,	progressHandler);
+				fileRef.addEventListener(Event.COMPLETE,			completeHandler);
+				
+//				btnEnable = model.currUser.manager == Constants.BOOLEAN_YES || model.currUser.userGroupId == Constants.GROUP_PM_NUM;			
+			}
+			
+			private function selectHandler(e:Event):void{
+				fileName = FileReference(e.target).name;
+				selectFileBtn.label = fileName;
+			}
+			
+			private function openHandler(e:Event):void{
+				if(fileName){
+					titleWindow = PopUpManager.createPopUp(this, TitleWindow) as TitleWindow;
+					titleWindow.title = "Uploading";
+					PopUpManager.centerPopUp(titleWindow);
+				}				
+			}
+			
+			private function progressHandler(e:ProgressEvent):void{
+				if((titleWindow != null) && (titleWindow is IProgress)){
+					IProgress(titleWindow).progress(e.bytesLoaded, e.bytesTotal);
+				}
+			}
+			
+			private function completeHandler(e:Event):void{
+				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.createTaskFromMppEvent(fileName, model.GLOBAL_SELECTED_PROJECT, model.currUser));
+				if(titleWindow){
+					PopUpManager.removePopUp(titleWindow);	
+				}
+				PopUpManager.removePopUp(this);			
+			}
+			
+			private function onSelectFileBtnClick():void{
+				fileRef.browse(new Array(Constants.MPP_FILTER));
+			}
+			
+			private function onOkBtnClick():void{
+				if(fileName){
+					var request:URLRequest = new URLRequest();
+					request.url = "referenceupload?filename=" + fileName.substring(0,fileName.indexOf("."));
+					request.method = URLRequestMethod.POST;
+					fileRef.upload(request);
+				}				
+			}
+			
+			private function onDownloadMppTemplateClick():void{
+				fileDownload.DOWNLOAD_URL = model.metaData.mpxjUrl + Constants.MPXJ_TEMPLATE;
+				fileDownload.startDownload();
+			}
+		]]>
+	</mx:Script>
+	
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init(ProgressBarWindow,null ,this);" />
+	
+	<mx:TextArea htmlText="{resourceManager.getStringArray('Language','help.import_Mpp_File')}" editable="false" 
+		width="100%" height="300" paddingTop="0" paddingBottom="0" paddingLeft="0" paddingRight="0" fontSize="14"/>
+	
+	<mx:HBox>
+		<mx:FormItem label="{resourceManager.getString('Language', 'label.select_mpp_file')}">
+			<mx:Button id="selectFileBtn" click="onSelectFileBtnClick()" height="30" width="300"  textAlign="left"/>
+		</mx:FormItem>				
+		<mx:Button id="downloadMppTemplate" label="{resourceManager.getString('Language','button.download_mpp_template')}" 
+				click="onDownloadMppTemplateClick()" height="30"/>	
+	</mx:HBox>
+			
+	<mx:ControlBar horizontalAlign="center">
+		<mx:Button id="ok" enabled="{btnEnable}" label="{resourceManager.getString('Language','button.ok')}" click="onOkBtnClick()"/>
+		<mx:Button id="close" label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this)"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

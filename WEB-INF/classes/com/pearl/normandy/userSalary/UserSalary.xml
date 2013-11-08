@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="UserSalary">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+ 	<typeAlias alias="UserSalary" type="com.pearl.normandy.userSalary.UserSalary"/>
+ 	
+ 	<select id="selectUserSalaryByUserId" parameterClass="java.lang.Integer" resultClass="UserSalary">
+ 	 	SELECT	ID						as id,
+ 				USER_ID					as userId,
+ 				SALARY					as salary,
+ 				INSURANCE				as insurance,
+ 				LUNCH_BENEFIT			as lunchBenefit,
+ 				SOCIAL_BENEFIT_TYPE_1	as socialBenefitType1,
+ 				SOCIAL_BENEFIT_TYPE_2	as socialBenefitType2,
+ 				HOUSE_FOUND				as houseFound,
+ 				START_TIME				as startTime,
+ 				CREATOR_ID				as creatorId,
+ 				CREATE_TIME				as createTime
+ 		FROM USER_SALARY
+ 		WHERE USER_ID = #userId#
+ 		ORDER BY START_TIME ASC;
+ 	</select>
+ 	
+ 	<insert id="create" parameterClass="UserSalary">
+ 	 	INSERT INTO USER_SALARY(
+ 			USER_ID,
+ 			SALARY,
+ 			INSURANCE,
+ 			LUNCH_BENEFIT,
+ 			SOCIAL_BENEFIT_TYPE_1,
+ 			SOCIAL_BENEFIT_TYPE_2,
+ 			HOUSE_FOUND,
+ 			START_TIME,
+ 			CREATOR_ID,
+ 			CREATE_TIME
+ 		) VALUES(
+ 			#userId#,
+ 			#salary#,
+ 			#insurance#,
+ 			#lunchBenefit#,
+ 			#socialBenefitType1#,
+ 			#socialBenefitType2#,
+ 			#houseFound#,
+ 			#startTime#,
+ 			#creatorId#,
+ 			NOW()
+ 		);
+ 		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+ 	</insert>
+ 	
+ 	<update id="update" parameterClass="UserSalary">
+ 	 	UPDATE USER_SALARY
+ 		SET	USER_ID					= #userId#,
+ 			SALARY					= #salary#,
+ 			INSURANCE				= #insurance#,
+ 			LUNCH_BENEFIT			= #lunchBenefit#,
+ 			SOCIAL_BENEFIT_TYPE_1	= #socialBenefitType1#,
+ 			SOCIAL_BENEFIT_TYPE_2	= #socialBenefitType2#,
+ 			HOUSE_FOUND				= #houseFound#,
+ 			START_TIME				= #startTime#,
+ 			CREATOR_ID				= #creatorId#
+ 		WHERE ID = #id#;
+ 	</update>
+ 	
+ 	<delete id="delete" parameterClass="UserSalary">
+ 	 	DELETE FROM USER_SALARY 
+ 		WHERE ID = #id#;
+ 	</delete>
+</sqlMap>

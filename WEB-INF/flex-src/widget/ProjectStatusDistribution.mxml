@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ns:Pod xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','title.project.summary.progress')} - [{project.projectName}]" 
+	width="100%" height="100%"
+	layout="vertical"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off"
+	>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.Constants;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.enum.ColorEnum;
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.utils.NormandyModel;
+
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			[Bindable]
+			private var taskCategories:ArrayCollection;
+			
+			[Bindable]
+			private var reports:ArrayCollection;
+			
+			
+			
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;				
+				reportRo.getReportsByProjectId(project.id, milestone, null);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;	
+			}
+			
+			
+			private var _milestone:String;
+			[Bindable]
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				reportRo.getReportsByProjectId(project.id, milestone, null);
+			}
+			
+			public function get milestone():String{
+				return this._milestone;
+			}			
+			
+			
+			private function repSetTitleList():void{
+  				reportTileList.columnCount = Math.floor(reports.length / 3) == 0? reports.length:3;
+				reportTileList.rowCount = Math.floor(reports.length / 3) == 0? 1:(reports.length % 3 == 0? Math.floor(reports.length / 3):Math.ceil(reports.length / 3));
+/* 				reportTileList.columnWidth = this.width / reportTileList.columnCount;
+				reportTileList.rowHeight = this.height / reportTileList.rowHeight;  */
+				reportTileList.validateProperties(); 
+//				trace('reports.length' + reports.length + '########' + 'columnCount' + reportTileList.columnCount + '*' + 'rowCount' + reportTileList.rowCount + '**' + 'columnWidth'+ reportTileList.columnWidth + '***' + 'rowHeight' + reportTileList.rowHeight + '****' + 'this.width' + this.width + '*****' + 'this.heigh' + this.height);
+			}
+			//==============================
+		    //Remote Object Handler
+		    //==============================			
+		    private function getReportsHandler(event:ResultEvent):void{
+		    	var results:ArrayCollection = event.result as ArrayCollection;
+		    	var category:String = "";
+		    	var report:ReportVO = new ReportVO();
+				var statuses:ArrayCollection = initStatuses();
+		    	
+		    	reports = new ArrayCollection();
+		    	
+				for(var i:int=0; i<results.length; i++){
+					var data:ReportVO = results.getItemAt(i) as ReportVO;
+					 
+					if(category != "" && category != data.category){
+						report.charts = statuses;
+						reports.addItem(report);
+						report = new ReportVO();
+						statuses = initStatuses();
+					}
+					
+					if(report.charts == null){
+						report.charts = new ArrayCollection();
+					}
+					
+					category = data.category;
+					report.category = category;
+					report.projectId  = project.id;
+					report.milestone= milestone;
+					for each(var status:Object in statuses){
+						if(data.name == status.name){
+							status.value = data.value;
+							status.category = category;
+						}
+					}
+					
+					if(i==results.length-1){
+						report.charts = statuses;
+						reports.addItem(report);
+					}
+				}
+				
+	    		repSetTitleList();
+		    }
+		    
+		    private function initStatuses():ArrayCollection{
+		    	var statuses:ArrayCollection = new ArrayCollection([
+		    			{name: Constants.TASK_STATUS_APPROVED, value: 0, category: ""},
+		    			{name: Constants.TASK_STATUS_COMPLETE, value: 0, category: ""},
+		    			{name: Constants.TASK_STATUS_NOTSTARTED, value: 0, category: ""},
+		    			{name: Constants.TASK_STATUS_WIP, value: 0, category: ""}
+		    			]);
+		    	return statuses;		 
+		    }
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	  Services
+	===========================-->	
+ 	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+ 		<mx:method name="getReportsByProjectId" result="getReportsHandler(event)"/>
+ 	</mx:RemoteObject>  
+ 
+	  
+ 
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:TileList id="reportTileList" width="100%" height="100%"
+		dataProvider="{reports}"
+		horizontalScrollPolicy="off"
+		verticalScrollPolicy="off"
+		itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPieChartItemRenderer">
+	</mx:TileList>
+	<mx:Legend direction="horizontal" dataProvider="{pieChart}" fontSize="13" height="15%" includeInLayout="true"/>
+	<mx:PieChart id="pieChart" visible="false" includeInLayout="false"  height="10"	dataProvider="{reports.getItemAt(0).charts}"> 
+		<mx:series>
+			<mx:PieSeries labelPosition="inside" fontSize="13" nameField="name" field="value">
+				<mx:fills>
+	                <mx:Array>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.APPROVED]}"/>
+                        </mx:RadialGradient>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.COMPLETE]}"/>
+                        </mx:RadialGradient>                                            
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.NOT_STARTED]}"/>
+                        </mx:RadialGradient>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.WIP]}"/>
+                        </mx:RadialGradient>
+	              	</mx:Array>
+	        	</mx:fills>
+			</mx:PieSeries>
+		</mx:series>
+	</mx:PieChart>
+</ns:Pod>

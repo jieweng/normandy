@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="BaselineTask">
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insertBaselineTask" parameterClass="java.util.Map">
+		insert into BASELINE_TASK
+		(ID,
+		MILESTONE_ID,
+		PRODUCTION_PROCESS_ID,
+		PROJECT_ID,
+		B_REVISION,
+		SEQUENCE,
+		TASK_NAME,
+		TYPE,
+		TASK_GROUP,
+		TASK_CATEGORY_ID,
+		TASK_PRIORITY_ID,
+		START_TIME,
+		END_TIME,
+		ACTUAL_START_TIME,
+		ACTUAL_END_TIME,
+		PLANNED_STAFF_DAYS,
+		PLANNED_FEEDBACK_DAYS,
+		PROGRESS,
+		REVISION,
+		DURATION,
+		PREDECESSOR,
+		PREDECESSOR_TREE,
+		DEVIATION,
+		DESCRIPTION,
+		OWNER_ID,
+		DELETED,
+		PAUSED,
+		VERSION,
+		CREATED_DATE,
+		CREATED_BY,
+		UPDATED_DATE,
+		UPDATED_BY)
+		
+		select 
+			ID,
+			MILESTONE_ID,
+			PRODUCTION_PROCESS_ID,
+			#id#,
+			#revision#,
+			SEQUENCE,
+			TASK_NAME,
+			TYPE,
+			TASK_GROUP,
+			TASK_CATEGORY_ID,
+			TASK_PRIORITY_ID,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			PLANNED_STAFF_DAYS,
+			PLANNED_FEEDBACK_DAYS,
+			PROGRESS,
+			REVISION,
+			DURATION,
+			PREDECESSOR,
+			PREDECESSOR_TREE,
+			DEVIATION,
+			DESCRIPTION,
+			OWNER_ID,
+			DELETED,
+			PAUSED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			UPDATED_DATE,
+			UPDATED_BY
+		from TASK t
+		where t.PROJECT_ID = #id#
+	</insert>
+	
+	<delete id="deleteBaselineTask" parameterClass="java.lang.Integer">
+		delete from BASELINE_TASK
+		where PROJECT_ID = #value#
+	</delete>
+</sqlMap>

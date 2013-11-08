@@ -1,0 +1,486 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:collections="com.pearl.normandy.collections.*"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	width="100%" height="100%">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.Constants;
+			import mx.events.CloseEvent;
+			import mx.controls.Alert;
+			import com.pearl.normandy.enum.CheckItemEnum;
+			import mx.collections.ICollectionView;
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.ListEvent;
+			
+			import com.pearl.normandy.vo.CheckItemVO;			
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================			
+			private var _CHECK_ITEM_STATUS:String;
+			[Bindable]
+			public function set CHECK_ITEM_STATUS(value:String):void{
+				this._CHECK_ITEM_STATUS = value;
+				
+				if(CHECK_ITEM_STATUS == CheckItemEnum.STATUS_PENDING){
+					checkItemRo.getCheckItemsPending(model.currUser);
+				}
+				else if(CHECK_ITEM_STATUS == CheckItemEnum.STATUS_REVIEWED){
+					checkItemRo.getCheckItemsReviewed(model.currUser);
+				}
+				else if(CHECK_ITEM_STATUS == CheckItemEnum.STATUS_COMPLETE){
+					checkItemRo.getCheckItemsComplete(model.currUser);
+				}				
+			}		    
+			
+			public function get CHECK_ITEM_STATUS():String{
+				return this._CHECK_ITEM_STATUS;
+			}
+		    
+		    [Bindable]
+		    private var checkItems:ArrayCollection;
+		    
+		    [Bindable]
+		    private var passedItems:ArrayCollection;
+		    
+		    [Bindable]
+		    private var failedItems:ArrayCollection;
+		    
+		    [Bindable]
+		    private var deletedItems:ArrayCollection;
+		    
+			private var _searchFilter:String = "";
+			[Bindable] 
+			public function set searchFilter(value:String):void{
+				_searchFilter=value;
+				updateCollectionFilter();
+			}
+			
+			public function get searchFilter():String{
+				return this._searchFilter;
+			}
+			
+			private var _submitedTimeFilter:Date;
+			[Bindable]
+			public function set submitedTimeFilter(value:Date):void{
+				this._submitedTimeFilter = value;
+				updateCollectionFilter();
+			}		
+			
+			public function get submitedTimeFilter():Date{
+				return this._submitedTimeFilter;
+			}
+		    //==============================
+		    //Methods
+		    //==============================		    
+		  	/**
+		   	* Refreshes the collection view. 
+		   	*/  
+		  	private function updateCollectionFilter():void {
+		  		if(checkItems){
+			    	var collection:ICollectionView = checkItems as ICollectionView;
+			    	if (collection.filterFunction == null) {
+			      		collection.filterFunction = collectionFilter;
+			    	}				    	
+			    	collection.refresh();
+			    	gc.refresh();
+//			    	checkItemADG.expandAll();
+			   	}
+		  	}		    		  	
+		    
+		    
+		  	/**
+		   	* The collection view filter that displays only current project activites.
+		   	*/  
+		  	private function collectionFilter(item:Object):Boolean {
+		    	var checkItem:CheckItemVO = item as CheckItemVO;
+		    	if(timeCompare(checkItem.createdDate, submitedTimeFilter)){
+		    		if(StringUtil.trim(searchFilter)==""){
+		   				return true;
+		   			}
+		   			var searchArr:Array=StringUtil.trim(searchFilter).split(" ");
+		   			var searchStr:String=checkItem.projectName+checkItem.activityName+checkItem.resourceName;
+		   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+		   				return true;
+		   			}		   			
+					else{
+						return false;
+					}
+		    	}else return false
+ 		        
+		  	}
+		  	
+		  	
+		  	public function expand():void{
+		  		checkItemADG.expandAll();
+		  	}
+		  	
+		  	public function collapse():void{
+		  		checkItemADG.collapseAll();
+		  	}		  	 			    
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+		    private function getCheckItemsHandler(event:ResultEvent):void{
+		    	checkItems = event.result as ArrayCollection;
+		    	gc.refresh();
+//		    	checkItemADG.expandAll();
+		    }		
+		    
+		    public function submit():void{
+		    	passedItems  = new ArrayCollection();
+		    	failedItems  = new ArrayCollection();
+		    	deletedItems = new ArrayCollection(); 
+		    	
+		    	for each(var item:CheckItemVO in checkItems){
+		    		if(item.isPass){
+		    			passedItems.addItem(item);
+		    		}else if(item.isFail){
+		    			failedItems.addItem(item);
+		    		}else if(item.isDeleted){
+		    			deletedItems.addItem(item);
+		    		}
+		    	}
+		    	
+		    	if(passedItems.length > 0){
+		    		checkItemRo.updateCheckItemsStatusNext(passedItems, model.currUser);
+		    	}
+		    	
+		    	if(failedItems.length > 0){
+		    		checkItemRo.updateCheckItemsStatusFix(failedItems, model.currUser);
+		    	}
+		    	
+		    	if(deletedItems.length > 0){
+		    		Alert.show(resourceManager.getString('Language','alert.checkitem.delete'),
+		    				   resourceManager.getString('Language','title.confirmation'),Alert.YES|Alert.NO,null,alertCloseHandler);
+		    	}
+		    }
+		    
+		    private function updateCheckItemsStatusNextHandler(event:ResultEvent):void{
+		    	for each(var checkItem:CheckItemVO in passedItems){
+		    		checkItems.removeItemAt(checkItems.getItemIndex(checkItem));
+		    	}
+		    	model.selectedCheckItem = null;
+		    }	
+		    
+		    private function updateCheckItemsStatusFixHandler(event:ResultEvent):void{
+		    	for each(var checkItem:CheckItemVO in failedItems){
+		    		checkItems.removeItemAt(checkItems.getItemIndex(checkItem));
+		    	}		    	
+		    	model.selectedCheckItem = null;
+		    }
+		    
+		    private function alertCloseHandler(e:CloseEvent):void{
+		    	if(e.detail == Alert.YES){
+		    		for each(var checkItem:CheckItemVO in deletedItems){
+		    			checkItem.deleted = Constants.DELETE_YES;
+		    			checkItemRo.deleteCheckItem(checkItem, model.currUser);
+		    		}
+		    	}
+		    }	
+		    
+		    private function deleteCheckItemHandler(e:ResultEvent):void{
+		    	for each(var checkItem:CheckItemVO in checkItems){
+		    		if(checkItem.isDeleted){
+		    			var index:int = checkItems.getItemIndex(checkItem);
+		    			checkItems.removeItemAt(index);
+		    		}
+		    	}
+		    	model.selectedCheckItem = null;
+		    }		        	    		     
+
+		    private function onChange(event:ListEvent):void{
+		    	if(event.itemRenderer.data is CheckItemVO){		    		
+		    		model.selectedCheckItem = event.itemRenderer.data as CheckItemVO;
+		    	}
+		    	else{
+					model.selectedCheckItem = null;		    		
+		    	}		    			    	
+		    }
+		    
+		    private function onCheckItemDoubleClick(event:ListEvent):void{
+		    	if(event.itemRenderer.data is CheckItemVO){		    		
+		    		model.selectedCheckItem = event.itemRenderer.data as CheckItemVO;
+		    		recordFeedback();
+		    	}
+		    	else{
+					model.selectedCheckItem = null;		    		
+		    	}		    	
+		    }		    
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Variables
+	===========================-->
+	<vo:CheckItemVO/>
+	
+	<!--==========================
+	    Services
+	===========================-->					
+	<mx:RemoteObject id="checkItemRo" destination="ro.checkitem">
+		<mx:method name="getCheckItemsPending" result="getCheckItemsHandler(event)"/>
+		<mx:method name="getCheckItemsReviewed" result="getCheckItemsHandler(event)"/>	
+		<mx:method name="getCheckItemsComplete" result="getCheckItemsHandler(event)"/>	
+		<mx:method name="updateCheckItemsStatusNext" result="updateCheckItemsStatusNextHandler(event)"/>
+		<mx:method name="updateCheckItemsStatusFix" result="updateCheckItemsStatusFixHandler(event)"/>
+		<mx:method name="deleteCheckItem" result="deleteCheckItemHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox width="100%" height="100%">
+      <collections:ExtendedAdvancedDataGrid id="checkItemADG" width="100%" height="100%" initialize="gc.refresh();"
+      	change="onChange(event)"  
+      	doubleClickEnabled="true" 
+      	itemDoubleClick="onCheckItemDoubleClick(event)">
+      	<collections:dataProvider>
+            <mx:GroupingCollection id="gc" source="{checkItems}">
+                <mx:grouping>
+                    <mx:Grouping>
+                        <mx:GroupingField name="projectName"/>
+                        <mx:GroupingField name="activityName"/>
+						<mx:GroupingField name="resourceName"/>                        
+                    </mx:Grouping>
+                </mx:grouping>
+            </mx:GroupingCollection>
+        </collections:dataProvider>
+              
+      	<collections:columns>
+ 	
+      		<mx:AdvancedDataGridColumn dataField="createdDate" labelFunction="formatDateSimple"
+      			headerText="{resourceManager.getString('Language','label.checkitem.tree_label')}"/>
+      		<mx:AdvancedDataGridColumn dataField="updatedDate" labelFunction="formatDateSimple" 
+      			headerText="{resourceManager.getString('Language','label.checkitem.updatedDate')}" width="150"/>
+      		<mx:AdvancedDataGridColumn width="50" rendererIsEditor="true" editorDataField="selected" textAlign="center">
+              	<mx:headerRenderer>
+              		<mx:Component>
+              			<mx:HBox width="100%" height="100%" horizontalAlign="center" toolTip="{ResourceManager.getInstance().getString('Language','label.qa.pass')}">              				              			
+              			<mx:Image height="16" width="16" source="{ImageEnum.IMAGECLASS_ACCEPT}">
+              				<mx:Script>
+              					<![CDATA[
+              						import mx.resources.ResourceManager;
+              						import com.pearl.normandy.enum.ImageEnum;              						
+              					]]>
+              				</mx:Script> 
+              			</mx:Image>
+              			</mx:HBox>
+              		</mx:Component>
+              	</mx:headerRenderer>        			
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:CheckBox selected="{data.isPass}" change="onChange(event)"> 
+              				<mx:Script>
+              					<![CDATA[
+              						import com.pearl.normandy.vo.CheckItemVO;
+              						import mx.controls.CheckBox;
+              																								
+									private function onChange(event:Event):void{
+										var cb:CheckBox = event.currentTarget as CheckBox;
+										var item:Object = cb.data;
+	
+										item.isPass = cb.selected;											
+										if(cb.selected){
+											item.isFail 	= !cb.selected;
+											item.isDeleted	= !cb.selected;
+										}	
+																			
+										if(!(item is CheckItemVO)){
+											setChildrenPass(item, cb.selected);
+										}																			
+									}
+									
+									private function setChildrenPass(item:Object, value:Boolean):void{
+										item.isPass = value;										
+										if(value){
+											item.isFail    = !value;
+											item.isDeleted = !value;
+										}										
+										
+										if(item is CheckItemVO){
+											return;	
+										}
+										else{
+											if(item.children != null){
+												for each(var child:Object in item.children){
+													setChildrenPass(child, value);
+												}
+											}
+											else{
+												return;
+											}
+										}
+									}
+              					]]>
+              				</mx:Script>          				
+              			</mx:CheckBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>       			
+      		</mx:AdvancedDataGridColumn>
+      		<mx:AdvancedDataGridColumn width="50" rendererIsEditor="true" editorDataField="selected" textAlign="center">
+              	<mx:headerRenderer>
+              		<mx:Component>
+              			<mx:HBox width="100%" height="100%" horizontalAlign="center" toolTip="{ResourceManager.getInstance().getString('Language','label.qa.reject')}">              				              			
+              			<mx:Image height="16" width="16" source="{ImageEnum.IMAGECLASS_CANCEL}">
+              				<mx:Script>
+              					<![CDATA[
+              						import mx.resources.ResourceManager;
+              						import com.pearl.normandy.enum.ImageEnum;              						
+              					]]>
+              				</mx:Script> 
+              			</mx:Image>
+              			</mx:HBox>
+              		</mx:Component>
+              	</mx:headerRenderer>      			
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:CheckBox selected="{data.isFail}" change="onChange(event)"> 
+              				<mx:Script>
+              					<![CDATA[
+              						import com.pearl.normandy.vo.CheckItemVO;
+              						import mx.controls.CheckBox;
+              																								
+									private function onChange(event:Event):void{
+										var cb:CheckBox = event.currentTarget as CheckBox;
+										var item:Object = cb.data;
+
+										item.isFail = cb.selected;										
+										if(cb.selected){
+											item.isPass 	= !cb.selected;
+											item.isDeleted 	= !cb.selected;
+										}
+										
+										if(!(item is CheckItemVO)){
+											setChildrenFail(item, cb.selected);
+										}																			
+									}
+									
+									private function setChildrenFail(item:Object, value:Boolean):void{
+										item.isFail = value;										
+										if(value){
+											item.isPass    = !value;
+											item.isDeleted = !value;
+										}										
+										
+										if(item is CheckItemVO){
+											return;	
+										}
+										else{
+											if(item.children != null){
+												for each(var child:Object in item.children){
+													setChildrenFail(child, value);
+												}
+											}
+											else{
+												return;
+											}
+										}
+									}
+              					]]>
+              				</mx:Script>          				
+              			</mx:CheckBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>      			
+      		</mx:AdvancedDataGridColumn>  
+			<mx:AdvancedDataGridColumn id="isDeleted" width="50" rendererIsEditor="true" editorDataField="selected" 
+				textAlign="center" visible="false">
+				<mx:headerRenderer>
+					<mx:Component>
+						<mx:HBox width="100%" height="100%" horizontalAlign="center" toolTip="{ResourceManager.getInstance().getString('Language','label.delete')}">
+							<mx:Image width="16" height="16" source="{ImageEnum.IMAGECLASS_DELETE}">
+								<mx:Script>
+									<![CDATA[
+										import com.pearl.normandy.enum.ImageEnum;
+										import mx.resources.ResourceManager;										
+									]]>
+								</mx:Script>
+							</mx:Image>
+						</mx:HBox>
+					</mx:Component>
+				</mx:headerRenderer>
+      			<mx:itemRenderer>
+      				<mx:Component>
+      					<mx:CheckBox selected="{data.isDeleted}" change="onChange(event)">
+      						<mx:Script>
+      							<![CDATA[
+      								import com.pearl.normandy.vo.CheckItemVO;
+      								import mx.controls.CheckBox;
+      								
+      								private function onChange(e:Event):void{
+      									var cb:CheckBox = e.currentTarget as CheckBox;
+      									var item:Object = cb.data;
+      									
+      									item.isDeleted = cb.selected;
+      									if(cb.selected){
+      										item.isPass = !cb.selected;
+      										item.isFail = !cb.selected;      										
+      									}
+      									
+      									if(!(item is CheckItemVO)){
+      										setChildrenDeleted(item, cb.selected);
+      									}
+      								}
+      								
+      								private function setChildrenDeleted(item:Object, value:Boolean):void{
+      									item.isDeleted = value;
+      									if(value){
+      										item.isPass = !value;
+      										item.isFail = !value;
+      									}
+      									
+      									if(item is CheckItemVO){
+      										return;
+      									}else{
+      										if(item.children != null){
+      											for each(var child:Object in item.children){
+      												setChildrenDeleted(child, value);
+      											}
+      										}else{
+      											return;
+      										}
+      									}
+      								}
+      							]]>
+      						</mx:Script>
+      					</mx:CheckBox>
+      				</mx:Component>
+      			</mx:itemRenderer>
+      		</mx:AdvancedDataGridColumn>     		
+      		<mx:AdvancedDataGridColumn width="50" headerText="" dataField="comment" showDataTips="true" dataTipField="comment">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox width="100%" height="100%" horizontalAlign="center">    
+              			<mx:Image source="{data.comment!=null?ImageEnum.IMAGECLASS_COMMENT_EDIT:''}" click="onClick(event)"
+              				horizontalAlign="center" width="16" height="16" toolTip="{data.comment}"> 
+              				<mx:Script>
+              					<![CDATA[
+              						import com.pearl.normandy.vo.CheckItemVO;        						
+									import com.pearl.normandy.enum.ImageEnum;
+									import popup.EditCheckItemCommentPopUp;
+              						import mx.core.UIComponent;									
+									import mx.managers.PopUpManager;							
+									
+									private function onClick(event:MouseEvent):void{
+										var editCheckItemCommentPopUp:EditCheckItemCommentPopUp = 
+										EditCheckItemCommentPopUp(PopUpManager.createPopUp(UIComponent(this.parentApplication), EditCheckItemCommentPopUp, true));
+										PopUpManager.centerPopUp(editCheckItemCommentPopUp);	
+										editCheckItemCommentPopUp.checkItem = data as CheckItemVO;										
+									}		
+              					]]>
+              				</mx:Script>          				
+              			</mx:Image>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>          			
+      		</mx:AdvancedDataGridColumn>    
+      	</collections:columns>
+      </collections:ExtendedAdvancedDataGrid >
+	</mx:VBox>							    	
+</mx:VBox>

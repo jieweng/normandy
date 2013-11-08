@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="1250" height="800" showCloseButton="true"
+	close="PopUpManager.removePopUp(this)"
+	xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','label.report.timesheet')} - [{project.projectName}]    
+			{resourceManager.getString('Language','title.report.current_month')}：{currentYear}/{currentMonth}">
+	<mx:Script>
+		<![CDATA[
+			import mx.olap.IOLAPAxisPosition;
+			import mx.olap.IOLAPQueryAxis;
+			import mx.olap.IOLAPQuery;
+			import mx.olap.OLAPQuery;
+			import mx.olap.OLAPResult;
+			import mx.olap.IOLAPCube;
+			import mx.olap.OLAPSet;
+			import mx.controls.Alert;
+			import mx.events.CubeEvent;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.collections.ArrayCollection;
+
+			import com.pearl.normandy.vo.ProjectVO;
+			
+			//==============================
+		    //Data Attributes
+		    //==============================
+			[Bindable]
+			public var currentYear:int;
+			[Bindable]
+			public var currentMonth:int;
+			
+			private var _project:ProjectVO;
+			
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				
+				var date:Date = new Date();
+				currentYear = date.getFullYear();
+				currentMonth = date.getMonth()+1;
+				
+				reportRo.getTimeSheet(project.id,currentYear,currentMonth);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+		    //==============================
+		    //Method Object Handlers
+		    //==============================
+			private function runQuery(event: CubeEvent): void{
+				var cube: IOLAPCube = IOLAPCube(event.currentTarget);
+				var query: IOLAPQuery = getQuery(cube);
+				var token: AsyncToken = cube.execute(query);
+				token.addResponder(new AsyncResponder(showResult, showFault)); 
+			}
+			
+			private function getQuery(cube: IOLAPCube): IOLAPQuery{
+				var query:OLAPQuery = new OLAPQuery;
+            
+	            var rowQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.ROW_AXIS);
+	            var nameSet:OLAPSet = new OLAPSet;
+                nameSet.addElements(cube.findDimension("NameDim").findAttribute("name").children);
+		        rowQueryAxis.addSet(nameSet);
+            
+	            var colQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.COLUMN_AXIS);         
+            	var daySet:OLAPSet= new OLAPSet;
+            	daySet.addElements(cube.findDimension("DayDim").findAttribute("Day").children);
+            	colQueryAxis.addSet(daySet);
+
+				return query; 
+			}
+	
+			private function showResult(result: Object, token: Object): void{ 
+				if(!result)
+					return;
+				
+				olapGrid.dataProvider = result as OLAPResult; 
+			}
+			
+			private function showFault(result: Object, token: Object): void{ 
+				Alert.show("Error in query"); 
+			}
+					
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+			private function getTimeSheetHandler(event:ResultEvent):void{
+				timeSheetData = event.result as ArrayCollection;
+				
+				cube.refresh();
+			}
+			
+		    //==============================
+		    //Event Object Handlers
+		    //==============================
+			private function onPreviousClick():void{
+				if(currentMonth == 1){
+					currentYear = currentYear - 1;
+					currentMonth = 12;
+				}else{
+					currentMonth = currentMonth - 1;
+				}
+				
+				reportRo.getTimeSheet(project.id,currentYear,currentMonth);
+			}
+			
+			private function onNextClick():void{
+				if(currentMonth == 12){
+					currentYear = currentYear + 1;
+					currentMonth = 1;
+				}else{
+					currentMonth = currentMonth + 1;
+				}
+				
+				reportRo.getTimeSheet(project.id,currentYear,currentMonth);
+			}
+			
+			private function myStyleFunc(row:IOLAPAxisPosition, column:IOLAPAxisPosition,value:Number):Object{
+				if (value == 0) 
+	            return {color:0XEF0000};
+	            
+	            return null; 
+	        }
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getTimeSheet" result="getTimeSheetHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	  Variables
+	===========================-->
+	<mx:ArrayCollection id="timeSheetData"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:OLAPCube id="cube" name="FlatSchemaCube" dataProvider="{timeSheetData}"
+	    complete="runQuery(event);"> 
+		<mx:OLAPDimension name="NameDim">
+			<mx:OLAPAttribute name="name" dataField="name" 
+				displayName="{resourceManager.getString('Language','label.report.employee_name')}"/>
+			<mx:OLAPHierarchy name="nameHierarchy">
+				<mx:OLAPLevel attributeName="name"/>
+			</mx:OLAPHierarchy>
+		</mx:OLAPDimension>
+		
+		<mx:OLAPDimension name="DayDim">
+			<mx:OLAPAttribute name="Day" dataField="day"/> 
+			<mx:OLAPHierarchy name="DayHierarchy">
+				<mx:OLAPLevel attributeName="Day"/>
+			</mx:OLAPHierarchy> 
+		</mx:OLAPDimension>
+		<mx:OLAPMeasure name="value" dataField="value"/>
+	</mx:OLAPCube>
+	
+	<mx:HBox width="100%" horizontalAlign="right">
+		<mx:Button id="previous" icon="@Embed('../resource/left.png')" click="onPreviousClick()"/>
+		<mx:Button id="next" icon="@Embed('../resource/right.png')" click="onNextClick()"/>
+	</mx:HBox>
+	<mx:OLAPDataGrid id="olapGrid" width="100%" height="100%" styleFunction="myStyleFunc" selectionMode="singleCell"/>
+</mx:TitleWindow>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="UserPrivilege">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+ 	<typeAlias alias="UserPrivilege" type="com.pearl.normandy.userPrivilege.UserPrivilege"/>
+ 	
+ 	<select id="selectUserPrivilegeByUserId" parameterClass="java.lang.Integer" resultClass="UserPrivilege">
+ 	 	SELECT	ID						as id,
+ 				USER_ID					as userId,
+ 				PROJECT					as project,
+ 				RESOURCE				as resource,
+ 				REPORT					as report,
+ 				USER					as user,
+ 				USER_GROUP				as userGroup,
+ 				HOLIDAY					as holiday,
+ 				USER_PUNCTUAL			as userPunctual,
+ 				LEVEL_SHOW				as levelShow,
+ 				LOGIN_PICTURE			as loginPicture
+ 		FROM USER_PRIVILEGE
+ 		WHERE USER_ID = #userId#;
+ 	</select>
+ 	
+ 	<insert id="create" parameterClass="UserPrivilege">
+ 	 	INSERT INTO USER_PRIVILEGE(
+ 			USER_ID,
+ 			PROJECT,
+ 			RESOURCE,
+ 			REPORT,
+ 			USER,
+ 			USER_GROUP,
+ 			USER_PUNCTUAL,
+ 			LOGIN_PICTURE,
+ 			LEVEL_SHOW,
+ 			HOLIDAY
+ 		) VALUES(
+ 			#userId#,
+ 			#project#,
+ 			#resource#,
+ 			#report#,
+ 			#user#,
+ 			#userGroup#,
+ 			#userPunctual#,
+ 			#loginPicture#,
+ 			#levelShow#,
+ 			#holiday#
+ 		);
+ 		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+ 	</insert>
+ 	
+ 	<update id="update" parameterClass="UserPrivilege">
+ 	 	UPDATE USER_PRIVILEGE
+ 		SET	USER_ID					= #userId#,
+ 			PROJECT					= #project#,
+ 			RESOURCE				= #resource#,
+ 			REPORT			= #report#,
+ 			USER	= #user#,
+ 			USER_GROUP	= #userGroup#,
+ 			USER_PUNCTUAL	= #userPunctual#,
+ 			LOGIN_PICTURE	= #loginPicture#,
+ 			LEVEL_SHOW	= #levelShow#,
+ 			HOLIDAY				= #holiday#
+ 		WHERE ID = #id#;
+ 	</update>
+ 	
+ 	<delete id="delete" parameterClass="UserPrivilege">
+ 	 	DELETE FROM USER_PRIVILEGE 
+ 		WHERE ID = #id#;
+ 	</delete>
+</sqlMap>

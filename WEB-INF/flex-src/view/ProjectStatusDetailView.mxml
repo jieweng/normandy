@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%"
+	initialize="init()">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ICollectionView;
+			import mx.binding.utils.BindingUtils;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.ItemClickEvent;
+			
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProcessStepVO;
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.vo.GroupTaskCategoryVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			import widget.ProjectStatusCategory;			
+			
+			//==============================
+		    //Attributes
+		    //==============================
+			private var model:NormandyModel = NormandyModel.getInstance();
+			private var selectedTaskCategoryId:int;
+			
+			[Bindable]
+			public var processSteps:ArrayCollection;
+			private var isProductionChange:Boolean = false;
+			private var isProcessStepsValue:Boolean = false;
+			
+		    //==============================
+		    //Method
+		    //==============================
+			private function init():void{
+				selectedTaskCategoryId = (model.metaData.groupTaskCategories.getItemAt(0) as GroupTaskCategoryVO).taskCategoryId;
+				
+				for each(var gtc:GroupTaskCategoryVO in model.metaData.groupTaskCategories){
+					var tab:ProjectStatusCategory = new ProjectStatusCategory();
+					BindingUtils.bindProperty(tab, "project", this, "project");
+					BindingUtils.bindProperty(tab, "processSteps", this, "processSteps");
+					tab.taskCategory = gtc.taskCategory;
+					tab.taskCategoryId = gtc.taskCategoryId;
+					tab.label = gtc.taskCategory;
+					projectStatusReportVS.addChild(tab);
+				}
+				
+				projectRo.getProjectsByUser(model.currUser);				
+			}
+			
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				
+				listOfValueRo.getExTaskCategoriesByProjectId(project.id);
+				productionProcessRo.getProcessByProjectId(project.id, false);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+
+			private var _production:ProductionProcessVO;
+			public function set production(value:ProductionProcessVO):void{
+				this._production = value;
+				
+				isProductionChange = true;	
+				updateCollectionFilter();
+			}
+			
+			public function get production():ProductionProcessVO{
+				return this._production;
+			}
+			
+			private function updateCollectionFilter():void {
+				isProcessStepsValue = false;
+		  		if(this.visible && isProductionChange){
+			  		if(productionCB){
+				    	var collection:ICollectionView = productionCB.dataProvider as ICollectionView;
+				    	if (collection.filterFunction == null) {
+				      		collection.filterFunction = collectionFilter;
+				    	}
+				    	collection.refresh();
+				    	isProductionChange = false;
+				   	}
+				}
+		 	}
+
+		  	private function collectionFilter(item:Object):Boolean {
+		  		var result:Boolean = false;
+		    	var productionProcessVO:ProductionProcessVO = item as ProductionProcessVO;		    	
+		    	
+		    	if(production == null){
+		    		processSteps = null;
+		    		productionCB.selectedIndex = -1;
+		    	}else{
+/* 	 		   		if(productionProcessVO.taskCategoryId == selectedTaskCategoryId){
+	 	   				if(productionProcessVO.processName == _production.processName){
+	 	   					processSteps = productionProcessVO.processSteps as ArrayCollection;
+	 	   					isProcessStepsValue = true;
+	 	   				}
+	   					result = true;
+			   		}else{
+			   			result = false;
+			    	} */
+			    }
+			    return result;
+		  	}
+			
+			private function refresh():void{
+				if(this._production && this._production.processSteps){
+					processSteps = null;
+					processSteps = this._production.processSteps as ArrayCollection;
+				}
+			}
+			
+			private function onTabBarChange(event:ItemClickEvent):void{
+				var bool:Boolean = false;
+				selectedTaskCategoryId = (projectStatusReportVS.selectedChild as ProjectStatusCategory).taskCategoryId;
+				
+				var productionsArray:Array = productions.source as Array;
+				for(var i:int=0;i<productionsArray.length;i++){
+					var productionProcessVO:ProductionProcessVO = productionsArray[i] as ProductionProcessVO;
+/* 					if(productionProcessVO.taskCategoryId == selectedTaskCategoryId){
+						production = productionProcessVO;
+						productionCB.selectedIndex = 0;
+						bool = true;
+						break;
+					} */
+				}
+				if(!bool){
+					production = null;
+				}
+			}
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+			private function getProjectsByUserHandler(event:ResultEvent):void{
+				projects = event.result as ArrayCollection;
+				
+				if(projects && projects.length>0)
+					project = projects.getItemAt(0) as ProjectVO;
+			}
+			
+			private function getProcessByProjectIdHandler(event:ResultEvent):void{
+				productions = event.result as ArrayCollection;
+				
+				if(productions && productions.length>0){
+					var isProductionValue:Boolean = false;
+					for(var i:int=0;i<productions.length;i++){
+						var productionVO:ProductionProcessVO = productions.getItemAt(i) as ProductionProcessVO;
+/* 						if(productionVO.taskCategoryId == selectedTaskCategoryId){
+							production = productionVO;
+							productionCB.selectedIndex = 0;
+							isProductionValue = true;
+							break;
+						} */
+					}
+					if(!isProductionValue)
+						production = null;
+				}else{
+					production = null;
+				}
+			}
+
+			private function getExTaskCategoriesByProjectIdHandler(event:ResultEvent):void{
+   				for each(var statusCategory:ProjectStatusCategory in projectStatusReportVS.getChildren()){
+  					if(event.result && event.result.indexOf(statusCategory.taskCategory)!=-1)
+  						statusCategory.enabled = false;
+  					else
+  						statusCategory.enabled = true;
+      			}
+      			
+      			if(projectStatusReportVS.selectedChild.enabled)
+      				return;
+      				
+  				for(var i:int=0;i<projectStatusReportVS.getChildren().length;i++){
+  					var statusCategoryTemp:ProjectStatusCategory = projectStatusReportVS.getChildren()[i] as ProjectStatusCategory;
+  					if(statusCategoryTemp.enabled){
+  						projectStatusReportVS.selectedIndex = i;
+  						selectedTaskCategoryId = statusCategoryTemp.taskCategoryId;
+  						break;
+  					}
+      			}
+      		}
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="projectRo" destination="ro.project">
+		<mx:method name="getProjectsByUser" result="getProjectsByUserHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="productionProcessRo" destination="ro.productionProcess">
+		<mx:method name="getProcessByProjectId" result="getProcessByProjectIdHandler(event)"/>
+	</mx:RemoteObject>
+  	<mx:RemoteObject id="listOfValueRo" destination="ro.listofvalue">
+		<mx:method name="getExTaskCategoriesByProjectId" result="getExTaskCategoriesByProjectIdHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Variables
+	===========================-->
+	<mx:ArrayCollection id="projects"/>
+	<mx:ArrayCollection id="productions"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:ApplicationControlBar width="100%">
+		<mx:ComboBox id="projectCB" dataProvider="{projects}" labelField="projectName" rowCount="20"
+			toolTip="{resourceManager.getString('Language','label.project_list')}"
+			change="{project=projectCB.selectedItem as ProjectVO}"/>
+		<mx:ComboBox id="productionCB" dataProvider="{productions}" rowCount="20"
+			labelField="processName" toolTip="{resourceManager.getString('Language','label.process')}"
+			change="{production=productionCB.selectedItem as ProductionProcessVO}"/>
+		<mx:Button label="{resourceManager.getString('Language','label.refresh')}" 
+			click="refresh()" toolTip="{resourceManager.getString('Language','label.refresh')}"/>
+	</mx:ApplicationControlBar>
+	
+	<mx:ApplicationControlBar dock="true" width="100%" height="100%">			
+		<mx:VBox width="100%" height="100%">
+			<mx:TabBar id="statusCategoryTab" dataProvider="{projectStatusReportVS}" 
+				itemClick="onTabBarChange(event)"/>
+			<mx:ViewStack id="projectStatusReportVS" width="100%" height="100%"/>
+		</mx:VBox>
+	</mx:ApplicationControlBar>	
+</mx:VBox>

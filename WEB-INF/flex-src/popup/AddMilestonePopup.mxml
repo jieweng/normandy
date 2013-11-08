@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.add_milestone')}"
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	showCloseButton="true" 
+	width="850" minHeight="300"	maxHeight="600" 
+	borderAlpha="1" 
+	creationComplete="init()"
+	close="PopUpManager.removePopUp(this);"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Metadata>
+		[Event(name="milestoneCreated", type="com.pearl.normandy.event.MilestoneEvent")] 
+	</mx:Metadata>		
+	
+	<mx:Script>
+		<![CDATA[
+			
+			import mx.controls.List;
+			import mx.controls.Alert;
+			import mx.rpc.events.ResultEvent;
+			import mx.messaging.messages.IMessage;
+			import mx.messaging.messages.AsyncMessage;			
+			import mx.managers.PopUpManager;
+
+			import com.pearl.normandy.event.MilestoneEvent;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.MilestoneVO;
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.utils.Constants;
+			
+
+			public var _project:ProjectVO;		
+			
+			[Bindable]			
+			public function set project(value:ProjectVO):void
+			{
+				this._project=value;	
+				if(project != null){				
+					milestoneRo.getMilestonesByProjectId(_project.id, Constants.MILESTONE_DEFAULT_FALSE);
+				}
+				
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			private function init():void{
+				this.setFocus();				
+			}
+			
+			public function addMilestone():void{
+				var item:MilestoneVO = new MilestoneVO();
+				milestones.addItem(item);
+			}
+			
+			private function getMilestonesByProjectIdHandler(event:ResultEvent):void{
+				milestones = event.result as ArrayCollection;			
+			}
+			
+			private function saveOrUpdateMilestone():void{
+				for(var i:int=0; i< milestones.length; i++){
+	    			var item:MilestoneVO = milestones.getItemAt(i) as MilestoneVO;
+	    			if(item.createdDate == null){
+	    				item.createdDate = new Date();
+	    			} else if(item.createdDate != null){
+	    				item.updatedDate = new Date();
+	    			}
+	    			if(item.createdBy == null){
+	    				item.createdBy = NormandyModel.getInstance().currUser.userName;
+	    			} else if(item.createdBy != null){
+	    				item.updatedBy = NormandyModel.getInstance().currUser.userName;
+	    			}
+	    			if(item.projectId == 0){
+	    				item.projectId = project.id;
+	    			}
+	    		}
+	    		
+				milestoneRo.saveOrUpdateMilestone(milestones);			  										
+			}
+			
+			private function saveOrUpdateMilestoneHandler():void{
+/* 				var message: IMessage = new AsyncMessage();
+				message.body = {issuer: NormandyModel.getInstance().currUser.id, code: Constants.MSG_MILESTONE_UPDATED};
+				milestonePrd.send(message); */
+				dispatchEvent(new MilestoneEvent(MilestoneEvent.MILESTONE_CREATED));
+				PopUpManager.removePopUp(this);				
+			}
+			
+			private function serialHandler(item:Object, col:int):String{
+			
+				return (milestones.getItemIndex(item) + 1).toString();
+			}
+			
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }			
+		]]>
+	</mx:Script>
+	
+	
+	  <!--==========================
+	    Services
+	  ===========================-->		
+	<mx:RemoteObject id="milestoneRo" destination="ro.milestone" >
+		<mx:method name="getMilestonesByProjectId" result="getMilestonesByProjectIdHandler(event)"/>
+		<mx:method name="saveOrUpdateMilestone" result="saveOrUpdateMilestoneHandler()"/>
+	</mx:RemoteObject>		
+	
+	
+	
+	  <!--==========================
+	    Variables
+	  ===========================-->		
+	<mx:ArrayCollection id="milestones"/>
+	<vo:MilestoneVO/>
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	<mx:AdvancedDataGrid id="milestoneDataGrid" editable="true" 
+		width="100%" height="100%"
+		dataProvider="{milestones}" 
+		rowCount="{milestones.length}">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn editable="false" width="40" labelFunction="serialHandler" sortable="false"
+				headerText="{resourceManager.getString('Language','label.milestone.id')}" />
+			<mx:AdvancedDataGridColumn dataField="milestone" width="130" 
+				headerText="{resourceManager.getString('Language','label.milestone')}" />
+			<mx:AdvancedDataGridColumn dataField="description" width="100" 
+				headerText="{resourceManager.getString('Language','label.milestone.description')}" />
+			<mx:AdvancedDataGridColumn dataField="completionDate" width="100" 
+				headerText="{resourceManager.getString('Language','label.milestone.planned_completion')}"
+				itemRenderer="mx.controls.DateField" 
+				rendererIsEditor="true" 
+				editorDataField="selectedDate" />
+			<mx:AdvancedDataGridColumn dataField="objective" width="120" 
+				headerText="{resourceManager.getString('Language','label.milestone.objectives')}" />
+			<mx:AdvancedDataGridColumn dataField="assumption" width="120" 
+				headerText="{resourceManager.getString('Language','label.milestone.assumptions')}" />
+			<mx:AdvancedDataGridColumn dataField="constraints" width="120" 
+				headerText="{resourceManager.getString('Language','label.milestone.constraints')}" />
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+
+	<mx:HBox width="100%" paddingRight="15" horizontalAlign="right">
+		<mx:Button click="addMilestone()" label="{resourceManager.getString('Language','button.add_milestone')}"/>
+	</mx:HBox>	
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" 
+        	click="saveOrUpdateMilestone()" enabled="{project!=null}"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>	
+</mx:TitleWindow>

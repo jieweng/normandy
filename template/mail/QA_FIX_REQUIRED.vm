@@ -1,0 +1,110 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	<body>
+		<font style="font-size: 15;font-weight: bold;">
+			操作人：$!{currUser.EmployeeNo} [$!{currUser.Name}]
+		</font>
+		<br>
+		<br>
+		
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#993300" bordercolor="#993300">
+				<td colspan="7" style="color: white;font-weight: bold;">基本信息</td>
+			</tr>
+			<tr bgcolor="#FFFFFF" align="center">
+				<th width="10%">子任务ID</th>
+				<th width="20%">任务名称</th>
+				<th width="10%">递交阶段</th>
+				<th width="10%">QA Result</th>
+				<th width="10%">Lead</th>
+				<th width="20%">Artist</th>
+				<th width="10%">Deliverable</th>
+			</tr>
+			<tr bgcolor="#FFFFFF" align="center">
+				<td>$!{subtask.Id}</td>
+				<td>$!{subtask.TaskName}</td>
+				<td>$!{subtask.SubtaskName}</td>
+				<td bgcolor="#e7ec64">Fail</td>
+				<td>$!{subtask.Owner}</td>
+				<td>$!{subtask.ResourcesName}</td>
+				<td>
+					#if($subtask.Deliverable=='Y')
+			         	需要交付
+			       	#else
+			        	不需要交付
+			       	#end
+				</td>
+			</tr>
+		</table>
+		<br>
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#FFFFFF">
+				<th align="left">文件路径</th>
+			</tr>
+			<tr bgcolor="#FFFFFF">
+				<td>
+					<a href="$!{subtask.FilePath}">$!{subtask.FilePath}</a>
+				</td>
+			</tr>
+		</table>
+		<br>
+		
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%">
+			<tr bgcolor="#993300" bordercolor="#993300">
+				<td colspan="6" style="color: white;font-weight: bold;">备注</td>
+			</tr>
+		</table>
+		#foreach($comment in $comments)
+			$velocityCount.
+			<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000" 
+				style="font-size: 13;" width="90%">
+				<tr bgcolor="#FFFFFF" height="50">
+					<td width="80%">$!comment.Comment</td>
+					<td width="20%">
+						$!comment.SubtaskName<br>
+						$!comment.CreatedBy<br>
+						$!comment.Date
+					</td>
+				</tr>
+			</table>
+			<br>
+		#end
+		<br>		
+		
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%">
+			<tr bgcolor="#993300" bordercolor="#993300">
+				<td colspan="6" style="color: white;font-weight: bold;">QA反馈</td>
+			</tr>
+		</table>
+		#foreach($feedback in $feedbacks)
+			$velocityCount.
+			<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000" 
+				style="font-size: 13;" width="90%" height="25">
+				<tr bgcolor="#FFFFFF" align="center">
+					<th width="20%">错误类型</th>
+					<th width="20%">错误级别</th>
+					<th width="20%">问题属性</th>
+					<th width="40%">QA意见</th>
+				</tr>
+				<tr bgcolor="#FFFFFF" align="center">
+					<td>$!feedback.ErrorName</td>
+					<td>$!feedback.SeverityValue</td>
+					<td>$!feedback.TypeValue</td>
+					<td align="left">$!feedback.Description</td>
+				</tr>
+			</table>
+			<br>			
+			#foreach( $reference in $feedback.FeedbackReference)
+				<img src="$!baseurl$!reference.url"/>
+				<br>
+			#end
+			<br>
+		#end
+	</body>
+</html>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:code="http://code.google.com/p/flexlib/"
+	xmlns:production="production.*" 	
+	width="100%" height="100%" xmlns:widget="widget.*">
+
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;			
+			import mx.binding.utils.BindingUtils;
+				
+			import com.pearl.normandy.vo.ListOfValue;				
+			import com.pearl.normandy.vo.UserVO;						
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+					
+		    //==============================
+		    //Control Attributes
+		    //==============================						
+			[Bindable]
+			private var model:NormandyModel = NormandyModel.getInstance();
+			private var currUser:UserVO = model.currUser;
+						
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				taskRo.getTaskCategory(project.id, true);
+				taskRo.getMilestone(project.id, true);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			[Bindable]
+			public var milestone:String = Constants.SELECT_ITEM_ALL;
+			
+			[Bindable]
+			public var taskCategory:String = Constants.SELECT_ITEM_ALL;
+			
+			[Bindable]
+			public var taskNameFilter:String = "";
+			
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================	
+		    [Bindable]
+		    private var milestones:ArrayCollection;
+		    		
+			[Bindable]
+			private var taskCategories:ArrayCollection;			
+			
+			
+		    //==============================
+		    //Remote Objects Handlers
+		    //==============================
+		    private function getTaskCategoryHandler(event:ResultEvent):void{
+		    	taskCategories = event.result as ArrayCollection;
+		    }
+		    	
+		    private function getMilestoneHandler(event:ResultEvent):void{
+		    	milestones = event.result as ArrayCollection;					  	
+		    }			
+		]]>
+	</mx:Script>
+	
+	
+	 <!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getMilestone" result="getMilestoneHandler(event)"/>
+		<mx:method name="getTaskCategory" result="getTaskCategoryHandler(event)"/>
+	</mx:RemoteObject>	  
+	
+	
+		
+	<!--==========================
+	    Variables
+	===========================-->
+	<mx:ArrayCollection id="taskArray"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:HBox width="100%">
+		<mx:Label text="{resourceManager.getString('Language','label.milestone')}:"/>	
+		<mx:ComboBox id="milestoneCB" width="100" dropdownWidth="200"  
+			dataProvider="{milestones}" change="{milestone = milestoneCB.selectedLabel}"/>
+			
+		<mx:Label text="{resourceManager.getString('Language','label.task_category')}:"/>	
+		<mx:ComboBox id="categoryCB" width="100" dropdownWidth="200"  
+			dataProvider="{taskCategories}" change="{taskCategory = categoryCB.selectedLabel}"/>			
+			
+		<code:PromptingTextInput id="taskNameTI" width="100" prompt="{resourceManager.getString('Language','label.search.by_task_name')}" 
+			change="{taskNameFilter  = taskNameTI.text}"/>										
+	</mx:HBox>
+														
+	<widget:TaskCategory project="{project}" milestone="{milestone}" taskCategory="{taskCategory}" taskNameFilter="{taskNameFilter}"/>
+</mx:VBox>	

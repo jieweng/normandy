@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" horizontalAlign="center" paddingLeft="10"
+	 xmlns:utils="com.pearl.normandy.utils.*" xmlns:widget="widget.*">
+	<mx:Script>
+		<![CDATA[
+			import flash.utils.setTimeout;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.event.UploadEvent;
+			import mx.utils.ObjectUtil;
+			import mx.messaging.Producer;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			import flash.net.FileReference;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.collections.ArrayCollection;
+			
+			public var suffix:String = "";
+       	 	private var file:FileReference = new FileReference();		
+        	private var request:URLRequest = new URLRequest();
+        	private var loader:Loader=new Loader();
+			
+           	public function fileUpload():void
+			{
+				file = new FileReference();
+				file.browse(new Array(Constants.IMAGE_FILTER));
+				file.addEventListener(Event.SELECT, selectHandler);
+			}
+			private function selectHandler(event:Event):void {
+				file.load()
+         		file.addEventListener(Event.COMPLETE,completeHandler);
+         	} 
+         	
+         	private function completeHandler(e:Event):void{
+         		loader.contentLoaderInfo.addEventListener(Event.COMPLETE,loaderCompleteHandler);
+                loader.loadBytes(file.data);
+                file.removeEventListener(Event.COMPLETE,completeHandler);
+         	}
+         	
+         	private function loaderCompleteHandler(e:Event):void{
+         		var bit:Bitmap=Bitmap(loader.content);
+         		img.source=bit;
+         		suffix = file.type;
+				request.url = "referenceupload?filename=loginPicture";
+				request.method = URLRequestMethod.POST;
+				file.upload(request);
+				
+         	}
+         	
+	    	
+		]]>
+	</mx:Script>
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:VBox width="32%" height="100%" horizontalAlign="center">
+				
+				<mx:HBox width="100%" horizontalAlign="center">
+					<mx:Button label="{resourceManager.getString('Language','button.file.uploadPicture')}"
+						toolTip="{resourceManager.getString('Language','button.file.uploadPicture')}"
+						click="fileUpload()"/>
+				</mx:HBox>
+				<mx:Image id="img" width="100%" height="100%" source="{Constants.LOGIN_PICTURE_ADDRESS}"/>
+	</mx:VBox>
+</mx:VBox>

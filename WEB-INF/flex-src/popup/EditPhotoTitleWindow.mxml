@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="vertical" width="860" height="800" title="{resourceManager.getString('Language','label.edit_photo')}"
+	 verticalAlign="middle" creationComplete="init()" close="removeMe()">
+	 <mx:Script>
+	 	<![CDATA[
+	 		import mx.events.FlexEvent;
+	 		import mx.containers.Canvas;
+	 		import mx.utils.ObjectUtil;
+	 		import mx.controls.Label;
+	 		import mx.events.CloseEvent;
+	 		import mx.controls.Image;
+		 	import mx.managers.PopUpManager;
+		 	import mx.controls.Alert;
+		 	import com.pearl.normandy.enum.ImageEnum;
+		 	import flash.net.FileReference;
+			import flash.display.Loader;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.core.UIComponent;
+			import mx.events.ResizeEvent;
+			import com.pearl.normandy.utils.Constants;
+			import mx.graphics.ImageSnapshot;
+			
+		 	public var myPhoto:Image;
+		 	private var fileReference:FileReference=new FileReference();
+			private var loader:Loader=new Loader();
+			private  var myImg:Image; 
+			private var max:Number=3; 
+            private var dd:Number=0.1;
+            private var cv:Canvas;
+            private var finalX:int=0;
+			private var finalY:int=0;
+			private var imgWidth:int=0;
+			private var bitmap:Bitmap;
+            
+		 	private function init():void{
+//		 		myPhoto=new Image();
+//		 		myPhoto.width=160;
+//		 		myPhoto.height=160;
+//		 		myPhoto.source=myPhotoSource;
+//		 		showImg.addChild(myPhoto);
+		 		fileReference.addEventListener(Event.COMPLETE,fileReferenceCompleteHandler);
+		 	}
+		 	
+		 	
+		 	private function removeMe():void{
+		 		PopUpManager.removePopUp(this);
+		 	}
+            
+			private function fileReferenceCompleteHandler(e:Event):void{
+                loader.contentLoaderInfo.addEventListener(Event.COMPLETE,loaderCompleteHandler);
+                loader.loadBytes(fileReference.data);
+            }
+            
+            private function loaderCompleteHandler(e:Event):void{
+                bitmap = Bitmap(loader.content);
+                sizeImg.removeAllChildren();
+                myImg=new Image();
+                myImg.source = bitmap;
+                sizeImg.addChild(myImg);
+                myImg.addEventListener(FlexEvent.CREATION_COMPLETE,positionImg);
+                cv=new Canvas();
+                cv.width=160;
+                cv.height=160;
+                cv.setStyle("borderStyle","solid");
+                cv.x=(sizeImg.width-cv.width)/2;
+                cv.y=(sizeImg.height-cv.height)/2;
+                cv.addEventListener(MouseEvent.MOUSE_DOWN,mouseHandler);
+                cv.addEventListener(MouseEvent.MOUSE_UP,mouseHandler);
+                sizeImg.addChild(cv);
+                fd.target=myImg;
+                fd.zoomHeightTo=1;
+                fd.zoomWidthTo=1;
+                max=3;
+                dd=0.1
+                myImg.addEventListener(ResizeEvent.RESIZE,endhandler);
+            }
+            
+            private function positionImg(e:Event):void{
+            	Image(e.currentTarget).x=(sizeImg.width-myImg.width)/2;
+                Image(e.currentTarget).y=(sizeImg.height-myImg.height)/2;
+                imgWidth=Image(e.currentTarget).width;
+            }
+            
+            private function fileReferenceSelectHandler(e:Event):void{
+                fileReference.load();
+                sizeImg.removeAllChildren();
+            } 
+            
+			private function upload():void{
+				fileReference.browse(new Array(Constants.IMAGE_FILTER));
+                fileReference.addEventListener(Event.SELECT,fileReferenceSelectHandler);
+			}
+			
+			private function resize():void{
+				if(myImg==null||!sizeImg.contains(myImg))return ;
+				 finalX=myImg.x-cv.x;
+         		 finalY=myImg.y-cv.y;
+         		 if(finalX<0){
+         		 	finalX=-finalX;
+         		 }
+         		 if(finalY<0){
+         		 	finalY=-finalY;
+         		 }
+				var bmpData:BitmapData = new BitmapData(myImg.width,myImg.height); 
+				bmpData.draw(bitmap,new Matrix(myImg.width/imgWidth,0,0,myImg.width/imgWidth));
+				trace(myImg.width+"   "+myImg.height+"   "+imgWidth+"\n");
+				 var bytearray:ByteArray = new ByteArray();
+				 var re:Rectangle = new Rectangle(finalX,finalY,cv.width,cv.height);
+				 bytearray = bmpData.getPixels(re); //截取出所选区域的像素集合
+				 var imgBD:BitmapData = new BitmapData(cv.width,cv.height);
+				 bytearray.position=0;//必须的，当前的bytearray.position为最大长度，要设为从0开始读取
+				 var fillre:Rectangle = new Rectangle(0,0,cv.width,cv.height);
+				 imgBD.setPixels(fillre,bytearray);//将截取出的像素集合存在新的bitmapdata里，大小和截取区域一样
+				 showImg.removeAllChildren();
+				 myPhoto = new Image();
+				 myPhoto.source= new Bitmap(imgBD);
+				 showImg.addChild(myPhoto);
+	            
+
+			}
+			
+			private function mouseHandler(evt:MouseEvent):void //控件移动
+		      {
+		      		var x:int=myImg.x;
+		      		var y:int=myImg.y;
+		      		
+		      		var w:int=myImg.width-cv.width;
+		      		var h:int=myImg.height-cv.height;
+		             switch (evt.type) 
+		             {
+		                 case "mouseDown" :
+		                 		var dragRect:Rectangle = new Rectangle(x,y,w,h);
+		                        evt.currentTarget.startDrag(false,dragRect);
+		                         break;
+		                 case "mouseUp" :
+		                         evt.currentTarget.stopDrag();
+		                         break;
+		                 default:
+		                    break;
+		             }
+		      }
+            
+            private function zoomIn():void{
+            	if(myImg==null||!sizeImg.contains(myImg))return;
+                var z:Number = fd.zoomHeightTo;
+                if( z < max){
+                    fd.stop();
+                    fd.zoomHeightTo +=dd;
+                    fd.zoomWidthTo +=dd;
+                    fd.play();
+                }
+            }
+            
+            private function zoomOut():void{
+            	if(myImg==null||!sizeImg.contains(myImg))return;
+                var z:Number = fd.zoomHeightTo;
+                if( z>=0 && myImg.height>cv.height && myImg.width>cv.width){
+                	fd.stop();
+                    fd.zoomHeightTo -=dd;
+                    fd.zoomWidthTo -=dd;
+                    fd.play();
+	             }
+            }
+            
+            private function endhandler(e:Event):void{
+            	var w_h:Number=myImg.width/myImg.height;
+            	if(myImg.height<cv.height){
+            	    myImg.height=cv.height;
+            	    myImg.width=myImg.height*w_h;
+            	    fd.zoomWidthTo=fd.zoomHeightTo=0;
+        	        max=0.5;
+        	        dd=0.01;
+	              }
+	            if(myImg.width<cv.width){
+            	    myImg.width=cv.width;
+            	    myImg.height=myImg.width/w_h;
+            	    fd.zoomWidthTo=fd.zoomHeightTo=0;
+        	        max=0.5;
+        	        dd=0.01;
+	              }
+	            myImg.x=(sizeImg.width-myImg.width)/2;
+                myImg.y=(sizeImg.height-myImg.height)/2;
+	            cv.x=(sizeImg.width-cv.width)/2;
+                cv.y=(sizeImg.height-cv.height)/2;
+            }
+            
+	 	]]>
+	 </mx:Script>
+	 <mx:Zoom id="fd" zoomHeightTo="1"  zoomWidthTo="1" duration="600"/>
+	 <mx:HBox>
+	 	<mx:VBox horizontalAlign="center" verticalAlign="middle" width="70%" height="100%" verticalGap="0">
+		 	<mx:Canvas id="sizeImg" width="600" height="600" horizontalScrollPolicy="off" 
+			verticalScrollPolicy="off"  borderStyle="solid" >
+			</mx:Canvas>
+			<mx:HBox height="50">
+				<mx:Button icon="{ImageEnum.IMAGECLASS_ZOOM_IN}" click="zoomIn()" toolTip="{resourceManager.getString('Language','button.zoom_in')}"/>
+				<mx:Button icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}" click="zoomOut()" toolTip="{resourceManager.getString('Language','button.zoom_out')}"/>
+				<mx:Button icon="{ImageEnum.IMAGECLASS_UP_ARROW}" click="upload()" toolTip="{resourceManager.getString('Language','label.upload_image')}"/>
+				<mx:Button icon="{ImageEnum.IMAGECLASS_CUT}" click="resize()" toolTip="{resourceManager.getString('Language','label.shot')}"/>
+			</mx:HBox>
+	    </mx:VBox>
+	    <mx:VBox width="30%" height="90%" verticalAlign="middle">
+	    	<mx:Canvas id="showImg" width="160" height="160"/>	
+	    </mx:VBox>
+	 </mx:HBox>
+	<mx:ControlBar horizontalAlign="center">
+		<mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" />
+		<mx:Button label="{resourceManager.getString('Language','button.cancel')}" click="removeMe()"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

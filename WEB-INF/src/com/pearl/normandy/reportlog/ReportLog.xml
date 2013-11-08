@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ReportLog">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ReportLog"
+		type="com.pearl.normandy.reportlog.ReportLogTo"/>
+
+	<!--========================= Select ========================-->
+	<select id="selectReportLog" parameterClass="java.util.Map" resultClass="ReportLog">
+		select
+			r.ID				as id,
+			r.REPORT_TYPE		as reportType,
+			r.YEAR				as year,
+			r.MONTH				as month,
+			r.CREATED_DATE		as createdDate,
+			r.URL				as url
+		from REPORT_LOG r
+		<dynamic prepend="where">
+			<isNotNull prepend="and" property="reportType">
+				r.REPORT_TYPE = #reportType#
+			</isNotNull>
+			<isNotNull prepend="and" property="year">
+				r.YEAR = #year#
+			</isNotNull>
+			<isNotNull prepend="and" property="month">
+				r.MONTH = #month#
+			</isNotNull>
+			<isNotNull prepend="and" property="url">
+				r.URL = #url#
+			</isNotNull>
+		</dynamic>
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="ReportLog">
+		insert into REPORT_LOG
+			(ID,
+			REPORT_TYPE,
+			YEAR,
+			MONTH,
+			CREATED_DATE,
+			URL)
+		values
+			(#id#,
+			#reportType#,
+			#year#,
+			#month#,
+			#createdDate#,
+			#url#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="ReportLog">
+		update REPORT_LOG set 
+			REPORT_TYPE	 = #reportType#,
+			YEAR 		 = #year#,
+			MONTH 		 = #month#,
+			URL 		 = #url#,
+			CREATED_DATE = #createdDate#
+		where ID = #id#
+	</update>
+</sqlMap>

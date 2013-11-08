@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	height="100%" width="100%" 
+	horizontalAlign="center"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off">
+	
+	<mx:Script>
+		<![CDATA[			    
+			import com.pearl.normandy.vo.ProjectMemberVO;		
+			import com.pearl.normandy.utils.NormandyModel;
+			private var model:NormandyModel = NormandyModel.getInstance();
+
+			
+			private var _data:Object;
+			[Bindable]
+			public override function set data(value:Object):void{
+				this._data = value;
+				
+				for each(var member:ProjectMemberVO in model.assignedProjectMembers){
+					if(data.resourceId == member.userId){
+						resourceCB.selectedItem = member;
+						enableControls(true);
+						return;
+					}
+				}	
+				enableControls(false);
+				resourceText.text = data.resourceName;
+			}
+			
+			public override function get data():Object{
+				return this._data;
+			}	
+			
+			private function enableControls(value:Boolean):void{
+				resourceCB.visible 			= value;
+				resourceCB.includeInLayout 	= value;
+				resourceText.visible		= !value;
+				resourceText.includeInLayout= !value;
+			}	                                                  			
+			
+			private function onChange(event:Event):void{
+				data.resourceId = (event.currentTarget as ComboBox).selectedItem.userId;				
+			}
+		]]>
+	</mx:Script>	
+	
+	<mx:ComboBox id="resourceCB" dataProvider="{model.assignedProjectMembers}" labelField="userName" change="onChange(event)" enabled="{data.startTime>=model.metaData.activityLockedTime}"/> 
+	<mx:Text id="resourceText"/>
+</mx:HBox>

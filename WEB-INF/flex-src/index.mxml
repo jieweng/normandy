@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:delegates="com.pearl.normandy.delegates.*" 
+	xmlns:controllers="com.pearl.normandy.controllers.*"
+	xmlns:frame="frame.*"
+	xmlns:local="*"
+	xmlns:kapit="fr.kapit.*"
+	width="100%" height="100%"
+	layout="absolute" 
+	currentState="Login"
+	initialize="init()">	
+	
+    <mx:Metadata>
+        [ResourceBundle("Language")]
+    </mx:Metadata> 	        
+       
+    <mx:Style source="styles.css"/>
+    <mx:Script>
+    	<![CDATA[
+    		import com.pearl.normandy.vo.UserVO;
+    		import com.pearl.normandy.utils.Constants;
+    		import com.pearl.normandy.utils.NormandyModel;
+    		import com.pearl.normandy.event.LoginEvent;
+    		
+    		[Bindable]
+    		private var model:NormandyModel = NormandyModel.getInstance();
+    		
+    		private function loginHandler(event:LoginEvent):void{
+    			var loginUser:UserVO = event.loginUser;
+    			
+    			if(loginUser.userType == Constants.USER_TYPE_CUSTOMER){
+    				this.currentState = "Customer";
+    			}
+    			else if((loginUser.userType == Constants.USER_TYPE_PERMANENT) || (loginUser.userType == Constants.USER_TYPE_INTERN)){
+    				this.currentState = loginUser.state;
+    			}
+    		}    		
+    		
+    		private function init():void{    			
+    			model.addEventListener(LoginEvent.LOGIN, loginHandler);
+    			addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+    			addEventListener(KeyboardEvent.KEY_UP, onKeyUp);
+    		}  		
+    		
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.CONTROL){
+		    		model.ctrlKey = true;
+		    	}
+		    	else if(event.keyCode == Keyboard.SHIFT){
+		    		model.shiftKey = true;
+		    	} 
+		    }
+		    	
+		    private function onKeyUp(event:KeyboardEvent):void{
+		    	model.ctrlKey  = false;
+		    	model.shiftKey = false;
+		    }			    	
+    	]]>
+    </mx:Script>	
+	
+	  <!--==========================
+	    Kap Inspect Import <Comment following code when move production>
+	  ===========================--> 
+	  <kapit:KapInspect/>
+	  
+<!-- ========================================================================== -->
+
+    <!-- the ServiceLocator where we specify the remote services -->
+    <delegates:Services id="services"/>
+    
+    <!-- the FrontController, containing Commands specific to this appliation -->
+    <controllers:CenteralController id="centerController"/>
+    
+<!-- ========================================================================== -->	  
+	  	
+	  <!--==========================
+	    States
+	  ===========================-->   
+    <mx:states>
+        <mx:State name="Login">
+            <mx:AddChild relativeTo="{this}">
+            	<local:Login/>
+            </mx:AddChild>
+        </mx:State>    
+        
+        <mx:State name="Admin">
+            <mx:AddChild relativeTo="{this}">            	
+            	<frame:ProductionIndex/>
+            </mx:AddChild>
+        </mx:State>
+        
+        <mx:State name="Production">
+            <mx:AddChild relativeTo="{this}">
+            	<frame:ProductionIndex/>
+            </mx:AddChild>
+        </mx:State>                                             
+    </mx:states>	
+</mx:Application>

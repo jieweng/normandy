@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:production="production.*"
+	xmlns:window="window.*"
+	xmlns:widget="widget.*"
+	width="100%" height="100%"
+	creationComplete="initState()">
+	
+	<mx:Script>
+		<![CDATA[
+			import window.LoginPictureMgmtWindow;
+			import window.UserPunctualWindow;
+			import window.SysConfigWindow;
+			import window.HolidayMgmtWindow;
+			import window.UserGroupMgmtWindow;
+			import window.UserManagementWindow;						
+			import mx.collections.ArrayCollection;			
+			
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.utils.Constants;
+									
+			private var userManagementWindow:UserManagementWindow = new UserManagementWindow();
+			private var userGroupMgmtWindow:UserGroupMgmtWindow = new UserGroupMgmtWindow();
+			private var holidayMgmtWindow:HolidayMgmtWindow = new HolidayMgmtWindow();
+			private var sysConfigWindow:SysConfigWindow = new SysConfigWindow();
+			private var userPunctualWindow:UserPunctualWindow = new UserPunctualWindow();
+			private var loginPictureMgmtWindow:LoginPictureMgmtWindow = new LoginPictureMgmtWindow();
+			private function initState():void{
+				var model:NormandyModel = NormandyModel.getInstance();
+				if(model.privilegeUser == "Y"){
+					userManagementWindow.label = resourceManager.getString('Language','label.user_management');
+					mainScreenVS.addChild(userManagementWindow);
+				} 
+				if(model.privilegeUserGroup == "Y"){
+					userGroupMgmtWindow.label = resourceManager.getString('Language','label.usergroup_mgmt');
+					mainScreenVS.addChild(userGroupMgmtWindow);
+				} 
+				if(model.privilegeHoliday == "Y"){
+					holidayMgmtWindow.label = resourceManager.getString('Language','title.maintain_holiday');
+					mainScreenVS.addChild(holidayMgmtWindow);
+				}
+				if(model.currUser.userGroupId == 4){
+					sysConfigWindow.label = resourceManager.getString('Language','label.sys_config');
+					mainScreenVS.addChild(sysConfigWindow);
+				}
+				if(model.privilegeUserPunctual == "Y"){
+					userPunctualWindow.label = resourceManager.getString('Language','label.user_punctual');
+					mainScreenVS.addChild(userPunctualWindow);
+				}
+				if(model.privilegeLoginPicture == "Y"){
+					loginPictureMgmtWindow.label = resourceManager.getString('Language','label.login_picture');
+					mainScreenVS.addChild(loginPictureMgmtWindow);
+				}
+				
+				resourceManager.addEventListener(Event.CHANGE,changeHandler);												
+			}
+			
+			private function changeHandler(event:Event):void{
+				userManagementWindow.label = resourceManager.getString('Language','label.user_management');
+				userGroupMgmtWindow.label = resourceManager.getString('Language','label.usergroup_mgmt');
+				holidayMgmtWindow.label = resourceManager.getString('Language','title.maintain_holiday');
+				sysConfigWindow.label = resourceManager.getString('Language','label.sys_config');
+				userPunctualWindow.label = resourceManager.getString('Language','label.user_punctual');
+				loginPictureMgmtWindow.label = resourceManager.getString('Language','label.login_picture');									
+			}		
+		]]>
+	</mx:Script>
+	
+	<widget:Header level1Tabs="{mainScreenVS}"/>
+	<mx:ViewStack id="mainScreenVS" width="100%" height="100%">
+		<window:TimesheetWindow label="{resourceManager.getString('Language','label.timesheet')}"/>
+		<window:ProjectMgmtWindow label="{resourceManager.getString('Language','label.project_management')}"/>  	
+		<!--window:ProjectHRWindow label="{resourceManager.getString('Language','label.project_HR_management')}"/-->
+		<window:ReportWindow label="{resourceManager.getString('Language','label.reports_home')}"/>
+	</mx:ViewStack>																								
+</mx:VBox>

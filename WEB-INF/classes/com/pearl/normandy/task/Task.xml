@@ -1,0 +1,813 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Task">
+
+  <!-- Use type aliases to avoid typing the full classname every time. -->
+  <typeAlias alias="Task" type="com.pearl.normandy.task.TaskTo"/>
+	
+	<!--========================= Select ========================-->
+	<select id="selectMilestone" parameterClass="java.lang.Integer" resultClass="java.lang.String">
+		select distinct t.MILESTONE as milestone 
+		from TASK t 
+		where t.PROJECT_ID=#value# and (t.DELETED is null or t.DELETED != 'Y')
+		order by t.MILESTONE;
+	</select> 	
+	
+	<select id="selectTaskCategory" parameterClass="java.lang.Integer" resultClass="java.lang.String">
+		select distinct t.TASK_CATEGORY as taskCategory 
+		from TASK t 
+		where t.PROJECT_ID=#value# order by t.TASK_CATEGORY;
+	</select> 	
+	
+	<select id="selectTask" parameterClass="java.util.Map" resultClass="Task">
+		select
+			t.ID					as id,
+			t.PARENT_ID				as parentId,
+			t.TASK_ID				as taskId,
+			t.PROJECT_ID			as projectId,			
+			t.TASK_NAME				as name,
+			t.PARENT_NAME			as parentName,
+			t.TYPE					as type,
+      		t.PRODUCTION_PROCESS_ID	as productionProcessId,			
+    		t.MILESTONE				as milestone,
+			t.TASK_GROUP			as taskGroup,
+      		t.TASK_CATEGORY			as taskCategory,			
+			t.TASK_PRIORITY_ID		as taskPriorityId,
+			t.REFERENCE_URL         as referenceUrl,	
+			p.ID					as projectId,								    		
+			p.PROJECT_KEY			as projectKey,
+			p.PROJECT_NAME			as projectName,
+			t.SEQUENCE				as sequence,		
+      		pp.PROCESS_NAME			as productionProcess,
+			lv.LIST_VALUE  			as priority,
+			t.START_TIME			as startTime,
+			t.END_TIME				as endTime,
+			t.DURATION				as duration,
+			t.ACTUAL_START_TIME		as actualStartTime,
+			t.ACTUAL_END_TIME		as actualEndTime,
+			t.PLANNED_STAFF_DAYS	as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS as plannedFeedbackDays,			
+			t.STATUS_ID				as statusId,
+			ls.LIST_VALUE			as status,			
+			t.PROGRESS				as progress,
+			t.PROGRESS/100			as completion,			
+			t.IS_FEEDBACK			as isFeedback,	
+			t.REVISION				as revision,
+			t.PREDECESSOR			as predecessor,
+			t.PREDECESSOR_TREE		as predecessorTree,
+			t.DEVIATION				as deviation,
+			t.DESCRIPTION			as description,
+			t.OWNER_ID				as ownerId,
+   			concat(u.FIRST_NAME," ",u.LAST_NAME)  as owner,
+			t.QA_OWNER_ID			as qaOwnerId,
+   			concat(u2.FIRST_NAME," ",u2.LAST_NAME)  as qaOwner,			   			
+			t.DELETED				as deleted,
+			t.PAUSED				as paused,
+			t.VERSION				as version,
+			t.CREATED_DATE			as createdDate,
+			t.CREATED_BY			as createdBy,
+			t.UPDATED_DATE			as updatedDate,
+			t.UPDATED_BY			as updatedBy,			
+			min(a.START_TIME)		as baselineStart,
+			max(a.END_TIME)			as baselineEnd,	
+			group_concat(distinct u3.FIRST_NAME, ' ', u3.LAST_NAME separator ', ') as resourcesName,
+			ifnull(cf.COUNT, 0)     as FeedbackNum,
+			ifnull(sum(a.ASSIGNED_EFFORT), 0)		as staffAssigned
+		from TASK t left join USER u  on u.ID=t.OWNER_ID
+					left join USER u2 on u.ID=t.QA_OWNER_ID 
+				    left join PRODUCTION_PROCESS pp on pp.ID = t.PRODUCTION_PROCESS_ID
+				    left join LIST_OF_VALUE ls on ls.ID = t.STATUS_ID
+				    left join 
+				    (select TASK_ID, START_TIME, END_TIME, RESOURCE_ID,ASSIGNED_EFFORT
+				    from ACTIVITY
+					<isNotNull prepend="where" property="projectId">
+						PROJECT_ID=#projectId#
+					</isNotNull>				      
+				    ) a on a.TASK_ID = t.ID
+				    left join USER u3 on a.RESOURCE_ID = u3.ID
+				    left join (select count(*) as COUNT ,TASK_ID  from FEEDBACK   group by TASK_ID ) cf on cf.TASK_ID = t.ID,  
+		     PROJECT p, LIST_OF_VALUE lv
+		where (t.DELETED is null or t.DELETED != 'Y')
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>
+			
+			<isNotNull prepend="and" property="milestone">
+				t.MILESTONE = #milestone#
+			</isNotNull>		
+			
+			<isNotNull prepend="and" property="taskCategory">
+				t.TASK_CATEGORY=#taskCategory#
+			</isNotNull>	
+			
+			<isNotNull prepend="and" property="status">
+				ls.LIST_VALUE=#status#
+			</isNotNull>					
+			
+			<isNotNull prepend="and" property="id">
+				t.ID=#id#
+			</isNotNull>
+			
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					t.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>	
+			
+			<isNotNull property="parentIds">
+				<isNotEmpty prepend="and" property="parentIds">			
+					t.PARENT_ID in					
+					<iterate property="parentIds" open="(" close=")" conjunction=",">    
+			         	#parentIds[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>					
+			
+			<isNotNull prepend="and" property="ownerId">
+				t.OWNER_ID=#ownerId#
+			</isNotNull>
+
+			<isNotNull property="root">
+				<isEqual prepend="and" property="root" compareValue="Y">
+					t.PARENT_ID=0
+				</isEqual>				
+				<isEqual prepend="and" property="root" compareValue="N">
+					t.PARENT_ID!=0
+				</isEqual>				
+			</isNotNull>											
+		</dynamic>		
+		and p.ID=t.PROJECT_ID
+		and lv.ID=t.TASK_PRIORITY_ID	
+		group by t.ID
+		order by t.ID		
+	</select>				
+	
+	<select id="selectTaskByProductionProcessId" parameterClass="java.lang.Integer" resultClass="Task">
+		select 
+			t.ID						as id,
+    		t.ID  						as resourceId,
+    		t.MILESTONE					as milestone,
+      		t.PRODUCTION_PROCESS_ID		as productionProcessId,
+			t.PROJECT_ID				as projectId,
+			t.SEQUENCE					as sequence,
+			t.TASK_NAME					as name,
+			t.PARENT_NAME			as parentName,			
+			t.TYPE						as type,
+			t.TASK_GROUP				as taskGroup,
+			t.TASK_CATEGORY				as taskCategory,
+			t.TASK_PRIORITY_ID			as taskPriorityId,
+			t.START_TIME				as startTime,
+			t.END_TIME					as endTime,
+			t.ACTUAL_START_TIME			as actualStartTime,
+			t.ACTUAL_END_TIME			as actualEndTime,
+			t.PLANNED_STAFF_DAYS		as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS 	as plannedFeedbackDays,
+			t.PROGRESS					as progress,			
+			t.REVISION					as revision,
+			t.DURATION					as duration,
+			t.PREDECESSOR				as predecessor,
+			t.PREDECESSOR_TREE			as predecessorTree,
+			t.DEVIATION					as deviation,
+			t.DESCRIPTION				as description,
+			t.OWNER_ID					as ownerId,
+			t.DELETED					as deleted,
+			t.PAUSED					as paused,
+			t.VERSION					as version,
+			t.CREATED_DATE				as createdDate,
+			t.CREATED_BY				as createdBy,
+			t.UPDATED_DATE				as updatedDate,
+			t.UPDATED_BY				as updatedBy
+		from TASK t
+		where (t.DELETED is null or t.DELETED !='Y')
+		and t.PRODUCTION_PROCESS_ID=#value#
+	</select>
+	
+	<select id="selectTaskStatusDetail" parameterClass="java.util.Map" resultClass="Task">	
+		select
+			t.ID							as id,
+			t.TASK_CATEGORY					as taskCategory,			
+      		t.PLANNED_STAFF_DAYS   	 		as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS 		as plannedFeedbackDays,
+			concat(t.PROGRESS,'%')			as taskProgress,      		
+		    t.START_TIME            		as startTime,
+		  	t.END_TIME    	    	      	as endTime,
+			t.TASK_NAME						as name,
+			t.PARENT_NAME					as parentName,						
+  			lp.LIST_VALUE  					as priority,
+    		t.MILESTONE 	        		as milestone,
+    		t.PRODUCTION_PROCESS_ID			as productionProcessId,
+      		sum(s.ACTUAL_STAFF_DAYS) 		as actualStaffDays,
+      		sum(s.ACTUAL_STAFF_DAYS) - t.PLANNED_STAFF_DAYS 	as staffDaysDifference
+		from TASK t,LIST_OF_VALUE lp,LIST_OF_VALUE lc,
+      		(select
+        		s.TASK_ID,
+        		sum(a.ACTUAL_STAFF_DAYS) as ACTUAL_STAFF_DAYS
+      		from SUBTASK s left join ACTIVITY a on a.SUBTASK_ID=s.ID
+      		group by s.ID) s
+		where (t.DELETED is null or t.DELETED!='Y')
+    	and t.TASK_CATEGORY=#category#
+		and t.PROJECT_ID=#projectId#
+		and t.PRODUCTION_PROCESS_ID=#productionId#
+		and lp.ID=t.TASK_PRIORITY_ID
+  		and s.TASK_ID=t.ID
+  		group by t.ID
+    	order by t.CREATED_DATE
+	</select>	
+	
+	<select id="selectTaskGroupByProjectId" parameterClass="java.lang.Integer" resultClass="java.lang.String">
+		select distinct TASK_GROUP from 
+			(select t.TASK_GROUP 
+			from TASK t 
+			where t.PROJECT_ID=#value# and (t.TASK_GROUP is not null and t.TASK_GROUP!='') 
+			order by t.CREATED_DATE desc) tmp
+	</select>
+	
+	<select id="selectTaskGroupByTaskId" parameterClass="java.util.Map" resultClass="java.lang.String">
+    	select t.TASK_GROUP from TASK t where t.ID = #taskId#
+    	union
+		select distinct TASK_GROUP from
+			(select t.TASK_GROUP
+			from TASK t
+			where t.PROJECT_ID=#projectId# and (t.TASK_GROUP is not null and t.TASK_GROUP!='')
+			order by t.CREATED_DATE desc) tmp
+	</select>		
+
+	<select id="selectTaskStatusAvg" parameterClass="java.lang.Integer" resultClass="java.lang.Double">
+		select sum(t.STATUS_ID)/count(t.ID) 
+		from TASK t where 
+		t.PARENT_id = #value# 
+		and (t.DELETED is null or t.DELETED != 'Y');
+	</select>			
+
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insert" parameterClass="Task">
+		insert into TASK
+			(PARENT_ID,
+			TASK_ID,
+			MILESTONE,
+			PRODUCTION_PROCESS_ID,
+			PROJECT_ID,
+			SEQUENCE,
+			TASK_NAME,
+			PARENT_NAME,
+			TYPE,
+			TASK_GROUP,
+			TASK_CATEGORY,
+			TASK_PRIORITY_ID,
+			REFERENCE_URL,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			PLANNED_STAFF_DAYS,
+			PLANNED_FEEDBACK_DAYS,
+			STATUS_ID,
+			PROGRESS,
+			IS_FEEDBACK,
+			REVISION,
+			DURATION,
+			PREDECESSOR,
+			PREDECESSOR_TREE,
+			DEVIATION,
+			DESCRIPTION,
+			OWNER_ID,
+			QA_OWNER_ID,
+			DELETED,
+			PAUSED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		values
+			(#parentId#,
+			#taskId#,
+			LTRIM(RTRIM(#milestone#)),
+			#productionProcessId#,
+			#projectId#,
+			#sequence#,
+			LTRIM(RTRIM(#name#)),
+			#parentName#,
+			#type#,
+			#taskGroup#,
+			#taskCategory#,
+			#taskPriorityId#,
+			#referenceUrl#,
+			#startTime#,
+			#endTime#,
+			#actualStartTime#,
+			#actualEndTime#,
+			#plannedStaffDays#,
+			#plannedFeedbackDays#,
+			#statusId#,
+			#progress#,
+			#isFeedback#,
+			#revision#,
+			#duration#,
+			#predecessor#,
+			#predecessorTree#,
+			#deviation#,
+			#description#,
+			#ownerId#,
+			#qaOwnerId#,
+			#deleted#,
+			#paused#,
+			#version#,
+			#createdDate#,
+			#createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>			
+	</insert>
+	
+	<insert id="insertSubtask" parameterClass="Task">
+		insert into TASK
+			(PARENT_ID,
+			TASK_ID,
+			MILESTONE,
+			PRODUCTION_PROCESS_ID,
+			PROJECT_ID,
+			SEQUENCE,
+			TASK_NAME,
+			PARENT_NAME,
+			TYPE,
+			TASK_GROUP,
+			TASK_CATEGORY,
+			TASK_PRIORITY_ID,
+			REFERENCE_URL,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			PLANNED_STAFF_DAYS,
+			PLANNED_FEEDBACK_DAYS,
+			STATUS_ID,
+			PROGRESS,
+			IS_FEEDBACK,
+			REVISION,
+			DURATION,
+			PREDECESSOR,
+			PREDECESSOR_TREE,
+			DEVIATION,
+			DESCRIPTION,
+			OWNER_ID,
+			QA_OWNER_ID,
+			DELETED,
+			PAUSED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		select
+			#id#,
+			#taskId#,
+			LTRIM(RTRIM(#milestone#)),
+			#productionProcessId#,
+			#projectId#,
+			#sequence#,
+			ps.STEP as TASK_NAME,
+			LTRIM(RTRIM(#name#)),
+			#type#,
+			#taskGroup#,
+			#taskCategory#,
+			#taskPriorityId#,
+			#referenceUrl#,
+			#startTime#,
+			#endTime#,
+			#actualStartTime#,
+			#actualEndTime#,
+			#plannedStaffDays#,
+			#plannedFeedbackDays#,
+			#statusId#,
+			#progress#,
+			#isFeedback#,
+			#revision#,
+			#duration#,
+			#predecessor#,
+			#predecessorTree#,
+			#deviation#,
+			#description#,
+			#ownerId#,
+			#qaOwnerId#,
+			#deleted#,
+			#paused#,
+			#version#,
+			#createdDate#,
+			#createdBy#
+		from PROCESS_STEP ps where ps.PRODUCTION_PROCESS_ID=#productionProcessId# and (ps.DELETED is null or ps.DELETED != 'Y')
+		order by ps.PRODUCTION_PROCESS_ID		
+	</insert>	
+	
+	<insert id="copySubtask" parameterClass="java.util.Map">
+		insert into TASK
+			(PARENT_ID,
+			TASK_ID,
+			MILESTONE,
+			PRODUCTION_PROCESS_ID,
+			PROJECT_ID,
+			SEQUENCE,
+			TASK_NAME,
+			PARENT_NAME,
+			TYPE,
+			TASK_GROUP,
+			TASK_CATEGORY,
+			TASK_PRIORITY_ID,
+			REFERENCE_URL,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			PLANNED_STAFF_DAYS,
+			PLANNED_FEEDBACK_DAYS,
+			STATUS_ID,
+			PROGRESS,
+			IS_FEEDBACK,
+			REVISION,
+			DURATION,
+			PREDECESSOR,
+			PREDECESSOR_TREE,
+			DEVIATION,
+			DESCRIPTION,
+			DELETED,
+			PAUSED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		select
+			#newId#,
+			TASK_ID,
+			MILESTONE,
+			PRODUCTION_PROCESS_ID,
+			PROJECT_ID,
+			SEQUENCE,
+			TASK_NAME,
+			#parentName#,
+			TYPE,
+			TASK_GROUP,
+			TASK_CATEGORY,
+			TASK_PRIORITY_ID,
+			REFERENCE_URL,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			PLANNED_STAFF_DAYS,
+			PLANNED_FEEDBACK_DAYS,
+			#statusId#,
+			#progress#,
+			IS_FEEDBACK,
+			REVISION,
+			DURATION,
+			PREDECESSOR,
+			PREDECESSOR_TREE,
+			DEVIATION,
+			DESCRIPTION,
+			DELETED,
+			PAUSED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY
+		from TASK t where t.PARENT_ID=#oldId#		
+	</insert>		
+	
+	<update id="update" parameterClass="Task">
+		update TASK
+		set	MILESTONE				= LTRIM(RTRIM(#milestone#)),
+			PRODUCTION_PROCESS_ID	= #productionProcessId#,
+			PROJECT_ID				= #projectId#,
+			SEQUENCE				= #sequence#,
+			TASK_NAME				= LTRIM(RTRIM(#name#)),
+			PARENT_NAME				= #parentName#,
+			TYPE					= #type#,
+			TASK_GROUP				= #taskGroup#,
+			TASK_CATEGORY			= #taskCategory#,
+			TASK_PRIORITY_ID		= #taskPriorityId#,
+			REFERENCE_URL			= #referenceUrl#,
+			START_TIME				= #startTime#,
+			END_TIME				= #endTime#,
+			ACTUAL_START_TIME		= #actualStartTime#,
+			ACTUAL_END_TIME			= #actualEndTime#,
+			PLANNED_STAFF_DAYS		= #plannedStaffDays#,
+			PLANNED_FEEDBACK_DAYS	= #plannedFeedbackDays#,
+			PROGRESS				= #progress#,
+			IS_FEEDBACK				= #isFeedback#,
+			REVISION				= #revision#,
+			DURATION				= #duration#,
+			PREDECESSOR				= #predecessor#,
+			PREDECESSOR_TREE		= #predecessorTree#,
+			DEVIATION				= #deviation#,
+			DESCRIPTION				= #description#,
+			OWNER_ID				= #ownerId#,
+			QA_OWNER_ID				= #qaOwnerId#,
+			DELETED					= #deleted#,
+			PAUSED					= #paused#,
+			VERSION					= #version#,
+			UPDATED_DATE			= now(),
+			UPDATED_BY				= #updatedBy#,
+			PARENT_ID				= #parentId#
+		where ID = #id#
+	</update>		
+	
+	<update id="updateTaskProgress" parameterClass="java.lang.Integer">
+		update TASK set PROGRESS=f_task_progress(#value#) where ID=#value#
+	</update>	
+	
+	<update id="updateSummaryTaskProgress" parameterClass="java.lang.Integer">
+		update TASK ts, TASK tt set ts.PROGRESS=f_summary_task_progress(#value#) where tt.PARENT_ID=ts.ID and tt.ID=#value#
+	</update>	
+	
+	<update id="updateTaskStatus" parameterClass="java.util.Map">
+		update TASK t 
+			set	t.STATUS_ID = #statusId#
+		where t.ID = #taskId#
+	</update>	
+	
+	<update id="updateParentName" parameterClass="java.lang.Integer">
+		update TASK ts, TASK tt 
+			set tt.PARENT_NAME=ts.TASK_NAME 
+		where ts.ID=#value# and tt.PARENT_ID=ts.ID;
+	</update>		
+	
+	<update id="updateTypeByParentId" parameterClass="java.util.Map">
+		update TASK t set TYPE = #type# 
+		where t.PARENT_ID = #parentId#
+	</update>	
+	
+	<update id="updateTaskOwnerId" parameterClass="java.util.Map">
+		update TASK t set t.OWNER_ID=#newOwnerId#
+        where (t.DELETED is null or t.DELETED != 'Y')
+		<dynamic>
+			<isNotNull prepend="and" property="ownerId">
+				t.OWNER_ID=#ownerId# 
+			</isNotNull>	
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>			
+		</dynamic>
+	</update>
+	
+	<update id="cancel" parameterClass="java.lang.Integer">
+		update TASK t
+		set t.DELETED = 'Y'
+		where t.id = #value# or t.PARENT_ID = #value#
+	</update>
+	
+	<select id="selectSubtaskAsTask" parameterClass="java.util.Map" resultClass="Task">
+		select
+			s.ID					as id,
+    		s.ID  					as resourceId,
+			t.PROJECT_ID			as projectId,
+			t.TYPE					as type,
+			t.MILESTONE				as milestone,
+      		t.PRODUCTION_PROCESS_ID	as productionProcessId,			
+			t.TASK_NAME				as taskName,
+			s.SUBTASK_NAME			as name,
+			s.START_TIME			as startTime,
+			s.END_TIME				as endTime,
+			s.ACTUAL_START_TIME		as actualStartTime,
+			s.ACTUAL_END_TIME		as actualEndTime,
+			s.PLANNED_STAFF_DAYS	as plannedStaffDays,
+			s.PLANNED_FEEDBACK_DAYS	as plannedFeedbackDays,
+			s.PROGRESS				as progress,
+			s.PROGRESS/100			as completion,
+			min(a.START_TIME)		as baselineStart,
+			max(a.END_TIME)			as baselineEnd,
+			s.SUBTASK_STATUS_ID		as subtaskStatusId,
+			ls.LIST_VALUE			as subtaskStatus,
+			t.REVISION				as revision,
+			s.IS_FEEDBACK			as isFeedback,
+			s.PREDECESSOR			as predecessor,
+			s.PREDECESSOR_TREE		as predecessorTree,
+			s.DEVIATION				as deviation,
+			s.DESCRIPTION			as description,
+			s.DELETED				as deleted,
+			s.PAUSED				as paused,
+			s.VERSION				as version,
+			s.CREATED_DATE			as createdDate,
+			s.CREATED_BY			as createdBy,
+			s.UPDATED_DATE			as updatedDate,
+			s.UPDATED_BY			as updatedBy,
+			concat(u1.FIRST_NAME, ' ', u1.LAST_NAME) as owner,
+			group_concat(distinct u2.FIRST_NAME, ' ', u2.LAST_NAME separator ', ') as resourcesName
+			from TASK t left outer join USER u1 on t.OWNER_ID=u1.ID, 
+				 SUBTASK s left outer join ACTIVITY a on s.ID = a.SUBTASK_ID left outer join USER u2 on a.RESOURCE_ID=u2.ID,
+				 LIST_OF_VALUE l, LIST_OF_VALUE ls
+		where (t.DELETED is null or t.DELETED != 'Y')
+		and (s.DELETED is null or s.DELETED != 'Y')		
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>		
+			<isNotNull property="milestone">
+				t.MILESTONE = #milestone#
+			</isNotNull>
+			<isNotNull prepend="and" property="taskCategory">
+				l.LIST_VALUE = #taskCategory#
+			</isNotNull>
+				
+			<isNotNull prepend="and" property="taskId">
+				t.ID = #taskId#
+			</isNotNull>	
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					t.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>								
+		</dynamic>
+		and l.ID=t.TASK_CATEGORY_ID		
+		and ls.ID=s.SUBTASK_STATUS_ID	
+		and t.ID=s.TASK_ID
+		group by s.ID
+		order by SUBSTRING_INDEX(t.ID,'-', -1)+0,s.ID
+	</select>    
+	
+	<select id="selectTaskRightJoinUser" parameterClass="java.util.Map" resultClass="Task">
+		select
+			t.ID					as id,
+    		t.ID  					as resourceId,
+      		t.MILESTONE				as milestone,
+      		t.PRODUCTION_PROCESS_ID	as productionProcessId,
+      		pp.PROCESS_NAME			as productionProcess,
+			t.PROJECT_ID			as projectId,
+			p.PROJECT_KEY			as projectKey,
+			t.SEQUENCE				as sequence,
+			t.TASK_NAME				as name,
+			t.TYPE					as type,			
+			t.TASK_GROUP			as taskGroup,
+			t.TASK_CATEGORY_ID		as taskCategoryId,
+      		l.list_value  			as category,
+			t.TASK_PRIORITY_ID		as taskPriorityId,
+			lv.list_value  			as priority,
+			t.START_TIME			as startTime,
+			t.END_TIME				as endTime,
+			r.URL		            as referenceUrl,
+			t.ACTUAL_START_TIME		as actualStartTime,
+			t.ACTUAL_END_TIME		as actualEndTime,
+			t.PLANNED_STAFF_DAYS	as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS as plannedFeedbackDays,
+			t.PROGRESS				as progress,	
+			0						as subtaskStatusId,
+			""						as subtaskStatus,
+			t.REVISION				as revision,
+			t.DURATION				as duration,
+			t.PREDECESSOR			as predecessor,
+			t.PREDECESSOR_TREE		as predecessorTree,
+			t.DEVIATION				as deviation,
+			t.DESCRIPTION			as description,
+			t.OWNER_ID				as ownerId,
+   			concat(FIRST_NAME," ",LAST_NAME)  as owner,
+			t.DELETED				as deleted,
+			t.PAUSED				as paused,
+			t.VERSION				as version,
+			t.CREATED_DATE			as createdDate,
+			t.CREATED_BY			as createdBy,
+			t.UPDATED_DATE			as updatedDate,
+			t.UPDATED_BY			as updatedBy
+		from TASK t left join USER u  on u.ID=t.OWNER_ID 
+				    left join REFERENCE r on t.ID = r.TASK_ID, 
+		     PROJECT p,PRODUCTION_PROCESS pp, LIST_OF_VALUE l, LIST_OF_VALUE lv 
+		where (t.DELETED is null or t.DELETED != 'Y')
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>
+			<isNotNull property="milestone">
+				t.MILESTONE = #milestone#		
+			</isNotNull>		
+			<isNotNull prepend="and" property="taskCategory">
+				l.LIST_VALUE=#taskCategory#
+			</isNotNull>			
+			
+			<isNotNull prepend="and" property="taskId">
+				t.ID=#taskId#
+			</isNotNull>
+			<isNotNull prepend="and" property="ownerId">
+				t.OWNER_ID=#ownerId#
+			</isNotNull>
+			
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					t.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>								
+		</dynamic>		
+		and p.ID=t.PROJECT_ID
+		and pp.ID = t.PRODUCTION_PROCESS_ID
+  		and l.ID=t.TASK_CATEGORY_ID
+		and lv.ID=t.TASK_PRIORITY_ID
+		order by SUBSTRING_INDEX(t.ID,'-', -1)+0		
+	</select>		
+	
+	<select id="selectTaskBySubtaskId" parameterClass="java.lang.String" resultClass="Task">
+		select distinct
+			t.ID						as id,
+    		t.ID  						as resourceId,
+    		t.MILESTONE					as milestone,
+      		t.PRODUCTION_PROCESS_ID		as productionProcessId,
+			t.PROJECT_ID				as projectId,
+			t.SEQUENCE					as sequence,
+			t.TASK_NAME					as name,
+			t.PARENT_NAME				as parentName,			
+			t.TYPE						as type,			
+			lv.LIST_VALUE				as priority,
+			pp.PROCESS_NAME				as productionProcess,
+			t.TASK_GROUP				as taskGroup,
+			t.TASK_CATEGORY				as taskCategory,			
+			t.TASK_PRIORITY_ID			as taskPriorityId,
+			s.FILE_PATH					as filePath,
+			t.START_TIME				as startTime,
+			t.END_TIME					as endTime,
+			t.ACTUAL_START_TIME			as actualStartTime,
+			t.ACTUAL_END_TIME			as actualEndTime,
+			t.PLANNED_STAFF_DAYS		as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS 	as plannedFeedbackDays,
+			t.PROGRESS					as progress,			
+			t.REVISION					as revision,
+			t.DURATION					as duration,
+			t.PREDECESSOR				as predecessor,
+			t.PREDECESSOR_TREE			as predecessorTree,
+			t.DEVIATION					as deviation,
+			t.DESCRIPTION				as description,
+			t.OWNER_ID					as ownerId,
+			t.DELETED					as deleted,
+			t.PAUSED					as paused,
+			t.VERSION					as version,
+			t.CREATED_DATE				as createdDate,
+			t.CREATED_BY				as createdBy,
+			t.UPDATED_DATE				as updatedDate,
+			t.UPDATED_BY				as updatedBy,
+			p.PROJECT_NAME				as projectName,
+			p.PROJECT_KEY				as projectKey
+		from TASK t,SUBTASK s,PROJECT p,LIST_OF_VALUE lv, PRODUCTION_PROCESS pp
+		where s.ID = #value#
+		and t.ID = s.TASK_ID
+		and t.PROJECT_ID = p.ID
+		and pp.ID = t.PRODUCTION_PROCESS_ID
+		and lv.id=t.task_priority_id
+	</select>	
+	
+	<select id="selectTaskCount" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		select count(*) from TASK t where t.PRODUCTION_PROCESS_ID in
+		(
+			select id from PRODUCTION_PROCESS p 
+			where p.TASK_CATEGORY_ID in (select g.TASK_CATEGORY_ID from GROUP_TASK_CATEGORY g 
+									   where g.GROUP_ID = #groupId#) 
+		    and project_id = #projectId#
+		)
+		and (t.DELETED is null or t.DELETED!='Y')
+	</select>	
+	
+	<select id="selectLastTaskByProjectId" parameterClass="int" resultClass="Task">
+		select
+			t.ID					as id,
+    		t.ID  					as resourceId,
+      		t.MILESTONE				as milestone,
+      		t.PRODUCTION_PROCESS_ID	as productionProcessId,
+			t.PROJECT_ID			as projectId,
+			t.SEQUENCE				as sequence,
+			t.TASK_NAME				as name,
+			t.PARENT_NAME			as parentName,			
+			t.TYPE					as type,			
+			t.TASK_GROUP			as taskGroup,
+			t.TASK_CATEGORY			as taskCategory,
+			t.TASK_PRIORITY_ID		as taskPriorityId,
+			lv.list_value  			as priority,
+			t.START_TIME			as startTime,
+			t.END_TIME				as endTime,
+			t.ACTUAL_START_TIME		as actualStartTime,
+			t.ACTUAL_END_TIME		as actualEndTime,
+			t.PLANNED_STAFF_DAYS	as plannedStaffDays,
+			t.PLANNED_FEEDBACK_DAYS as plannedFeedbackDays,
+			t.PROGRESS				as progress,			
+			t.REVISION				as revision,
+			t.DURATION				as duration,
+			t.PREDECESSOR			as predecessor,
+			t.PREDECESSOR_TREE		as predecessorTree,
+			t.DEVIATION				as deviation,
+			t.DESCRIPTION			as description,
+			t.OWNER_ID				as ownerId,
+			t.DELETED				as deleted,
+			t.PAUSED				as paused,
+			t.VERSION				as version,
+			t.CREATED_DATE			as createdDate,
+			t.CREATED_BY			as createdBy,
+			t.UPDATED_DATE			as updatedDate,
+			t.UPDATED_BY			as updatedBy
+		from TASK t, LIST_OF_VALUE lv
+		where t.PROJECT_ID=#value#
+		and lv.ID=t.TASK_PRIORITY_ID
+    	order by SUBSTRING_INDEX(t.ID,'-', -1)+0 DESC
+    	limit 0,1
+	</select>	
+</sqlMap>

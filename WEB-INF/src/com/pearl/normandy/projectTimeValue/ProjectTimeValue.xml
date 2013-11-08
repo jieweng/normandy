@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProjectTimeValue">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ProjectTimeValue" type="com.pearl.normandy.projectTimeValue.ProjectTimeValue" />
+	
+	<select id="selectByProject" parameterClass="java.util.Map" resultClass="ProjectTimeValue">
+		SELECT	ID										as id,
+				PROJECT_ID								as projectId,
+				TIME									as time,
+				DATE_FORMAT(LAST_DAY(time),'%Y/%c/%d') 	as day,
+				VALUE									as value
+		FROM PROJECT_TIME_VALUE
+		WHERE PROJECT_ID = #projectId#
+		ORDER BY TIME ASC;
+	</select>
+	
+	<update id="update" parameterClass="ProjectTimeValue">
+		UPDATE PROJECT_TIME_VALUE
+		SET	TIME	= #time#,
+			VALUE	= #value#
+		WHERE ID = #id#
+	</update>
+	
+	<insert id="insert" parameterClass="ProjectTimeValue">
+		INSERT INTO PROJECT_TIME_VALUE
+		(
+			PROJECT_ID,
+			TIME,
+			VALUE
+		)VALUES(
+			#projectId#,
+			#time#,
+			#value#
+		)	
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<delete id="delete" parameterClass="ProjectTimeValue">
+		DELETE FROM PROJECT_TIME_VALUE WHERE ID = #id#;
+	</delete>
+</sqlMap>

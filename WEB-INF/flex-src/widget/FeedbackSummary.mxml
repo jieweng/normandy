@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ns:Pod xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','title.project.feedback_summary')} - [{project.projectName}]" 
+	width="100%" height="100%" xmlns:local="*">
+	<mx:Script>
+		<![CDATA[
+			import popup.FeedbackSummaryPopup;
+			import mx.charts.events.ChartItemEvent;
+			import mx.collections.ArrayCollection;
+			import mx.core.UIComponent;			
+			import mx.managers.PopUpManager; 			
+			import mx.rpc.events.ResultEvent;
+			
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.vo.ProjectVO;
+
+			import popup.FeedbackSummaryPopup;
+			import view.ProjectStatusSummaryView;
+			
+			
+			[Bindable]
+			private var reportVO:ReportVO;
+						
+			private var _project:ProjectVO;
+			
+			[Bindable]
+			private var dataReason:ArrayCollection;
+			
+			[Bindable]
+			private var dataPriority:ArrayCollection;
+			
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				getFeedbackData();
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			
+			private var _milestone:String;
+			[Bindable]
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				getFeedbackData();
+			}
+			
+			public function get milestone():String{
+				return this._milestone;
+			}	
+			
+			
+			private function getFeedbackData():void{
+				reportRo.getFeedbackSummaryCause(project.id, milestone);
+				reportRo.getFeedbackSummaryPriority(project.id, milestone);
+				reportRo.getFeedbackByProjectId(project.id, milestone);					
+			}
+    		
+			//==============================
+		    //Remote Object Handler
+		    //==============================
+    		private function getFeedbackSummaryCauseHandler(event:ResultEvent):void{
+    			dataReason = event.result as ArrayCollection;
+    		}
+    		
+    		private function getFeedbackSummaryPriorityHandler(event:ResultEvent):void{
+    			dataPriority = event.result as ArrayCollection;
+    		}
+    		
+    		private function getFeedbackByProjectIdHandler(event:ResultEvent):void{
+    			reportVO = event.result as ReportVO;
+    		}
+    		
+    		private function getSliceLabel(item:Object, arg2:String, arg3:Number, arg4:Number):String{
+    	        return item==null?"":item.name;
+        	}
+        	
+        	private function onRootCauseChartClick(event:ChartItemEvent):void{
+				var feedbackSummaryPopup:FeedbackSummaryPopup = FeedbackSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FeedbackSummaryPopup, true));
+		   		PopUpManager.centerPopUp(feedbackSummaryPopup);
+		   		feedbackSummaryPopup.rootCause = event.hitData.item.name;
+		   		feedbackSummaryPopup.milestone = milestone;
+		   		feedbackSummaryPopup.project = project;        		
+        	}
+        	
+        	private function onPriorityChartClick(event:ChartItemEvent):void{
+				var feedbackSummaryPopup:FeedbackSummaryPopup = FeedbackSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FeedbackSummaryPopup, true));
+		   		PopUpManager.centerPopUp(feedbackSummaryPopup);
+		   		feedbackSummaryPopup.priority = event.hitData.item.name;
+		   		feedbackSummaryPopup.milestone = milestone;
+		   		feedbackSummaryPopup.project = project;        	
+        	}
+        	
+        	private function onClosedFeedbackClick():void{
+				var feedbackSummaryPopup:FeedbackSummaryPopup = FeedbackSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FeedbackSummaryPopup, true));
+		   		PopUpManager.centerPopUp(feedbackSummaryPopup);
+		   		feedbackSummaryPopup.feedbacks = reportVO.closedFeedback;     
+        	} 
+        	
+        	private function onOpenFeedbackClick():void{
+				var feedbackSummaryPopup:FeedbackSummaryPopup = FeedbackSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FeedbackSummaryPopup, true));
+		   		PopUpManager.centerPopUp(feedbackSummaryPopup);
+		   		feedbackSummaryPopup.feedbacks = reportVO.openFeedback;     
+        	}         	
+        	
+        	private function onAllFeedbackClick():void{
+				var feedbackSummaryPopup:FeedbackSummaryPopup = FeedbackSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FeedbackSummaryPopup, true));
+		   		PopUpManager.centerPopUp(feedbackSummaryPopup);
+		   		feedbackSummaryPopup.feedbacks = reportVO.allFeedback;     
+        	}         	       	        
+   	
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	  Services
+	===========================-->	
+	<mx:RemoteObject id="reportRo" destination="ro.report">
+		<mx:method name="getFeedbackSummaryCause" result="getFeedbackSummaryCauseHandler(event)"/>
+		<mx:method name="getFeedbackSummaryPriority" result="getFeedbackSummaryPriorityHandler(event)"/>
+		<mx:method name="getFeedbackByProjectId" result="getFeedbackByProjectIdHandler(event)"/>
+	</mx:RemoteObject>
+
+	<!--==========================
+	  Variables
+	===========================-->
+<!--	<mx:ArrayCollection id="dataReason"/>
+	<mx:ArrayCollection id="dataPriority"/>
+-->
+
+	<!--==========================
+	    Page Layout
+	===========================-->
+	
+	<mx:HBox paddingTop="20">
+		<local:Kelvin_LinkButton id="closedFeedback" label="{reportVO.closedFeedback.length}" 
+			click="onClosedFeedbackClick()"/>
+		<mx:Label text="{resourceManager.getString('Language','label.feedback.fixed')}/" paddingLeft="-15"/>
+		
+		<local:Kelvin_LinkButton id="openFeedback" label="{reportVO.openFeedback.length}" 
+			click="onOpenFeedbackClick()"/>
+		<mx:Label text="{resourceManager.getString('Language','label.feedback.open')}/" paddingRight="20"/>		
+		
+		<local:Kelvin_LinkButton id="allFeedback" label="{reportVO.allFeedback.length}" 
+			 click="onAllFeedbackClick()"/>
+		<mx:Label text="{resourceManager.getString('Language','label.feedback.total')}" paddingLeft="-15"/>			 
+	</mx:HBox>
+	
+	<mx:HBox width="100%" height="80%">
+		<mx:VBox width="50%" height="100%">
+			<mx:PieChart id="chart1" width="100%" height="100%" dataProvider="{dataReason}" showDataTips="true"
+				doubleClickEnabled="true" itemDoubleClick="onRootCauseChartClick(event)">
+				<mx:series>
+					<mx:PieSeries field="value" fontSize="13" nameField="name" labelPosition="inside"/>
+				</mx:series>
+			</mx:PieChart>
+			<mx:Legend includeInLayout="{document.width>500?true:false}" visible="{document.width>500?true:false}" dataProvider="{chart1}" direction="vertical"/>
+		</mx:VBox>
+		
+		<mx:VBox width="50%" height="100%">
+			<mx:PieChart id="chart2" width="100%" height="100%" dataProvider="{dataPriority}" showDataTips="true"
+				doubleClickEnabled="true" itemDoubleClick="onPriorityChartClick(event)">
+				<mx:series>
+					<mx:PieSeries field="value" fontSize="13" nameField="name" labelPosition="inside">
+						<mx:fills>
+			                <mx:Array>
+			                    <mx:RadialGradient>
+			                        <mx:entries>
+			                            <mx:Array>
+			                                <mx:GradientEntry color="#EF7651" ratio="0"/>
+	                                		<mx:GradientEntry color="#994C34" ratio="1"/>
+			                            </mx:Array>
+			                        </mx:entries>
+			                    </mx:RadialGradient>
+			                    <mx:RadialGradient>
+			                        <mx:entries>
+			                            <mx:Array>
+			                                <mx:GradientEntry color="#E9C836" ratio="0"/>
+			                                <mx:GradientEntry color="#AA9127" ratio="1"/>
+			                            </mx:Array>
+			                        </mx:entries>
+			                    </mx:RadialGradient>
+			                    <mx:RadialGradient>
+			                        <mx:entries>
+			                            <mx:Array>
+			                                <mx:GradientEntry color="#6FB35F" ratio="0"/>
+	                                		<mx:GradientEntry color="#497B54" ratio="1"/>
+			                            </mx:Array>
+			                        </mx:entries>
+			                    </mx:RadialGradient>
+			                </mx:Array>
+		                 </mx:fills>
+					</mx:PieSeries>
+				</mx:series>
+			</mx:PieChart>
+			<mx:Legend includeInLayout="{document.width>500?true:false}" visible="{document.width>500?true:false}" fontSize="13" dataProvider="{chart2}" direction="vertical"/>
+		</mx:VBox>
+	</mx:HBox>
+</ns:Pod>

@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%"
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex"
+	xmlns:code="http://code.google.com/p/flexlib/" 
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+    creationComplete="init()"
+    enabled="{model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3}" xmlns:popTextInput="com.pearl.normandy.component.popTextInput.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import com.pearl.normandy.event.CheckBoxChangeEvent;
+			import popup.SelectActivityTypePopUp;
+			import mx.collections.ICollectionView;
+			import mx.collections.SortField;			
+			import mx.collections.Sort;			
+			import mx.collections.ArrayCollection;			
+			import mx.events.CubeEvent;
+			import mx.events.ListEvent;
+			import mx.events.DragEvent;
+			import mx.olap.OLAPSet;
+			import mx.olap.IOLAPQueryAxis;
+			import mx.olap.OLAPQuery;
+			import mx.olap.IOLAPCube;
+			import mx.olap.OLAPResult;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;			
+			import mx.managers.DragManager;
+			import mx.utils.ObjectUtil;
+			
+			import com.pearl.normandy.utils.HolidayUtil;			
+			import com.pearl.normandy.utils.TimeHelp;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.vo.UserVO;			
+			
+			import ilog.charts.PivotAttribute;
+			
+			private function init():void{
+				yearLabel.text = new Date().fullYear.toString();
+				projectRo.getProjectsByYear(yearLabel.text);
+				userRo.getAllProductionUsers();
+				types = new ArrayCollection();
+				types.addItem("Production");
+			}					
+			
+			[Bindable]
+			private var employees:ArrayCollection;
+			
+			private function getAllProductionUsersHandler(e:ResultEvent):void{
+				employees = e.result as ArrayCollection;
+			}
+			
+			private var _projects:ArrayCollection;
+			
+			public function get projects():ArrayCollection{
+				return this._projects;
+			}
+			
+			[Bindable]
+			public function set projects(value:ArrayCollection):void{
+				this._projects = value;
+				projectCB.dataProvider = projects;
+			}
+			
+			[Bindable]
+			private var selectedUsers:ArrayCollection;
+			
+			private var _types:ArrayCollection;
+			
+			public function get types():ArrayCollection{
+				return this._types;
+			}
+			
+			[Bindable]
+			public function set types(val:ArrayCollection):void{
+				this._types = val;
+				if (selectedUsers && selectedUsers.length > 0){
+					reportRo.getUserEfforts(yearLabel.text, selectedUsers, types);
+				}
+			}
+			
+			private function yearChangeHandler(e:Event):void{
+				var yearStr:String;
+				var yearNum:Number = Number(yearLabel.text);
+				
+				if (e.target.id == "leftBtn"){
+					yearNum = yearNum - 1;
+				}
+				
+				if (e.target.id == "rightBtn"){
+					yearNum = yearNum + 1;
+				}
+				
+				yearStr = yearNum.toString();
+				yearLabel.text = yearStr;
+				projectRo.getProjectsByYear(yearStr);
+				if (selectedUsers && selectedUsers.length > 0) {
+					reportRo.getUserEfforts(yearStr, selectedUsers, types);
+				}			
+			}
+			
+			private function getProjectsByYearHandler(e:ResultEvent):void{
+				projects = e.result as ArrayCollection;
+			}
+			
+			private var selectedProject:ProjectVO;
+			
+			private function projectCBChangeHandler():void{
+				selectedProject = projectCB.selectedItem as ProjectVO;	
+				userRo.getProjectUsers(selectedProject.id,true);
+				searchTI.text = "";
+				showAllUsersCB.selected = false;
+				selectedUsers.removeAll();
+			}
+			
+			private function getAttributes(elements:Array, attributes:Array):Array{
+				var result:Array = [];
+				for each (var attribute:PivotAttribute in attributes){
+					if (elements.indexOf(attribute.element) != -1){
+						result.push(attribute);
+					}
+				}
+				return result;
+			}
+			
+			private function getProjectUsersHandler(e:ResultEvent):void{
+				employees = e.result as ArrayCollection;
+			}
+
+			private var _userInfoFilter:String = "";
+			
+			[Bindable]
+			public function set userInfoFilter(value:String):void{
+				this._userInfoFilter=value;
+				updateEmployeeFilter();
+			}
+			
+			public function get userInfoFilter():String{
+				return this._userInfoFilter;
+			}
+			
+			private function updateEmployeeFilter():void{
+				var employeeCollection:ICollectionView = employeeADG.dataProvider as ICollectionView;
+				if (employeeCollection.filterFunction == null){
+					employeeCollection.filterFunction = employeeFilter;
+				}
+				employeeCollection.refresh();
+			}
+			
+			private function employeeFilter(item:Object):Boolean{
+				var user:UserVO = item as UserVO;
+				if(StringUtil.trim(userInfoFilter)==""){
+		   				return true;
+		   			}
+	   			var searchArr:Array=StringUtil.trim(userInfoFilter).split(" ");
+	   			var pattern:RegExp = / /g;
+	   			var searchStr:String=user.name.replace(pattern, "")+user.employeeNo;
+	   			if(user.userName!="null"){
+	   				searchStr=searchStr+user.userName;
+	   			}
+	   			if(user.userGroupName!="null"){
+	   				searchStr=searchStr+user.userGroupName;
+	   			}
+	   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+	   				return true;
+	   			}		   			
+				else{
+					return false;
+				}
+			}
+			
+			private function showAllUsersChange():void {
+				if (selectedProject) {
+					if (showAllUsersCB.selected) {
+						userRo.getAllProductionUsers();
+						selectedUsers.removeAll();
+					}else{
+						userRo.getProjectUsers(selectedProject.id,true);
+						selectedUsers.removeAll();
+					}
+				}else{
+					showAllUsersCB.selected = true;
+				}
+			}
+			
+			private function btnClick():void{				
+				var year:String = yearLabel.text;
+				if (selectedUsers && selectedUsers.length > 0){
+					reportRo.getUserEfforts(year, selectedUsers, types);
+				}				
+			}
+			
+			private var activities:ArrayCollection;	
+			
+			private function selectAllUsersClick():void {
+				if (employees && employees.length > 0) {
+					for each (var user:UserVO in employees) {
+						user.isSelected = true;
+						selectedUsers.addItem(user);
+					}
+				}
+			}
+			
+			private function clearAllUsersClick():void {
+				if (employees && employees.length > 0) {
+					for each (var user:UserVO in employees) {
+						user.isSelected = false;
+					}
+					selectedUsers.removeAll();
+				}
+			}
+			
+			private function runQuery(e:CubeEvent):void {
+				var iCube:IOLAPCube = IOLAPCube(e.currentTarget);
+            	var query:OLAPQuery = new OLAPQuery;
+            	var rowQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.ROW_AXIS);
+            	var nameSet:OLAPSet = new OLAPSet;
+            	nameSet.addElements(iCube.findDimension("NameDim").findAttribute("Name").children);
+            	rowQueryAxis.addSet(nameSet);
+            	var colQueryAxis:IOLAPQueryAxis = query.getAxis(OLAPQuery.COLUMN_AXIS);
+            	var quarterSet:OLAPSet = new OLAPSet;
+            	quarterSet.addElements(iCube.findDimension("TimeDim").findAttribute("Quarter").children);
+            	var monthSet:OLAPSet = new OLAPSet;
+            	monthSet.addElements(iCube.findDimension("TimeDim").findAttribute("Month").children);
+            	colQueryAxis.addSet(quarterSet.crossJoin(monthSet));
+            	var token:AsyncToken = cube.execute(query);
+            	token.addResponder(new AsyncResponder(showResult, showFault));
+			}
+
+	        private function showFault(error:ErrorMessage, token:Object):void {
+	            Alert.show(error.faultString);
+	        }
+	
+	        private function showResult(result:Object, token:Object):void {
+	            if (!result) {
+	                Alert.show("No results from query.");
+	                return;
+	            }
+	            olapDG.dataProvider= result as OLAPResult;           
+	        }        
+	
+			private function popUpButtonInit():void{
+				var popupComp:SelectActivityTypePopUp = new SelectActivityTypePopUp();
+				popupComp.addEventListener(CheckBoxChangeEvent.RESULT, resultHandler);
+				popupBtn.popUp = popupComp;
+			}
+			
+			private function resultHandler(e:CheckBoxChangeEvent):void{
+				var result:ArrayCollection = e.object as ArrayCollection;	
+				var ac:ArrayCollection = new ArrayCollection();
+				for each(var o:Object in result){
+					ac.addItem(o.label);
+				}	
+				types = ac;				
+			}
+			
+			private function getUserEffortsHandler(e:ResultEvent):void{
+				cube.dataProvider = e.result as ArrayCollection;
+				pivotChart.cube = cube;
+				pivotChart.categoryAxis.padding = 0;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="model.selectedUsers" destination="this.selectedUsers"/>
+
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getUserEfforts" result="getUserEffortsHandler(event)"/>
+	</mx:RemoteObject>	
+	<mx:RemoteObject id="projectRo" destination="ro.project">
+		<mx:method name="getProjectsByYear" result="getProjectsByYearHandler(event)"/>
+	</mx:RemoteObject>	
+	<mx:RemoteObject id="userRo" destination="ro.user">
+		<mx:method name="getAllProductionUsers" result="getAllProductionUsersHandler(event)"/>
+		<mx:method name="getProjectUsers" result="getProjectUsersHandler(event)"/>
+	</mx:RemoteObject>	
+	
+	<mx:OLAPCube id="cube" complete="runQuery(event)">
+		<mx:OLAPDimension name="NameDim">
+			<mx:OLAPAttribute name="Name" dataField="name"/>
+			<mx:OLAPHierarchy name="NameHier" hasAll="true">
+				<mx:OLAPLevel attributeName="Name"/>
+			</mx:OLAPHierarchy>
+		</mx:OLAPDimension>
+		
+		<mx:OLAPDimension name="TimeDim">
+			<!--mx:OLAPAttribute name="Year" dataField="year"/-->
+			<mx:OLAPAttribute name="Quarter" dataField="quarter"/>
+			<mx:OLAPAttribute name="Month" dataField="month"/>
+			<mx:OLAPHierarchy name="TimeHier" hasAll="true">
+				<!--mx:OLAPLevel attributeName="Year"/-->
+				<mx:OLAPLevel attributeName="Quarter"/>
+				<mx:OLAPLevel attributeName="Month"/>
+			</mx:OLAPHierarchy>
+		</mx:OLAPDimension>
+		
+		<mx:OLAPMeasure name="Effort" dataField="effort" aggregator="SUM"/>
+		
+	</mx:OLAPCube>	
+
+	<mx:ApplicationControlBar width="100%" height="30" paddingTop="0">
+		<popTextInput:PopUpTextInput id="projectCB" width="200" onChange="projectCBChangeHandler()" labelField="projectName" paddingTop="1" 
+			keepSelection="true"/>
+		<mx:CheckBox id="showAllUsersCB" width="24" height="24" styleName="checkBoxCurProjUser" selected="true"
+					 textAlign="center" change="showAllUsersChange()" toolTip="{resourceManager.getString('Language','tooltip.show_all_users')}"/>
+		<mx:PopUpButton id="popupBtn" label="Select Type" textAlign="center" creationComplete="popUpButtonInit()" width="135"/>
+		<mx:Spacer width="40%"/>
+		<mx:Button id="leftBtn" icon="@Embed('../resource/left.png')" click="yearChangeHandler(event)" paddingTop="1"/>
+		<mx:Label id="yearLabel" fontWeight="bold" paddingTop="1"/>
+		<mx:Button id="rightBtn" icon="@Embed('../resource/right.png')" click="yearChangeHandler(event)" paddingTop="1"/>
+		<mx:Spacer width="100%"/>
+		<mx:ToggleButtonBar dataProvider="{evs}" paddingTop="1"/>
+	</mx:ApplicationControlBar>
+	<mx:Panel width="100%" height="100%" backgroundColor="0xFFFFFF">		
+		<mx:HDividedBox width="100%" height="100%">
+			<mx:VBox width="16%" height="100%">
+				<mx:AdvancedDataGrid id="employeeADG" dataProvider="{employees}" width="100%" height="100%">
+					<mx:columns>
+						<mx:AdvancedDataGridColumn dataField="isSelected" width="22" headerText=" ">
+							<mx:itemRenderer>
+								<mx:Component>
+									<mx:HBox horizontalAlign="center">
+										<mx:CheckBox id="userCB" selected="{data.isSelected}" change="userCBChange()">
+											<mx:Script source="../script/CommonScript.as"/>
+											<mx:Script>
+												<![CDATA[													
+													private function userCBChange():void{
+														if (userCB.selected){
+															data.isSelected = true;														
+															model.selectedUsers.addItem(data);
+														}else{
+															data.isSelected = false;
+															if (model.selectedUsers.length>0){
+																for(var i:int=0; i<model.selectedUsers.length; i++){
+																	if (model.selectedUsers.getItemAt(i).id == data.id){
+																		model.selectedUsers.removeItemAt(i);
+																	}
+																}
+															}
+														}											
+													}
+												]]>
+											</mx:Script>
+										</mx:CheckBox>
+									</mx:HBox>
+								</mx:Component>
+							</mx:itemRenderer>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn width="70" dataField="employeeNo" headerText="{resourceManager.getString('Language','label.employee_no')}"/>
+						<mx:AdvancedDataGridColumn dataField="name" headerText="{resourceManager.getString('Language','label.name')}"/>
+					</mx:columns>
+				</mx:AdvancedDataGrid>
+				
+				<mx:HBox width="16%">
+					<code:PromptingTextInput id="searchTI" width="210" change="userInfoFilter = searchTI.text;"
+						prompt="{resourceManager.getString('Language','label.search_user')}"/>
+				</mx:HBox>
+				
+				<mx:HBox width="16%">
+					<mx:Button id="selectAll" label="{resourceManager.getString('Language','label.select_all')}" click="selectAllUsersClick()"/>					
+					<mx:Button id="btn" label="{resourceManager.getString('Language','label.query')}" click="btnClick()" width="100"/> 
+					<mx:Button id="clearAll" label="{resourceManager.getString('Language','label.clear_all')}" click="clearAllUsersClick()"/>
+				</mx:HBox>
+				
+			</mx:VBox>
+			
+			<mx:ViewStack id="evs" width="100%" height="100%" creationPolicy="all">							
+				<mx:HBox width="100%" height="100%" icon="@Embed('../resource/icon_chart.png')">				
+				<ilog:PivotChart id="pivotChart" width="100%" height="100%" showBusyCursor="true" showLegend="true" 
+					cornerRadius="4" borderStyle="solid" dropAreaCornerRadius="4" 
+					paddingLeft="10" paddingTop="10" paddingBottom="10" paddingRight="10"
+					categoryAttributes="{getAttributes(cube.findDimension('TimeDim').attributes.toArray(),pivotChart.attributes)}"
+			   	    seriesAttributes="{getAttributes(cube.findDimension('NameDim').attributes.toArray(),pivotChart.attributes)}"
+			   		chartsAttributes="{getAttributes([cube.findDimension('Measures')],pivotChart.attributes)}">
+			   		
+			   		<ilog:dataAxis>
+			   			<mx:LinearAxis padding="0"/>		   		
+			    	</ilog:dataAxis>
+			    		    	  			  	
+					<ilog:chart>
+						<mx:Component>
+							<mx:LineChart showDataTips="true" width="100%" height="100%">
+								<mx:horizontalAxisRenderers>
+									<ilog:OLAPAxisRenderer axis="{outerDocument.pivotChart.categoryAxis}">
+										<ilog:tickStroke>
+											<mx:Stroke color="0xeeeeee" weight="2"/>
+										</ilog:tickStroke>
+									</ilog:OLAPAxisRenderer>
+								</mx:horizontalAxisRenderers>
+							</mx:LineChart>
+						</mx:Component>
+					</ilog:chart>
+				
+					<ilog:seriesProviders>
+						<ilog:OLAPSeriesProvider>
+							<ilog:series>
+								<mx:Component>
+									<ilog:OLAPLineSeries itemRenderer="mx.charts.renderers.CircleItemRenderer" form="curve"/>
+								</mx:Component>
+							</ilog:series>
+						</ilog:OLAPSeriesProvider>
+					</ilog:seriesProviders>				
+				</ilog:PivotChart>
+				</mx:HBox>
+				<mx:VBox width="100%" height="100%" icon="@Embed('../resource/icon_grid.png')">
+					<mx:OLAPDataGrid id="olapDG" width="100%" height="100%"/>
+				</mx:VBox>			
+			</mx:ViewStack>			
+		</mx:HDividedBox>
+	</mx:Panel>
+</mx:VBox>

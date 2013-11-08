@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="800" height="600" borderAlpha="1" 
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);">
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.FeedbackVO;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import com.pearl.normandy.vo.ProjectVO;			
+			
+			[Bindable]
+			public var rootCause:String;			
+			[Bindable]
+			public var priority:String;
+			
+			private var isPM:Boolean = false;
+			private var isAD:Boolean = false;
+			private var isLead:Boolean = false;
+			private var isQA:Boolean = false;
+			private var isAPM:Boolean = false;			
+						
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				
+				if(rootCause!=null && rootCause!=""){
+					reportRo.getFeedbackByRootCause(project.id, milestone, rootCause);
+				}
+				else if(priority!=null && priority!=null){
+					reportRo.getFeedbackByPriority(project.id, milestone, priority);
+				}
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			[Bindable]
+			public var milestone:String;
+
+			
+			private function getFeedbackHandler(event:ResultEvent):void{
+				feedbacks = event.result as ArrayCollection;
+			}
+			
+			private function onFeedbackItemDoubleClick(item:Object, index:int):void{
+				var feedback:FeedbackVO = item as FeedbackVO;
+								
+				if(model.currUser.manager == Constants.BOOLEAN_YES){
+					isAPM = true;
+				}
+				
+				for each(var pu:ProjectUserVO in model.projectUserRole){
+					if(pu.projectRoleId == Constants.PROJECT_ROLE_PM_NUM)		isPM = true;
+					if(pu.projectRoleId == Constants.PROJECT_ROLE_AD_NUM)		isAD = true;
+					if(pu.projectRoleId == Constants.PROJECT_ROLE_LEAD_NUM)		isLead = true;
+					if(pu.projectRoleId == Constants.PROJECT_ROLE_QA_NUM)		isQA = true;
+				}
+				
+				if(isAPM || isAD || isLead || isPM || isQA){				
+					taskRo.getTaskById(feedback.taskId);
+				}else{
+					var viewTaskPopup:ViewTaskPopup = ViewTaskPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), ViewTaskPopup, true));
+		   			PopUpManager.centerPopUp(viewTaskPopup);
+		   			viewTaskPopup.taskId = item.taskId as int;
+		   			viewTaskPopup.viewTaskVS.selectedIndex = index;
+				}	
+			}
+			
+			private function getTaskByIdHandler(e:ResultEvent):void{
+				var task:TaskVO = e.result as TaskVO;
+				if(isQA){
+					var viewTaskWithFeedbackPopup:ViewTaskWithFeedbackPopup = ViewTaskWithFeedbackPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication),ViewTaskWithFeedbackPopup,true));
+					PopUpManager.centerPopUp(viewTaskWithFeedbackPopup);
+					viewTaskWithFeedbackPopup.task = task;
+					viewTaskWithFeedbackPopup.viewTaskVS.selectedIndex = 2;
+				}else{
+					var editTaskPopup:EditTaskPopup = EditTaskPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication),EditTaskPopup,true));
+					PopUpManager.centerPopUp(editTaskPopup);
+					editTaskPopup.task = task;
+					editTaskPopup.editTaskBasic.selectedProject = model.reportSelectProject;
+					editTaskPopup.editTaskBasic.selectedTask = task;
+					editTaskPopup.editTaskVS.selectedIndex = 3;
+					editTaskPopup.okButton.enabled = true;
+				}				
+			}
+		]]>
+	</mx:Script>
+	<!--==========================
+	  Services
+	===========================-->
+	<mx:RemoteObject id="reportRo" destination="ro.report">
+		<mx:method name="getFeedbackByRootCause" result="getFeedbackHandler(event)"/>
+		<mx:method name="getFeedbackByPriority" result="getFeedbackHandler(event)"/>
+		<mx:method name="getFeedback" result="getFeedbackHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getTaskById" result="getTaskByIdHandler(event)"/>
+	</mx:RemoteObject>
+
+	<!--==========================
+	  Variables
+	===========================--> 
+	<mx:ArrayCollection id="feedbacks"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+
+	<mx:DataGrid width="100%" height="100%" dataProvider="{feedbacks}" showDataTips="true" doubleClickEnabled="true"
+		itemDoubleClick="onFeedbackItemDoubleClick(event.itemRenderer.data,2)">
+		<mx:columns>
+			<mx:DataGridColumn dataField="taskId" dataTipField="taskId" width="50"
+				headerText="{resourceManager.getString('Language','label.task_id')}"/>
+			<mx:DataGridColumn dataField="taskName" dataTipField="taskName" width="100"
+				headerText="{resourceManager.getString('Language','label.task_name')}"/>				
+			<mx:DataGridColumn dataField="errorText" dataTipField="errorText" width="120" 
+				headerText="{resourceManager.getString('Language','label.feedback.error.text')}"/>
+			<mx:DataGridColumn dataField="severityValue" dataTipField="severityValue" width="40"
+				headerText="{resourceManager.getString('Language','label.feedback.severity')}"/>				
+			<mx:DataGridColumn dataField="typeValue" dataTipField="typeValue" width="40"
+				headerText="{resourceManager.getString('Language','label.feedback.root.cause')}"/>
+			<mx:DataGridColumn dataField="statusValue" dataTipField="statusValue" width="40"
+				headerText="{resourceManager.getString('Language','label.feedback.status')}"/>
+		</mx:columns>
+	</mx:DataGrid>
+</mx:TitleWindow>

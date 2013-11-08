@@ -1,0 +1,54 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	<body>
+		<font style="font-size: 15;font-weight: bold;">
+			操作人：$!{currUser.EmployeeNo} [$!{currUser.Name}]
+		</font>
+		<br>
+		<br>
+		
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#993300" bordercolor="#993300">
+				<td colspan="6" style="color: white;font-weight: bold;">基本信息</td>
+			</tr>
+			<tr bgcolor="#FFFFFF" align="center">
+				<th width="15%">子任务ID</th>
+				<th width="25%">任务名称</th>
+				<th width="10%">递交阶段</th>
+				<th width="10%">Lead</th>
+				<th width="20%">Artist</th>
+				<th width="10%">Deliverable</th>
+			</tr>
+			<tr bgcolor="#FFFFFF" align="center">
+				<td>$!{subtask.Id}</td>
+				<td>$!{subtask.TaskName}</td>
+				<td>$!{subtask.SubtaskName}</td>
+				<td>$!{subtask.Owner}</td>
+				<td>$!{subtask.ResourcesName}</td>
+				<td>
+					#if($subtask.Deliverable=='Y')
+			         	需要交付
+			       	#else
+			        	不需要交付
+			       	#end
+				</td>
+			</tr>
+		</table>
+		<br>
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#FFFFFF">
+				<th align="left">文件路径</th>
+			</tr>
+			<tr bgcolor="#FFFFFF">
+				<td>
+					<a href="$!{subtask.FilePath}">$!{subtask.FilePath}</a>
+				</td>
+			</tr>
+		</table>
+		<br>
+	</body>
+</html>

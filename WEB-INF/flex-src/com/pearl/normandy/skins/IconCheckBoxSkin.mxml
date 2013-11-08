@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<GraphicBorderSkin xmlns:mx="http://www.adobe.com/2006/mxml"
+ xmlns="http://www.degrafa.com/2007">
+ 
+	<mx:Script>
+		<![CDATA[
+            [Bindable] 
+            private var awidth:Number = 0;
+            
+            [Bindable] 
+            private var aheight:Number = 0;
+            
+            override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void {
+                super.updateDisplayList(unscaledWidth, unscaledHeight);
+                awidth = unscaledWidth;
+                aheight = unscaledHeight;
+            }            			
+		]]>
+	</mx:Script>
+	
+	<strokes>
+		<SolidStroke id="overStroke" color="#008fe8" alpha="1" weight="1"/>
+		<SolidStroke id="downStroke" color="#008fe8" alpha="1" weight="1"/>	
+	</strokes>
+	
+	
+    <fills>
+        <LinearGradientFill id="overFill" angle="90">
+            <GradientStop color="#d8f0ff" alpha="1"/>
+            <GradientStop color="#9cd8ff" alpha="1"/>
+        </LinearGradientFill>    
+        <LinearGradientFill id="downFill" angle="90">
+            <GradientStop color="#72c7fd" alpha="1"/>
+            <GradientStop color="#d8f0ff" alpha="1"/>
+        </LinearGradientFill>
+        <LinearGradientFill id="selectedUpFill" angle="90">
+            <GradientStop color="#d8f0ff" alpha="1"/>
+            <GradientStop color="#72c7fd" alpha="1"/>
+        </LinearGradientFill>                   	
+    </fills>
+    
+    <geometry>
+    	<RegularRectangle id="mainRect" width="{awidth}" height="{aheight}"/>
+    </geometry> 
+    
+    <states>
+        <State name="overSkin">
+            <SetProperty target="{mainRect}" name="fill" value="{overFill}" />
+            <SetProperty target="{mainRect}" name="stroke" value="{overStroke}" />
+        </State>
+        <State name="downSkin">
+            <SetProperty target="{mainRect}" name="fill" value="{downFill}" />
+            <SetProperty target="{mainRect}" name="stroke" value="{downStroke}" />
+        </State>
+        <State name="selectedUpSkin">
+            <SetProperty target="{mainRect}" name="fill" value="{selectedUpFill}" />
+            <SetProperty target="{mainRect}" name="stroke" value="{overStroke}" />
+        </State>        
+        <State name="selectedOverSkin">
+            <SetProperty target="{mainRect}" name="fill" value="{downFill}" />
+            <SetProperty target="{mainRect}" name="stroke" value="{overStroke}" />
+        </State>
+        <State name="selectedDownSkin">
+            <SetProperty target="{mainRect}" name="fill" value="{downFill}" />
+            <SetProperty target="{mainRect}" name="stroke" value="{downStroke}" />
+        </State>        
+    </states>       
+</GraphicBorderSkin>

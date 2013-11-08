@@ -1,0 +1,1149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+ 	xmlns:ilog="http://www.ilog.com/2007/ilog/flex"
+	xmlns:code="http://code.google.com/p/flexlib/" 	
+	xmlns:utils="com.pearl.normandy.utils.*"
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+ 	xmlns:common="common.*"
+ 	xmlns:view="view.*"
+ 	width="100%" height="100%" 	
+ 	initialize="init()" xmlns:popTextInput="com.pearl.normandy.component.popTextInput.*">
+ 	
+  	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script source="../script/GanttSheetHelper.as"/>  	
+
+  	<mx:Script>
+  	<![CDATA[
+  		import com.pearl.normandy.component.popTextInput.SearchEvent;
+  		import mx.events.FlexEvent;
+  		import popup.ProjectMemberAbilityPopup;
+  		import popup.AppraiseProjectMemberPopup;
+  		import com.pearl.normandy.vo.ProjectMemberVO;
+  		import popup.ImportTasksFromMppPopup;
+  		import popup.DownloadResourceEfficiencyPopup;
+  		import mx.controls.List;
+  		import com.pearl.normandy.utils.DateUtil;
+  		import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+  		import com.pearl.normandy.vo.ReportLogVO;
+  		import popup.ProjectCheckListPopup;
+  		import mx.controls.Alert;
+  		import com.pearl.normandy.utils.CalendarConfig;
+  		import mx.controls.sliderClasses.Slider;
+  		import mx.events.SliderEvent;
+  		import com.adobe.cairngorm.control.CairngormEventDispatcher;
+  		import ilog.gantt.GanttSheet;
+  		import ilog.gantt.GanttDataGrid; 
+  		 		  		
+  		import mx.binding.utils.BindingUtils;
+  		import mx.rpc.events.ResultEvent;
+  		import mx.events.AdvancedDataGridEvent;
+  		import mx.events.CloseEvent;  		  		
+  		import mx.events.ListEvent;
+  		import mx.events.MenuEvent;  		
+  		import mx.collections.ArrayCollection;
+  		import mx.managers.PopUpManager;
+		
+  		import com.pearl.normandy.collections.HierarchicalCollectionViewFixed;  		
+  		import com.pearl.normandy.event.MilestoneEvent;  				
+  		import com.pearl.normandy.event.PopupEvent;
+  		import com.pearl.normandy.event.ReloadEvent;
+  		import com.pearl.normandy.event.RightMenuEvent;  		  		  			
+  		import com.pearl.normandy.event.ViewEvent;  		
+  		import com.pearl.normandy.event.TaskEvent;  		
+  		import com.pearl.normandy.vo.TaskVO;		
+  		import com.pearl.normandy.vo.UserVO;
+  		import com.pearl.normandy.vo.ProjectVO;
+		import com.pearl.normandy.vo.ProjectUserVO;  	
+  		import com.pearl.normandy.vo.ProductionProcessVO;			
+  		import com.pearl.normandy.utils.Constants;  	
+  		import com.pearl.normandy.enum.ImageEnum;	
+		import com.pearl.normandy.enum.MenuEnum;  	
+  		import com.pearl.normandy.enum.CheckItemEnum;			
+  		
+		import popup.AddProcessPopup;  		
+		import popup.AddProjectPopup;
+		import popup.AddTaskPopup;		
+  		import popup.CheckItemPopUp;		
+  		import popup.CopyTaskPopup;		
+		import popup.EditProjectPopup;		
+		import popup.EditTaskPopup;		
+		import popup.MigrateProcessPopup;
+		import popup.ResourceAllocationPopup;						
+  		import popup.TaskAllocationPopup;  		
+  		
+  		import view.TaskView;
+  		
+  		import com.pearl.normandy.event.ProjectEvent;
+  		import com.pearl.normandy.event.ProjectUserEvent;
+  		
+	    //==============================
+	    //Control Attributes
+	    //==============================	    			    
+		private var currUser:UserVO = model.currUser;
+				
+		[Bindable]
+		private var reportLog:ReportLogVO;
+					
+		private var _selectedProject:ProjectVO;
+		[Bindable]
+		public function set selectedProject(value:ProjectVO):void{			
+			this._selectedProject = value;
+			CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.getProjectMilestoneEvent(selectedProject, true));
+			CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.getProjectTaskCategoryEvent(selectedProject, true));
+			CairngormEventDispatcher.getInstance().dispatchEvent(ProjectUserEvent.getProjectLeadEvent(selectedProject, true));		    	
+			
+	    	model.taskViewMode = Constants.VIEW_MODE_NONE;
+	    	model.taskEditable = false;
+	    	model.activityViewMode = Constants.VIEW_MODE_NONE;
+	    	model.activityEditable = false;
+	    	
+	    	//PM
+	    	if(currUser.userGroupId == Constants.GROUP_PM_NUM){
+	    		model.currProjectPM = true;
+	    	}	    
+	    	
+	    	projectUserRo.getProjectUserByUserId(currUser.id, selectedProject.id);
+	    	projectMemberRo.getProjectMemberByUserId(currUser.id, selectedProject.id);		    	
+		}
+		
+		public function get selectedProject():ProjectVO{
+			return this._selectedProject;
+		}	
+
+
+		private var _createdProject:ProjectVO;
+		[Bindable]
+		public function set createdProject(value:ProjectVO):void{
+			this._createdProject = value;
+			model.GLOBAL_SELECTED_PROJECT = createdProject;
+			CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.getProjectByUserEvent(currUser));			
+		}
+		
+		public function get createdProject():ProjectVO{
+			return this._createdProject;
+		}
+		
+
+	    //==============================
+	    //Data Attributes
+	    //==============================		
+	    
+	    //==================================================
+	    //Add by Frank, 2009/9/7
+	    //因为projectCB关联到userProjects变量，同时在Set 函数里会设置projectCB的选择项
+	    //如果单单绑定userProjects的话，在函数执行完combox会重置选择项
+	    //所以在此绑定_userProjects变量
+	    //==================================================
+	    [Bindable]    
+	    private var _userProjects:ArrayCollection;	
+	    public function set userProjects(value:ArrayCollection):void{
+	    	this._userProjects = value;
+	    	
+			if(userProjects && userProjects.length > 0){					
+								
+				var currProjectId:int;				
+				//if current project not exists, set first project as default
+				if(model.GLOBAL_SELECTED_PROJECT == null){
+					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(0) as ProjectVO;				 	
+				}								
+				//if current project already exists, navigate the drop down list and refresh
+				//this logic mostly is used by refresh function
+				else{
+					currProjectId = model.GLOBAL_SELECTED_PROJECT.id;
+					
+					var match:Boolean = false;				
+	   				for(var i:int=0;i<userProjects.length;i++){
+			   			var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+		   				if(item.id == currProjectId){
+		   					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(i) as ProjectVO;
+		   					projectCB.selectedIndex = i;
+		   					match = true;
+		   					break;
+		   				}
+	   				}
+	   				
+	   				//if current select project list is not in refreshed list
+	   				//set the first project as default
+	   				if(!match){
+	   					projectCB.selectedIndex = 0;
+	   					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(0) as ProjectVO;
+	   				}
+	   			}
+	   			activityRo.getAssignedEffortByProjectId(model.GLOBAL_SELECTED_PROJECT.id);
+	   			reportRo.getProjectProgress(model.GLOBAL_SELECTED_PROJECT,null);
+			}	    	
+	    }
+	    
+	    public function get userProjects():ArrayCollection{
+	    	return this._userProjects;
+	    }
+	    
+	    
+	    [Bindable]	    
+	    private var _projectMilestones:ArrayCollection;
+	    public function set projectMilestones(value:ArrayCollection):void{
+	    	this._projectMilestones = value;
+	    					
+			if(model.selectedMilestone != Constants.SELECT_ITEM_ALL){
+				var match:Boolean = false;				
+   				for(var i:int=0;i<projectMilestones.length;i++){
+		   			var mitem:String = projectMilestones.getItemAt(i) as String;
+	   				if(mitem == model.selectedMilestone){
+	   					milestoneCB.selectedIndex = i;
+	   					match = true;
+	   					break;
+	   				}						
+   				}
+   				
+   				if(!match){
+   					model.selectedMilestone = Constants.SELECT_ITEM_ALL;
+   					milestoneCB.selectedIndex = 0;
+   				}				   				
+			}						    	
+	    }	  	    	
+	    
+	    public function get projectMilestones():ArrayCollection{
+	    	return this._projectMilestones;
+	    }
+	    
+	    [Bindable]	    
+	    private var _projectTaskCategories:ArrayCollection;
+	    public function set projectTaskCategories(value:ArrayCollection):void{
+	    	this._projectTaskCategories = value;
+	    	
+			if(model.selectedTaskCategory != Constants.SELECT_ITEM_ALL){
+				var match:Boolean = false;				
+   				for(var i:int=0;i<projectTaskCategories.length;i++){
+		   			var item:String = projectTaskCategories.getItemAt(i) as String;
+	   				if(item == model.selectedTaskCategory){
+	   					categoryCB.selectedIndex = i;
+	   					match = true;
+	   					break;
+	   				}						
+   				}
+   				
+   				if(!match){
+   					model.selectedTaskCategory = Constants.SELECT_ITEM_ALL;
+   					categoryCB.selectedIndex = 0;
+   				}				   				
+			}		    	
+	    }
+	    
+	    public function get projectTaskCategories():ArrayCollection{
+	    	return this._projectTaskCategories;
+	    }
+	    	   
+	    private var _leads:ArrayCollection;
+	    [Bindable]
+	    public function set leads(value:ArrayCollection):void{
+	    	this._leads = value;
+	    	
+			if(model.leadFilter != null){
+				var match:Boolean = false;				
+   				for(var i:int=0; i<leads.length;i++){
+		   			var lead:ProjectUserVO = leads.getItemAt(i) as ProjectUserVO;
+	   				if(lead.userId == model.leadFilter.userId){
+	   					leadCB.selectedIndex = i;
+	   					match = true;
+	   					break;
+	   				}						
+   				}
+   				
+   				if(!match){
+   					model.leadFilter = null;
+   					leadCB.selectedIndex = 0;
+   				}				   				
+			}		    	
+	    }
+	    
+	    public function get leads():ArrayCollection{
+	    	return this._leads;
+	    }
+	    
+   
+		
+	    //==============================
+	    //Methods
+	    //==============================		
+		private function init():void{		
+			CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.getProjectByUserEvent(currUser));			
+			this.addEventListener(RightMenuEvent.RIGHT_MENU_EVENT, onMenuClick);
+		} 	  		
+		
+		
+		private function refresh():void{				
+			CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.getProjectByUserEvent(currUser));	
+		}
+	    
+	    
+	    
+	   	/**
+	   	 * Common function to expand/collapse data grid, zoom in/out/auto
+	   	 * By determine current selected task category tab
+	   	 **/
+	   	public function execute(taskView:TaskView, func: Function, type: String):void{	   		
+	   		if(model.GLOBAL_USER_TASKS_HC==null || model.GLOBAL_USER_TASKS_HC.length == 0){
+	   			return;
+	   		}
+	    	if(type == Constants.GANTT_DATA_GRID){
+	    		func(taskView.ganttDataGrid);
+		   	}
+		   	else if(type == Constants.GANTT_SHEET){
+				func(taskView.ganttSheet);
+		   	} 
+	   	}
+	    
+	    
+	    public function expandProject(ganttDataGrid: GanttDataGrid):void{
+			ganttDataGrid.expandAll();
+	    }
+	    
+	    public function collapseProject(ganttDataGrid: GanttDataGrid):void{
+			ganttDataGrid.collapseAll();    
+			ganttDataGrid.dispatchEvent(new AdvancedDataGridEvent(AdvancedDataGridEvent.ITEM_CLOSE));	
+	    }    
+	    
+	    public function zoomInProject(ganttSheet: GanttSheet):void{
+			zoomIn(ganttSheet);	
+	    }
+	    
+	    public function zoomOutProject(ganttSheet: GanttSheet):void{
+			ganttSheet.zoom(Constants.ZOOM_OUT_RATIO, null, true);   	    	
+	    }
+	    
+	    public function autoZoom(ganttSheet: GanttSheet):void{
+			ganttSheet.showAll(10, true);	    	
+	    }	    
+	    
+	    
+	    private function resetFilter():void{
+			model.selectedMilestone = Constants.SELECT_ITEM_ALL;
+			model.selectedTaskCategory = Constants.SELECT_ITEM_ALL;			
+			model.taskTypeFilter = "";
+			model.taskAssignFilter = "";
+			model.taskNameFilter = "";								
+			model.limitToProjectActivity = false;
+			model.userInforFilter = "";
+			milestoneCB.selectedIndex = 0;
+			categoryCB.selectedIndex = 0;
+			taskTypeCB.selectedIndex = 0;
+			taskAssignCB.selectedIndex = 0;  
+			taskNameTI.text = "";
+			limitToProjectActivityCB.selected = false;
+			searchTI.text="";
+	    }	       
+	   	     	    	    
+	    //==============================
+	    //Remote Object Handlers
+	    //==============================		    					    					    	    		    
+	    private function createBaselineHandler(event:ResultEvent):void{
+	    	var result:Boolean = event.result;
+	    	if(result){
+	    		Alert.show(resourceManager.getString('Language','alert.save_baseline_sucess'));
+	    	}
+	    }	  
+	    
+	    private function getProjectUserByUserIdHandler(event:ResultEvent):void{	
+	    	var adPrivilege:ArrayCollection 	= new ArrayCollection();
+	    	var leadPrivilege:ArrayCollection 	= new ArrayCollection();
+	    	var qaPrivilege:ArrayCollection 	= new ArrayCollection();
+	    	
+	    	for each(var pu:ProjectUserVO in event.result){
+	    		if(pu.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+	    			adPrivilege.addItem(pu);
+	    		}
+	    		else if(pu.projectRoleId == Constants.PROJECT_ROLE_LEAD_NUM && pu.status != Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+	    			leadPrivilege.addItem(pu);
+	    		}
+	    		else if(pu.projectRoleId == Constants.PROJECT_ROLE_QA_NUM && pu.status != Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+	    			qaPrivilege.addItem(pu);
+	    		}
+	    	}
+				    		    		    	    	
+	    	//Edit Privilege
+//	    	if(currUser.manager == Constants.BOOLEAN_YES || currUser.userGroupId == Constants.GROUP_PM_NUM){
+//				model.taskEditable 		= true;
+//    			model.activityEditable 	= true;		    		
+//	    	}else if(adPrivilege.length > 0){
+//	    		model.taskEditable 		= true;
+//    			model.activityEditable 	= true;
+//    			model.currProjectAd		= true;
+//	    	}else if(leadPrivilege.length > 0){
+//	    		model.activityEditable 	= true;
+//	    		model.currProjectLead	= true;
+//	    	}else{
+//		    	model.taskEditable 		= false;
+//		    	model.activityEditable 	= false;	    		
+//	    	}   		    		
+		    	
+		    //View Privilege
+//		    if(currUser.manager == Constants.BOOLEAN_YES || currUser.userGroupId == Constants.GROUP_INSPECTOR_NUM){
+//		    	model.taskViewMode 		= Constants.VIEW_MODE_ALL;
+//		    	model.activityViewMode 	= Constants.VIEW_MODE_ALL;
+//		    }		    
+//		    else if(adPrivilege.length > 0 || qaPrivilege.length > 0 || currUser.userGroupId == Constants.GROUP_PM_NUM){
+//		    	model.taskViewMode 		= Constants.VIEW_MODE_PROJECT;
+//		    	model.activityViewMode 	= Constants.VIEW_MODE_PROJECT;
+//		    }else if(leadPrivilege.length > 0){
+//		    	model.taskViewMode 		= Constants.VIEW_MODE_ASSIGNED;
+//		    	model.activityViewMode 	= Constants.VIEW_MODE_ASSIGNED;
+//		    }else{
+//			    model.taskViewMode 		= Constants.VIEW_MODE_NONE;
+//			    model.activityViewMode 	= Constants.VIEW_MODE_PROJECT;		    	
+//		    }		    	    		    
+	    }
+	    
+	    private function getProjectMemberByUserIdHandler(event:ResultEvent):void{
+	    	model.currProjectMember	= event.result as ProjectMemberVO;
+	    	
+	    	//Edit Privilege
+	    	if(model.privilegeProject == Constants.PRIV_RW || model.privilegeResource == Constants.PRIV_RW){
+	    		if(model.privilegeProject == Constants.PRIV_RW){
+	    			model.taskEditable 		= true;
+	    		}
+	    		if(model.privilegeResource == Constants.PRIV_RW){
+	    			model.activityEditable 	= true;
+	    		}	
+	    	}else if(model.currProjectMember != null){
+	    		if(model.currProjectMember.privTask1 == Constants.PRIV_ALL || model.currProjectMember.privTask1 == Constants.PRIV_NON_PRODUCTION){
+	    			model.activityEditable 	= true;
+	    		}
+	    		if(model.currProjectMember.privTask2 != Constants.PRIV_NONE){
+	    			model.taskEditable 		= true;
+	    		}
+	    	}else{
+		    	model.taskEditable 		= false;
+		    	model.activityEditable 	= false;	    		
+	    	}
+	    	
+	    	if(model.privilegeProject == Constants.PRIV_RW){
+	    		menus.menuBarItems[0].enabled = true; 
+	    	}
+	    	if(model.taskEditable == false){
+	    		menus.menuBarItems[2].enabled = false; 
+	    	}else{
+	    		menus.menuBarItems[2].enabled = true;
+	    	}
+	    	
+	    	if(model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3){
+	    		menus.menuBarItems[5].enabled = true; 
+	    	}else{
+	    		menus.menuBarItems[5].enabled = false;
+	    	}
+	    	
+	    	//View Privilege
+		    if(model.privilegeProject != Constants.PRIV_NONE || model.privilegeResource != Constants.PRIV_NONE){
+		    	model.taskViewMode 		= Constants.VIEW_MODE_ALL;
+		    	model.activityViewMode 	= Constants.VIEW_MODE_ALL;
+		    }else{
+		    	if(model.currProjectMember == null){
+		    		model.taskViewMode 		= Constants.VIEW_MODE_NONE;
+		    		model.activityViewMode 	= Constants.VIEW_MODE_PROJECT;
+		    	}else{
+		    		if(model.currProjectMember.privTask2 == Constants.PRIV_ALL){
+		    			model.taskViewMode 		= Constants.VIEW_MODE_PROJECT;
+		    		}
+		    		if(model.currProjectMember.privResource == Constants.PRIV_ALL){
+		    			model.activityViewMode 	= Constants.VIEW_MODE_PROJECT;
+		    		}
+		    		if(model.currProjectMember.privTask2 == Constants.PRIV_ASSIGNED){
+		    			model.taskViewMode 		= Constants.VIEW_MODE_ASSIGNED;
+		   	 		}
+		    		if(model.currProjectMember.privResource == Constants.PRIV_ASSIGNED){
+		    			model.activityViewMode 	= Constants.VIEW_MODE_ASSIGNED;
+		   	 		}
+		   	 		if(model.currProjectMember.privResource == Constants.PRIV_NONE){
+		    			model.activityViewMode 	= Constants.VIEW_MODE_PROJECT;
+		   	 		}
+		    	}
+		    } 
+	    }   
+	    
+	    
+	    //==============================
+	    //Event Handlers
+	    //==============================			        
+	    private function onProjectChange(evt:Event):void{
+	    	if(projectCB.selectedIndex !=-1){
+	    		model.GLOBAL_SELECTED_PROJECT = projectCB.selectedItem as ProjectVO;
+	    		activityRo.getAssignedEffortByProjectId(model.GLOBAL_SELECTED_PROJECT.id);
+	    		reportRo.getProjectProgress(model.GLOBAL_SELECTED_PROJECT,null);
+	    		model.activityStaff = 0;
+	    	}	    
+
+	    }					
+		
+		private function onLeadChange():void{
+			if(leadCB.selectedIndex == 0){
+				model.leadFilter = null;
+			}
+			else{
+				model.leadFilter = leadCB.selectedItem as ProjectUserVO;
+			}
+		}		
+		
+		
+		private function onLockChange():void{
+			model.isLock = lockCB.selected;
+			model.isTaskViewLock = model.isLock;
+			model.isResourceViewLock = model.isLock;
+		}
+
+		
+		private function onMenuClick(event:MenuEvent):void{
+			if(event.label == "新建项目"){
+				showAddProject();
+			}
+			
+			if(event.label == "编辑项目"){
+				showEditProject();
+			}
+			
+			if(event.label  == "录入绩效"){
+				showAppraiseProjectMember();
+			}
+			
+			if(event.label  == "查看绩效"){
+				showProjectMemberAbility();
+			}
+			
+			if(event.label == "创建基线"){
+				baselineRo.createBaseline(selectedProject.id);
+			}		
+			
+			if(event.label == "创建项目报表"){
+				onCreateProjectReportClick(selectedProject.projectName,selectedProject.id);
+			}
+			
+			if(event.label == "下载项目报表"){
+				onDownloadReportClick();
+			}
+						
+			if(event.label == "编辑流程"){
+				showAddProcess();			
+			}	
+			
+			if(event.label == "Migrate Process"){
+				showMigrateProcess()				
+			}				
+			
+			if(event.label == "新建任务"){
+				showAddTask();				
+			}
+			
+			if(event.label == "添加子任务"){
+				addSubtask();				
+			}			
+			
+			if(event.label == "编辑任务"){
+				showEditTask();				
+			}
+			
+			if(event.label == "拷贝任务"){
+				showCopyTask();
+			}
+			
+			if(event.label == "移动任务"){
+				onMoveTaskClick();
+			}
+			
+			if(event.label == "取消任务"){
+				cancelTask();				
+			}
+			
+			if(event.label == "分配人员"){
+				allocateResources();				
+			}	
+			
+			if(event.label == "分配任务"){
+				assignTasks();			
+			}	
+			
+			if(event.label == "Lead/AD"){
+				showCheckItemPopUp(CheckItemEnum.STATUS_PENDING);
+			}													
+			
+			if(event.label == "QA"){
+				showCheckItemPopUp(CheckItemEnum.STATUS_REVIEWED);
+			}
+			
+			if(event.label == "PM"){
+				showCheckItemPopUp(CheckItemEnum.STATUS_COMPLETE);
+			}		
+			
+			if(event.label == "确认列表"){
+				showCheckListPopup();
+			}	
+			
+			if (event.label == "下载效率报表"){
+				showDownloadResourceEfficiencyPopup();
+			}	
+			
+			if(event.label == "从MPP导入任务"){
+				showImportTasksFromMppPopup()
+			}										
+		}	
+		
+		/**
+		 * Function to show popup window to add new project
+		 **/
+		public function showAddProject():void {    	
+		    var addProjectPopup:AddProjectPopup = AddProjectPopup(PopUpManager.createPopUp(this, AddProjectPopup, true));
+		    PopUpManager.centerPopUp(addProjectPopup);
+		}   
+		
+		
+		/**
+		 * Function to show popup window to edit new project
+		 **/
+		public function showEditProject():void {
+		    var editProjectPopup:EditProjectPopup = EditProjectPopup(PopUpManager.createPopUp(this, EditProjectPopup, true));
+		    PopUpManager.centerPopUp(editProjectPopup);
+//		    editProjectPopup.okButton.addEventListener(MouseEvent.CLICK, onProjectEdit);
+    	}	
+    	
+    	public function showAppraiseProjectMember():void{
+    		var appraiseProjectMemberPopup:AppraiseProjectMemberPopup = AppraiseProjectMemberPopup(PopUpManager.createPopUp(this, AppraiseProjectMemberPopup,true));
+    		PopUpManager.centerPopUp(appraiseProjectMemberPopup);
+    	}
+    	
+    	public function showProjectMemberAbility():void{
+    		var projectMemberAbilityPopup:ProjectMemberAbilityPopup = ProjectMemberAbilityPopup(PopUpManager.createPopUp(this, ProjectMemberAbilityPopup,true));
+    		PopUpManager.centerPopUp(projectMemberAbilityPopup);
+    	}	
+		
+/* 		private function onProjectEdit(event:MouseEvent):void{
+			refresh();
+		} */	
+		
+	 	/**
+		 * Function to show popup window to add new process
+		 **/
+		public function showAddProcess():void{			
+			var addProcessPopup:AddProcessPopup = AddProcessPopup(PopUpManager.createPopUp(this, AddProcessPopup, true));
+			PopUpManager.centerPopUp(addProcessPopup);	
+		}	
+		
+		
+	 	/**
+		 * Function to show popup window to migrate existing process
+		 **/
+		public function showMigrateProcess():void{			
+			var migrateProcessPopup:MigrateProcessPopup = MigrateProcessPopup(PopUpManager.createPopUp(this, MigrateProcessPopup, true));
+			PopUpManager.centerPopUp(migrateProcessPopup);
+			migrateProcessPopup.project = selectedProject;	
+			migrateProcessPopup.addEventListener(ReloadEvent.RELOAD, onMigrateProcessDone);	
+		}		
+		
+		public function onMigrateProcessDone(event:ReloadEvent):void{
+			refresh();
+		}
+	       
+		
+		/**
+		 * Function to show popup window to add new task
+		 **/
+	    public function showAddTask():void {
+	        var addTaskPopup:AddTaskPopup = AddTaskPopup(PopUpManager.createPopUp(this, AddTaskPopup, true));
+	        PopUpManager.centerPopUp(addTaskPopup);
+	        
+	        taskView.ganttDataGrid.editable = "false";
+	    }	
+	    
+	    
+	    public function addSubtask():void{
+			if(model.GLOBAL_SELECTED_TASK && selectedProject){
+				if(model.GLOBAL_USER_TASKS_HC.getNodeDepth(model.GLOBAL_SELECTED_TASK) <= 1){  
+					activityRo.getActivitiesByTaskId(model.GLOBAL_SELECTED_TASK.id); 	
+				}
+				else{
+					Alert.show("Please select a top level task.");
+				}
+			}
+			else{
+				Alert.show("Please select a task first.");
+			}				    	
+	    }		        
+	    
+	    private function getActivitiesByTaskIdHandler(e:ResultEvent):void{
+	    	var ac:ArrayCollection=e.result as ArrayCollection;
+	    	if(null!=ac && ac.length>0){
+	    		Alert.show(resourceManager.getString("Language","alert.task.assigned_no_subtask"));
+	    	}else{
+	    		model.GLOBAL_ADD_SUBTASK_WAIT = model.GLOBAL_SELECTED_TASK;
+				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.addSubtaskEvent(model.GLOBAL_SELECTED_TASK));
+	    	}
+	    }
+	    
+		private function showEditTask():void {
+			if(model.GLOBAL_SELECTED_TASK && selectedProject){
+		    	var editTaskPopup:EditTaskPopup = EditTaskPopup(PopUpManager.createPopUp(this, EditTaskPopup, true));
+		        PopUpManager.centerPopUp(editTaskPopup);
+		        editTaskPopup.task = model.GLOBAL_SELECTED_TASK;
+		        taskView.ganttDataGrid.editable = "false";
+			}
+			else{
+				Alert.show("Please select a task first.");
+			}
+	    }
+	    
+	    public function showCopyTask():void{
+	    	if(model.GLOBAL_SELECTED_TASK && selectedProject && taskView.tasks){
+	    		var copyTaskPopup:CopyTaskPopup = CopyTaskPopup(PopUpManager.createPopUp(this, CopyTaskPopup, true));
+	    		PopUpManager.centerPopUp(copyTaskPopup);
+	    		copyTaskPopup.taskVO = model.GLOBAL_SELECTED_TASK;
+	    		copyTaskPopup.project = selectedProject;
+	    		taskView.ganttDataGrid.editable = "false";
+	    	}
+	    	else{
+	    		Alert.show("Please select a task first.");
+	    	}
+	    }
+	    
+	    private function onMoveTaskClick():void{
+	    	if(model.GLOBAL_SELECTED_TASK){
+	    		if(model.GLOBAL_SELECTED_TASK.parentId != 0){
+	    			if(model.taskEditable){
+	    				model.GLOBAL_MOVED_TASK = model.GLOBAL_SELECTED_TASK;
+	    				model.GLOBAL_MOVED_TASK.parentId = 0;
+	    				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(model.GLOBAL_MOVED_TASK, Constants.PARENT_ID));
+	    			}else{
+	    				Alert.show("You don't have enough privilege.");
+	    			}
+	    		}
+	    	}else{
+	    		Alert.show("Please select a task first.");
+	    	}
+	    }
+	    
+	    private function cancelTask():void{
+	    	if(model.GLOBAL_SELECTED_TASK && selectedProject){
+	    		if(model.taskEditable){
+			      	confirm(resourceManager.getString('Language','alert.cancel_task'),
+				   		resourceManager.getString("Language","title.confirmation"), confirmCancelTaskHandler);
+				   	taskView.ganttDataGrid.editable = "false";
+				}
+				else{
+					Alert.show("You don't have enough privilege.");
+				}
+			}
+			else{
+				Alert.show("Please select a task first.");
+			}
+		}
+		  
+		private function confirmCancelTaskHandler(event:CloseEvent):void{			
+			if (event.detail == Alert.YES) {
+	      		model.cancelTask = model.GLOBAL_SELECTED_TASK
+	      		CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.cancelTaskEvent(model.cancelTask));
+			}		  	
+		}	
+		
+		private function allocateResources():void{
+			var resourceAllocationPopup:ResourceAllocationPopup = ResourceAllocationPopup(PopUpManager.createPopUp(this, ResourceAllocationPopup, true));
+			PopUpManager.centerPopUp(resourceAllocationPopup);	
+			resourceAllocationPopup.projectCB.addEventListener(SearchEvent.SUBMIT,handler);
+		}
+		
+		private function handler(e:SearchEvent):void{
+			if(e.selectedIndex !=-1){
+				model.GLOBAL_SELECTED_PROJECT = e.selectedItem as ProjectVO;
+				var currProjectId:int = model.GLOBAL_SELECTED_PROJECT.id;
+				var match:Boolean = false;				
+		   		for(var i:int=0; i<userProjects.length; i++){
+				   	var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+			   		if(item.id == currProjectId){
+			   			model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(i) as ProjectVO;
+			   			projectCB.selectedIndex = i;
+			   			break;
+			   		}
+		   		}
+	  		}
+		}
+		
+		private function assignTasks():void{
+			var taskAllocationPopup:TaskAllocationPopup = TaskAllocationPopup(PopUpManager.createPopUp(this, TaskAllocationPopup, true));
+			PopUpManager.centerPopUp(taskAllocationPopup);		
+		}
+		
+		private function showCheckItemPopUp(status:String):void{
+			var checkItemPopUp:CheckItemPopUp = CheckItemPopUp(PopUpManager.createPopUp(this, CheckItemPopUp, false));
+			PopUpManager.centerPopUp(checkItemPopUp);	
+			checkItemPopUp.CHECK_ITEM_STATUS = status;
+			if(status == CheckItemEnum.STATUS_PENDING || status == CheckItemEnum.STATUS_REVIEWED){
+				checkItemPopUp.checkItemWidget.isDeleted.visible = true;
+			}			
+		}
+		
+		private function showCheckListPopup():void{
+			var projectCheckListPopup:ProjectCheckListPopup = ProjectCheckListPopup(PopUpManager.createPopUp(this, ProjectCheckListPopup, false));
+			PopUpManager.centerPopUp(projectCheckListPopup);
+		}
+		
+		private function showDownloadResourceEfficiencyPopup():void{
+			var downloadResourceEfficiencyPopup:DownloadResourceEfficiencyPopup = DownloadResourceEfficiencyPopup(PopUpManager.createPopUp(this, DownloadResourceEfficiencyPopup,false));
+			PopUpManager.centerPopUp(downloadResourceEfficiencyPopup);
+		}
+		
+		private function showImportTasksFromMppPopup():void{
+			var importTasksFromMpp:ImportTasksFromMppPopup = ImportTasksFromMppPopup(PopUpManager.createPopUp(this, ImportTasksFromMppPopup, true));
+			PopUpManager.centerPopUp(importTasksFromMpp);
+		}
+		
+		private function onWindowPopup(event:PopupEvent):void{
+			if(event.type == PopupEvent.POP_UP){
+				taskView.ganttDataGrid.editable = "false";
+			}
+		}	
+		
+		private function onDockableToolBarFloat(event:Event):void{
+			eff.play();
+			eff.end();				
+		}		
+		
+	      private function onGanttViewChange(event:Event):void{
+	      	if(ganttViewCB.selected){
+	      		model.ganttView = Constants.GANTT_VIEW_STATUS;
+	      		statusLegendHB.visible = true;
+	      		statusLegendHB.includeInLayout = true;
+	      		efficiencyLegendHB.visible = false;
+	      		efficiencyLegendHB.includeInLayout = false;
+	      	}else{
+	      		model.ganttView = Constants.GANTT_VIEW_PERFORMANCE;
+	      		statusLegendHB.visible = false;
+	      		statusLegendHB.includeInLayout = false;
+	      		efficiencyLegendHB.visible = true;
+	      		efficiencyLegendHB.includeInLayout = true;	      		
+	      	}
+	      }	
+	      
+	    private function onCreateProjectReportClick(projectName:String,projectId:int):void{
+	   		reportRo.createReportDetailReport(projectName,projectId);
+	    }  	
+	    private function getReportLogHandler(event:ResultEvent):void{
+			reportLog = event.result as ReportLogVO;
+			if(reportLog){
+				var dateStr:String = DateUtil.format(reportLog.createdDate,DateUtil.SIMPLE);
+				var text:String =  StringUtil.substitute(resourceManager.getString("Language","comfirm.getDetailReport"),dateStr,selectedProject.projectName);
+				confirm(text,resourceManager.getString("Language","title.confirmation"),DownloadConfirmHandler);	
+		    	
+			}else{
+				var title:String = StringUtil.substitute(resourceManager.getString("Language","alert.noDetailReportTitle"),selectedProject.projectName);
+				var alertStr:String = StringUtil.substitute(resourceManager.getString("Language","alert.noDetailReport"),selectedProject.projectName);
+				Alert.show(alertStr,title);
+			}
+		}
+		private function DownloadConfirmHandler(event:CloseEvent):void{
+			if (event.detail == Alert.YES) {
+				fileDownload.DOWNLOAD_URL=model.metaData.reportUrl+reportLog.url;
+				fileDownload.startDownload();
+			}
+		}
+		
+		private function createReportHandler(event:ResultEvent):void{
+			reportLog = event.result as ReportLogVO;
+		}
+		
+		private function getAssignedEffortByTaskIdHandler(event:ResultEvent):void{
+			model.activityStaff = event.result as Number;
+		}
+		
+		private function getAssignedEffortByProjectIdHandler(event:ResultEvent):void{
+			model.allActivityStaff = event.result as Number;
+		}
+		
+	    private function onDownloadReportClick():void{
+	    	reportLogRo.getReportLog(Constants.REPORT_DETAIL_CHART,selectedProject.projectName);
+	    }
+	    private function onResourceSliderChange(event:SliderEvent):void{
+           var currentSlider:Slider = Slider(event.currentTarget);
+           
+           switch(currentSlider.value){
+             case 0: model.minVisibleTime = CalendarConfig.getTimeMinimum(); break;
+             case 1: model.minVisibleTime = CalendarConfig.getTimeLastSixMonths(); break;
+             case 2: model.minVisibleTime = CalendarConfig.getTimeLastThreeMonths(); break;
+             case 3: model.minVisibleTime = CalendarConfig.getTimeLastMonth(); break;
+             default: model.minVisibleTime = CalendarConfig.getTimeLastMonth(); break; 
+           }           	    	
+	    }
+	    
+	    private function getProjectProgressHandler(event:ResultEvent):void{	
+	    	var result:ArrayCollection = event.result as ArrayCollection;
+	    	if(result && result.length > 0){	  		    			    	
+	    		var profile:ProjectVO = (event.result as ArrayCollection).getItemAt(0) as ProjectVO;
+	    		model.allTaskStaff = profile.plannedStaffDays;
+	    	}
+		 }
+		 
+  	]]>
+  </mx:Script>
+  
+
+	<!--==========================
+	    Services  
+	===========================-->  	
+	<mx:RemoteObject id="baselineRo" destination="ro.baseline" fault="faultHandler(event)" showBusyCursor="true">
+		<mx:method name="createBaseline" result="createBaselineHandler(event)" />
+	</mx:RemoteObject>	
+	<mx:RemoteObject id="projectUserRo" destination="ro.projectuser">
+		<mx:method name="getProjectUserByUserId" result="getProjectUserByUserIdHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="createReportDetailReport" result="createReportHandler(event)"/>
+		<mx:method name="getProjectProgress" result="getProjectProgressHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="reportLogRo" destination="ro.reportLog" showBusyCursor="true">
+		<mx:method name="getReportLog" result="getReportLogHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" >
+		<mx:method name="getProjectMemberByUserId" result="getProjectMemberByUserIdHandler(event)"/>					
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="activityRo" destination="ro.activity">
+		<mx:method name="getAssignedEffortByTaskId" result="getAssignedEffortByTaskIdHandler(event)"/>
+		<mx:method name="getAssignedEffortByProjectId" result="getAssignedEffortByProjectIdHandler(event)"/>
+		<mx:method name="getActivitiesByTaskId" result="getActivitiesByTaskIdHandler(event)"/>
+	</mx:RemoteObject>
+
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init(ProgressBarWindow,null ,this);" />
+	
+	  <!--==========================
+	    Data Binding
+	  ===========================-->
+	<mx:Binding source="model.GLOBAL_USER_PROJECTS" destination="this.userProjects"/>
+	<mx:Binding source="model.GLOBAL_PROJECT_MILESTONES" destination="this.projectMilestones"/>
+	<mx:Binding source="model.GLOBAL_PROJECT_TASK_CATEGORIES" destination="this.projectTaskCategories"/>
+	<mx:Binding source="model.leads" destination="this.leads"/>						  
+	
+	<mx:Binding source="model.GLOBAL_CREATED_PROJECT" destination="this.createdProject"/>		
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.selectedProject"/>	
+			
+			
+	  <!--==========================
+	    Effects
+	  ===========================-->	
+	<mx:Resize id="eff"  heightTo="{docker.height}" target="{taskResourcePanel}" 
+		effectEnd="{eff.target.percentHeight = 100}" />			
+			
+	<!--==========================
+	    Page Layout
+	===========================-->			
+	<mx:VBox width="100%" height="100%">
+		<mx:MenuBar id="menus" dataProvider="{MenuEnum.mainMenuItems}"
+			width="100%" styleName="ApplicationControlBarReverse" itemClick="onMenuClick(event)"/>
+			 					
+		<code:Docker id="docker" dockingAreaStyleName="DockingBar" width="100%" height="100%"
+			paddingTop="5" paddingBottom="5">								
+			<code:DockableToolBar  float="onDockableToolBarFloat(event)">									
+				<mx:Label text="{resourceManager.getString('Language','label.project_name')}:"/>
+				<mx:Image width="16" height="16" source="{model.taskEditable?ImageEnum.IMAGECLASS_PENCIL:ImageEnum.IMAGECLASS_EYE}"/>			
+				<popTextInput:PopUpTextInput id="projectCB" width="200" dataProvider="{_userProjects}" onChange="onProjectChange(event)" 
+					labelFunction="projectLabelFunc" keepSelection="true"/>
+					
+				<mx:Label text="{resourceManager.getString('Language','label.milestone')}:"/>	
+				<mx:ComboBox id="milestoneCB" width="100" dropdownWidth="200" rowCount="20" labelField="milestone"  
+					dataProvider="{_projectMilestones}" change="model.selectedMilestone = milestoneCB.selectedLabel;"/>
+					
+				<mx:Label text="{resourceManager.getString('Language','label.task_category')}:"/>	
+				<mx:ComboBox id="categoryCB" width="100" dropdownWidth="200" rowCount="20"  
+					dataProvider="{_projectTaskCategories}" change="model.selectedTaskCategory = categoryCB.selectedLabel;"/>											
+					
+				<mx:Label text="{resourceManager.getString('Language','label.task_type')}:"/>			
+				<mx:ComboBox id="taskTypeCB" width="100" labelField="label" 
+					dataProvider="{MenuEnum.filterTaskTypeItems}" change="model.taskTypeFilter = taskTypeCB.selectedItem.value;"/>
+					
+				<mx:Label text="{resourceManager.getString('Language','label.task_assign')}:"/>			
+				<mx:ComboBox id="taskAssignCB" width="120" labelField="label" 
+					dataProvider="{MenuEnum.filterAssignmentItems}" change="model.taskAssignFilter = taskAssignCB.selectedItem.value;"/>	
+							
+				<code:PromptingTextInput id="taskNameTI" width="100" prompt="{resourceManager.getString('Language','label.search.by_task_name')}" 
+					change="model.taskNameFilter  = taskNameTI.text;"/>	
+
+				<mx:Button width="24" height="24"
+					textAlign="center"
+					icon="{ImageEnum.IMAGECLASS_RESET}"
+					styleName="iconButton"
+					toolTip="{resourceManager.getString('Language','label.reset')}" 
+					click="resetFilter()"/>		
+											
+				<mx:Button width="24" height="24"
+					textAlign="center"
+					icon="{ImageEnum.IMAGECLASS_REFRESH}" 
+					styleName="iconButton"
+					toolTip="{resourceManager.getString('Language','label.refresh')}" 
+					click="refresh()"/>																						
+					
+				<mx:CheckBox width="24" height="24" id="linkCB"
+					textAlign="center" 
+					styleName="checkBoxLink" selected="false"
+					toolTip="{resourceManager.getString('Language','label.link')}"  
+					click="model.isLink  = linkCB.selected;"/>			
+				<mx:Button width="24" height="24"
+		    		textAlign="center"
+		      		icon="{ImageEnum.IMAGECLASS_ZOOM_FIT}"
+		      		styleName="iconButton" 
+		      		toolTip="{resourceManager.getString('Language','button.zoom_fit')}"
+		      		click="execute(taskView, autoZoom, Constants.GANTT_SHEET)"/>
+		      			
+				<mx:CheckBox width="24" height="24" id="lockCB"
+					textAlign="center" 
+					styleName="checkBoxLock" selected="false"
+					toolTip="{resourceManager.getString('Language','label.lock')}" 
+					click="onLockChange()"/>																																																																				
+						
+		    	<mx:Button width="24" height="24" id="expandButton"
+		    		textAlign="center" 				    		
+		      		icon="{ImageEnum.IMAGECLASS_EXPAND}" 
+		      		styleName="iconButton"
+		      		toolTip="{resourceManager.getString('Language','button.expand')}"
+		      		click="execute(taskView, expandProject, Constants.GANTT_DATA_GRID)"/>
+		    	<mx:Button width="24" height="24" id="collapseButton"
+		    		textAlign="center"
+		      		icon="{ImageEnum.IMAGECLASS_COLLAPSE}" 
+		      		styleName="iconButton"
+		      		toolTip="{resourceManager.getString('Language','button.collapse')}"
+		      		click="execute(taskView, collapseProject, Constants.GANTT_DATA_GRID)"/>
+		    	<mx:Button width="24" height="24" id="zoomButton"
+		    		textAlign="center"
+		      		icon="{ImageEnum.IMAGECLASS_ZOOM_IN}"
+		      		styleName="iconButton" 
+		      		toolTip="{resourceManager.getString('Language','button.zoom_in')}"
+		      		click="execute(taskView, zoomInProject, Constants.GANTT_SHEET)"/>
+		    	<mx:Button width="24" height="24" id="unzoomButton" 
+		    		textAlign="center"
+		      		icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}"
+		      		styleName="iconButton"  
+		      		toolTip="{resourceManager.getString('Language','button.zoom_out')}"
+		      		click="execute(taskView, zoomOutProject, Constants.GANTT_SHEET)"/>
+		      	<mx:CheckBox id="taskStaffCB" selected="false" change="model.taskStaffNotAssigned = taskStaffCB.selected" toolTip="未完全分配任务"/>
+		      	<mx:Label text="产值分配情况:"/>
+		      	<mx:Label text="{model.allTaskStaff}" toolTip="项目总产值"/>
+		      	<mx:Label text=":{model.allActivityStaff}" toolTip="项目已分配产值"/>
+		      	<mx:Label text=":{model.GLOBAL_SELECTED_TASK == null?0:model.GLOBAL_SELECTED_TASK.plannedStaffDays+model.GLOBAL_SELECTED_TASK.plannedFeedbackDays}" toolTip="任务产值"/>
+		      	<mx:Label text=":{model.activityStaff}" toolTip="任务已分配产值"/>
+			</code:DockableToolBar>	
+				
+			<code:DockableToolBar initialPosition="bottom" float="onDockableToolBarFloat(event)">
+				<mx:Label text="{resourceManager.getString('Language','label.lead')}:"/>	
+				<mx:ComboBox id="leadCB" width="70" labelField="name"  
+					dataProvider="{leads}" change="onLeadChange()"/>	
+					
+				<mx:ComboBox id="resourceStatusCB" width="95" labelField="label" selectedIndex="1" 
+					dataProvider="{MenuEnum.filterResourceStatusItems}" 
+					change="model.resourceStatusFilter = resourceStatusCB.selectedItem.value;"/>							
+				
+				<mx:CheckBox id="deletedMemCB" selected="false" textAlign="center" width="24" height="24" 
+					toolTip="{resourceManager.getString('Language','label.deleted_member')}" styleName="checkBoxLeave"
+					change="model.isShowDelMem = deletedMemCB.selected"/>
+					
+				<mx:ComboBox id="activityQualityCB" width="70" labelField="label" selectedIndex="0" dataProvider="{MenuEnum.filterActivityQualityItems}"
+					change="model.activityQualityFilter = activityQualityCB.selectedItem.value;" rowCount="7"/>
+					
+				<code:PromptingTextInput id="searchTI" width="160" prompt="{resourceManager.getString('Language','label.search_user')}" 
+					change="model.userInforFilter = searchTI.text;"/>													
+
+				<mx:CheckBox id="thumbCB"
+					width="24" height="24"
+					textAlign="center" 
+					styleName="checkBoxThumb" selected="false"
+					toolTip="{resourceManager.getString('Language','label.thumb')}" 
+					change="model.isThumb = thumbCB.selected;"/>	
+
+				<mx:CheckBox id="ganttViewCB"
+					width="24" height="24"
+					textAlign="center"
+					styleName="checkBoxView"
+					toolTip="{resourceManager.getString('Language', 'label.view.status')}"
+					change="onGanttViewChange(event)"/>
+					
+				<mx:CheckBox id="limitToProjectResourceCB" selected="true"
+					width="24" height="24"
+					textAlign="center"
+					styleName="checkBoxCurProjUser"
+					toolTip="{resourceManager.getString('Language','label.task.current_project_resource')}"
+					change="model.limitToProjectResource = limitToProjectResourceCB.selected;"/>	
+					
+				<mx:CheckBox id="limitToProjectActivityCB"
+					width="24" height="24"
+					textAlign="center"
+					styleName="checkBoxCurProjAct"
+					toolTip="{resourceManager.getString('Language','label.task.current_project_activity')}"
+					change="model.limitToProjectActivity = limitToProjectActivityCB.selected;"/>	
+					
+				<mx:HSlider minimum="0" maximum="3" snapInterval="1" value="3" width="60" 
+					dataTipFormatFunction="resourceSliderLabelFunc"
+					change="onResourceSliderChange(event)"/>
+									
+				
+				<mx:VRule height="20"/>
+				
+		          <mx:HBox id="efficiencyLegendHB" verticalAlign="middle">
+		          	<mx:Label text="{resourceManager.getString('Language','label.legend.efficiency')}:"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0x053ed0"/>
+		            <mx:Label  text="300%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0x3b73ff"/>
+		            <mx:Label  text="200%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0x53aeee"/>
+		            <mx:Label  text="130%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xc6e8fd"/>
+		            <mx:Label  text="105%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0x90e383"/>
+		            <mx:Label  text="100%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xffedc7"/>
+		            <mx:Label  text="80%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xffcb91"/>
+		            <mx:Label  text="65%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xff817d"/>
+		            <mx:Label  text="50%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xf13a36"/>
+		            <mx:Label  text="30%"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0xb30500"/>
+		            <mx:Label  text="25%"/>		
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="0x500d0b"/>
+		            <mx:Label  text="20%"/>		                		            		            		            		            		            		            		            		            		            		            		            
+		          </mx:HBox>		
+		          
+		          <mx:HBox id="statusLegendHB" verticalAlign="middle" visible="false" includeInLayout="false">
+		          	<mx:Label text="{resourceManager.getString('Language','label.legend.status')}:"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="{ColorEnum.statusToColor[ColorEnum.NOT_STARTED]}"/>
+		            <mx:Label  text="{resourceManager.getString('Language','label.status.not_started')}"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="{ColorEnum.statusToColor[ColorEnum.WIP]}"/>
+		            <mx:Label  text="{resourceManager.getString('Language','label.status.wip')}"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="{ColorEnum.statusToColor[ColorEnum.COMPLETE]}"/>
+		            <mx:Label  text="{resourceManager.getString('Language','label.status.complete')}"/>
+		            <mx:Box width="16" height="16" borderColor="#CCCCCC" borderStyle="solid" 
+		            	backgroundColor="{ColorEnum.statusToColor[ColorEnum.APPROVED]}"/>
+		            <mx:Label  text="{resourceManager.getString('Language','label.status.approved')}"/>		                           		            		            		            		            		            		            		            		            		            		            		            
+		          </mx:HBox>			                    
+		          
+				<!--mx:Label text="PM: {currUser.userGroupId==Constants.GROUP_PM_NUM} View: {model.taskViewMode}    Edit:{model.taskEditable}"/-->																		
+			</code:DockableToolBar>
+				
+			<mx:VDividedBox id="taskResourcePanel" width="100%" height="100%">							
+				 <mx:ApplicationControlBar dock="true" width="100%" height="100%">
+					<mx:VBox width="100%" height="100%">    		
+						<view:TaskView id="taskView"/>	      
+				   	</mx:VBox>
+				</mx:ApplicationControlBar>
+	 
+			  	<mx:ApplicationControlBar dock="true" width="100%" height="100%">
+					<view:ResourceView id="resourceView" popup="onWindowPopup(event)"/>
+			  	</mx:ApplicationControlBar>				
+			</mx:VDividedBox>
+		</code:Docker>			 
+	</mx:VBox>
+</mx:VBox>	

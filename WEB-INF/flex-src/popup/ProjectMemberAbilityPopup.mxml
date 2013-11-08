@@ -1,0 +1,520 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*" title="{resourceManager.getString('Language','title.member_ability_detail')}" 
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+	borderAlpha="1" creationComplete="init()"  showControls="true" enableResize="true"
+	keyDown="onKeyDown(event)" width="1600" height="700" xmlns:utils="com.pearl.normandy.utils.*" xmlns:code="http://code.google.com/p/flexlib/" xmlns:popTextInput="com.pearl.normandy.component.popTextInput.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import mx.events.FlexEvent;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import mx.events.ItemClickEvent;
+			import mx.collections.ICollectionView;
+			import mx.events.CloseEvent;
+			import com.pearl.normandy.vo.ProjectMemberAbilityVO;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.ProjectVO;
+			import mx.events.ListEvent;
+			import mx.collections.ArrayCollection;
+			import mx.events.NumericStepperEvent;
+			import mx.managers.PopUpManager;
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import com.pearl.normandy.event.ProjectUserEvent;
+			
+			[Bindable]
+			private var userProjects:ArrayCollection;
+			[Bindable]
+			private var selectedProject:ProjectVO;
+			[Bindable]
+			private var selectedYear:int;
+			[Bindable]
+			private var selectedMonth:int;
+			[Bindable]
+			private var selectedType:int = 1;
+			[Bindable]
+			private var projectMemberAbility:ArrayCollection;
+			[Bindable]
+			private var selectedMember:ProjectMemberAbilityVO;
+			[Bindable]
+		   	private var members:ArrayCollection = new ArrayCollection();
+			private var _userInforFilter:String="";
+			[Bindable]
+			public function set userInforFilter(value:String):void{
+				this._userInforFilter=value;
+				updateResourceFilter();
+			}	
+			
+			public function get userInforFilter():String{
+				return this._userInforFilter;
+			}
+			
+			private function updateResourceFilter():void{
+		  		//update resource collection
+		    	var resourceCollection:ICollectionView = pmaADG.dataProvider as ICollectionView;
+		    	if (resourceCollection.filterFunction == null) {
+		      		resourceCollection.filterFunction = resourceFilter;
+		    	}
+		    	resourceCollection.refresh();    		
+		  	}
+		  	
+		  	private function resourceFilter(item:Object):Boolean {
+		     	var user:ProjectMemberAbilityVO = item as ProjectMemberAbilityVO;	   							
+					
+				//Check lead filter first
+		   		var leadFilterPass:Boolean = false;
+		   		if(leadFilter){
+		   			if(user.userId == leadFilter.userId){
+		   				leadFilterPass = true;
+		   			}else{
+			   			for each(var artist:ProjectUserVO in leadFilter.children){
+			   				if(user.userId == artist.userId){
+			   					leadFilterPass = true;
+			   					break;
+			   				}
+			   			}
+			   		}
+		   		}
+					
+				if(leadFilter == null || leadFilterPass){	 			
+		   			if(StringUtil.trim(userInforFilter)==""){
+		   				return true;
+		   			}
+		   			var searchArr:Array=StringUtil.trim(userInforFilter).split(" ");
+		   			var pattern:RegExp = / /g;
+		   			var searchStr:String=user.userName.replace(pattern, "");
+		   			if(user.name!="null"){
+		   				searchStr=searchStr+user.name;
+		   			}
+		   			if(user.userGroupName!="null"){
+		   				searchStr=searchStr+user.userGroupName;
+		   			}
+		   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+		   				return true;
+		   			}		   			
+					else{
+						return false;
+					}
+				}else{
+					return false;
+				}
+		  	}
+		  	[Bindable]
+		  	private var currDate:Date;
+		  	
+			private function init():void{
+				currDate = new Date();
+				selectedYear  = currDate.fullYear;
+				selectedMonth = currDate.month + 1;
+				selectedProject = null;
+				userProjects = new ArrayCollection(model.GLOBAL_USER_PROJECTS.list.toArray());
+				projectMemberRo.getProjectMembersByUserId(model.currUser.id);
+				userProjects.addItemAt("--All--",0);
+			}
+			
+			private function getProjectMemberAbilityWithPerformanceHandler(e:ResultEvent):void{
+				var tmp:ArrayCollection = e.result as ArrayCollection
+				var result:ArrayCollection = new ArrayCollection();
+				if(model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3){
+					projectMemberAbility = tmp;
+					return;
+				}
+				for each (var pm:ProjectMemberVO in members){
+					if(pm.privPerformance == Constants.BOOLEAN_NO){
+					for each (var pma:ProjectMemberAbilityVO in tmp){
+						if(pma.userId == model.currUser.id && pm.projectId == pma.projectId){
+							result.addItem(pma);
+						}
+					}
+					}else{
+					for each (var pma1:ProjectMemberAbilityVO in tmp){
+						if(pma1.projectId == pm.projectId){
+							result.addItem(pma1);
+						}
+					}
+					}
+				}
+
+				projectMemberAbility =result;
+			}
+			
+			private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		    
+		    private function onYearChange(e:NumericStepperEvent):void{
+		    	selectedYear = e.value;
+		    }
+		    
+		    private function onMonthChange(e:NumericStepperEvent):void{
+		    	if(e.value == 0){
+					yearNumStep.value -= 1;
+					monthNumStep.value = 12;
+				}else if(e.value == 13){
+					yearNumStep.value += 1;
+					monthNumStep.value = 1;
+				}
+				selectedYear = yearNumStep.value;
+		    	selectedMonth = monthNumStep.value;
+		    }
+		    
+		    private function onProjectChange():void{
+		    	if(projectCB.selectedIndex !=-1){
+		    	if(projectCB.selectedLabel == "--All--"){
+					selectedProject = null;
+					leadCB.enabled = false;
+					leadCB.selectedIndex = 0;
+				}else{
+					selectedProject = projectCB.selectedItem as ProjectVO;
+					leadCB.enabled = true;
+					CairngormEventDispatcher.getInstance().dispatchEvent(ProjectUserEvent.getProjectLeadEvent(selectedProject, true));
+				}
+		    	}
+		    }
+		    
+		    private function onItemClick(e:ListEvent):void{
+		    	selectedMember = pmaADG.selectedItem as ProjectMemberAbilityVO;
+		    }
+		    
+		private var _leads:ArrayCollection;
+	    [Bindable]
+	    public function set leads(value:ArrayCollection):void{
+	    	this._leads = value;
+	    	
+			if(this.leadFilter != null){
+				var match:Boolean = false;				
+   				for(var i:int=0; i<leads.length;i++){
+		   			var lead:ProjectUserVO = leads.getItemAt(i) as ProjectUserVO;
+	   				if(lead.userId == this.leadFilter.userId){
+	   					leadCB.selectedIndex = i;
+	   					match = true;
+	   					break;
+	   				}						
+   				}
+   				
+   				if(!match){
+   					model.leadFilter = null;
+   					leadCB.selectedIndex = 0;
+   				}				   				
+			}		    	
+	    }
+	    
+	    public function get leads():ArrayCollection{
+	    	return this._leads;
+	    }
+		    
+//==============================================================================		    
+//		    lab function
+//===============================================================================
+		    private function labFunc(item:Object, column:AdvancedDataGridColumn):String{
+		    	var pma:ProjectMemberAbilityVO = item as ProjectMemberAbilityVO;
+		    	var field:String = column.dataField;
+		    	var judge:String;
+		    	switch(field){
+		    		case "highPoly":	judge = pma.highPoly; 		break;
+					case "lowPoly":		judge = pma.lowPoly; 		break;
+					case "zbrush":		judge = pma.zbrush; 		break;
+					case "texture":		judge = pma.texture; 		break;	
+					case "integration": judge = pma.integration;	break;
+					case "colligation": judge = pma.colligation;	break;
+					case "engine":		judge = pma.engine;		break;
+					case "initiative":	judge = pma.initiative;	break;
+					case "communicate":	judge = pma.communicate;	break;
+					case "artCulture":	judge = pma.artCulture;	break;
+					case "innovation":	judge = pma.innovation;	break;
+					case "punctual":	judge = pma.punctual;		break;
+					case "contribute":	judge = pma.contribute;	break;
+		    	}
+		    	return getLab(judge);
+		    }
+		    
+		    private function getLab(val:String):String{
+		    	if(val == "A"){
+		    		return "太阳";
+		    	}else if(val == "B"){
+		    		return "月亮";
+		    	}else if(val == "C"){
+		    		return "星星";
+		    	}else if(val == "D"){
+		    		return "闪电";
+		    	}else if(val == "E"){
+		    		return "阵雨";
+		    	}else{
+		    		return "";
+		    	}
+		    }
+		    
+		    private function onExportClick():void{
+		    	getReportMonths()
+		    	if(selectedType == 1){
+					reportRo.createProjectMemberAbilityReportBase(selectedProject,selectedYear,selectedMonth);
+				}
+				else if(selectedType == 2){
+					reportRo.createProjectMemberAbilityReport(selectedProject,selectedYear,months);
+				}else{
+					reportRo.createProjectMemberAbilityReport(selectedProject,selectedYear,months);
+				}
+			}
+			
+			private function queryBtnClick():void{
+				getReportMonths()
+				if(selectedType == 1){
+					projectMemberAbilityRo.getProjectMemberAbilityWithPerformanceBase(selectedProject, selectedYear, selectedMonth);
+				}
+				else if(selectedType == 2){
+					projectMemberAbilityRo.getProjectMemberAbilityWithPerformance(selectedProject, selectedYear, months);
+				}else{
+					projectMemberAbilityRo.getProjectMemberAbilityWithPerformance(selectedProject, selectedYear, months);
+				}
+			}
+			
+			private var _leadFilter:ProjectUserVO = null;
+			[Bindable]
+			public function set leadFilter(value:ProjectUserVO):void{
+				this._leadFilter = value;
+				updateResourceFilter();
+			}
+			
+			public function get leadFilter():ProjectUserVO{
+				return this._leadFilter;
+			}
+			
+			private function onLeadChange():void{
+				if(leadCB.selectedIndex == 0){
+					this.leadFilter = null;
+				}else{
+					this.leadFilter = leadCB.selectedItem as ProjectUserVO;
+				}
+			}
+			
+			private var months:Array;
+			private function getReportMonths():void{
+				var qua:int = (selectedMonth-1)/3;
+				if(selectedType == 2){
+					switch(qua){
+						case 0:
+							months = [1,2,3];
+							break;
+						case 1:
+							months = [4,5,6];
+							break;
+						case 2:
+							months = [7,8,9];
+							break;
+						case 3:
+							months = [10,11,12];
+							break;
+						default:
+							months = [1,2,3];
+					}
+				}else{
+					months = [1,2,3,4,5,6,7,8,9,10,11,12];
+				}
+			}
+			
+			private function getProjectMembersByUserIdHandler(evt:ResultEvent):void{	
+				members = evt.result as ArrayCollection;
+			}
+			
+			private function createProjectMemberAbilityReportHandler(e:ResultEvent):void{				
+				var num:int = e.result as int;
+				if(num > 0){
+					confirm(resourceManager.getString('Language','confirm.efficiency_quality'),null,onDownload);						
+				}else{
+					var text:String = StringUtil.substitute(resourceManager.getString('Language','alert.report.no_record'),selectedYear,selectedMonth);
+					Alert.show(text);
+				}
+			}
+			
+			private function onDownload(e:CloseEvent):void{
+				if(e.detail == Alert.YES){
+					if(selectedType == 1){
+						fileDownload.DOWNLOAD_URL = model.metaData.reportUrl+Constants.REPORT_PROJECT_MEMBER_ABILITY+"_"+selectedYear+"_"+selectedMonth+".xlsx";
+						fileDownload.startDownload();
+					}else if(selectedType == 2){
+						fileDownload.DOWNLOAD_URL = model.metaData.reportUrl+Constants.REPORT_PROJECT_MEMBER_ABILITY+"_"+selectedYear+".xlsx";
+						fileDownload.startDownload();
+					}else{
+						fileDownload.DOWNLOAD_URL = model.metaData.reportUrl+Constants.REPORT_PROJECT_MEMBER_ABILITY+"_"+selectedYear+".xlsx";
+						fileDownload.startDownload();
+					}
+				}
+			}
+			
+			private function typeClick(event:ItemClickEvent):void {
+           	 	if (monthRB.selected) {
+                    selectedType = 1;
+            	} 
+           	 	else {
+                	if (quarterRB.selected) {
+                    	selectedType = 2;
+                	}	 
+                	else {
+                    	selectedType = 3; 
+                	}
+            	}
+        	}
+        	
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject id="projectMemberAbilityRo" destination="ro.projectMemberAbility" showBusyCursor="true">
+		<mx:method name="getProjectMemberAbilityWithPerformance" result="getProjectMemberAbilityWithPerformanceHandler(event)"/>
+		<mx:method name="getProjectMemberAbilityWithPerformanceBase" result="getProjectMemberAbilityWithPerformanceHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" fault="faultHandler(event)">
+	  	<mx:method name="getProjectMembersByUserId" result="getProjectMembersByUserIdHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="createProjectMemberAbilityReport" result="createProjectMemberAbilityReportHandler(event)"/>
+		<mx:method name="createProjectMemberAbilityReportBase" result="createProjectMemberAbilityReportHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:Binding source="model.leads" destination="this.leads"/>
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init(ProgressBarWindow,null ,this);" />
+	
+	<mx:VBox width="100%" height="100%">
+		<mx:HBox width="100%" horizontalAlign="left">
+			<code:PromptingTextInput id="searchTI" width="160" prompt="{resourceManager.getString('Language','label.search_user')}" 
+					change="userInforFilter = searchTI.text;"/>
+			<mx:Label text="{resourceManager.getString('Language','label.lead')}:"/>
+			<mx:ComboBox id="leadCB" width="100" labelField="name" dataProvider="{leads}" change="onLeadChange()"/>
+			<mx:Label text="{resourceManager.getString('Language','label.project_name')}:"/>
+			<popTextInput:PopUpTextInput id="projectCB" width="200" labelField="projectName" dataProvider="{userProjects}"
+					 onChange="onProjectChange()" keepSelection="true"/>
+			<mx:Label text="{resourceManager.getString('Language','label.notification.date')}:" paddingLeft="30"/>
+			<mx:NumericStepper id="yearNumStep" minimum="2000" maximum="9999" value="{currDate.fullYear}" change="onYearChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.year')}"/>
+			<mx:NumericStepper id="monthNumStep" minimum="0" maximum="13" value="{currDate.month+1}" change="onMonthChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.month')}" paddingRight="40"/>
+			<mx:RadioButtonGroup id="typeRBG" itemClick="typeClick(event);"/>
+			<mx:RadioButton id="monthRB" groupName="typeRBG" label="月表" selected="true"/>
+			<mx:RadioButton id="quarterRB" groupName="typeRBG" label="季表"/>
+			<mx:RadioButton id="yearRB" groupName="typeRBG" label="年表"/>
+			<mx:Button id="queryBtn" label="{resourceManager.getString('Language','label.query')}" click="queryBtnClick()" width="100"/> 
+			<mx:Button id="exportBtn" label="{resourceManager.getString('Language','button.report.export')}" click="onExportClick()"
+				 enabled="{model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3}"/>
+		</mx:HBox>
+		<mx:HBox width="100%" height="100%">
+		<mx:AdvancedDataGrid id="pmaADG" dataProvider="{projectMemberAbility}" itemClick="onItemClick(event)" width="100%" height="100%" lockedColumnCount="2" horizontalScrollPolicy="auto" verticalAlign="middle" textAlign="center">
+			<mx:groupedColumns>
+				<mx:AdvancedDataGridColumn dataField="userName" headerText="{resourceManager.getString('Language','label.member.name')}" width="80"/>
+				<mx:AdvancedDataGridColumn dataField="userGroupName" headerText="{resourceManager.getString('Language','label.group')}" width="120"/>
+				<mx:AdvancedDataGridColumn dataField="projectName" headerText="{resourceManager.getString('Language','label.project')}" width="100"/>
+				<mx:AdvancedDataGridColumn dataField="month" headerText="{resourceManager.getString('Language','label.month')}" width="80"/>
+				<mx:AdvancedDataGridColumn dataField="levelId" headerText="{resourceManager.getString('Language','label.level')}" width="80" visible="{model.privilegeLevelShow == 'Y'?true:false}"/>
+				<mx:AdvancedDataGridColumn dataField="difficulty" headerText="{resourceManager.getString('Language','label.project_difficulty')}" width="80"/>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.competence')}">
+					<mx:AdvancedDataGridColumn dataField="lowPoly" headerText="{resourceManager.getString('Language','headText.low_poly')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="highPoly" headerText="{resourceManager.getString('Language','headText.high_poly')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="zbrush" headerText="Zbrush" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="texture" headerText="{resourceManager.getString('Language','headText.texture')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="integration" headerText="{resourceManager.getString('Language','headText.integration')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="colligation" headerText="{resourceManager.getString('Language','headText.colligation')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="engine" headerText="{resourceManager.getString('Language','headText.engine')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:使用娴熟，能解决突发事件。&#13;月亮：达到项目全部需求&#13;。星星：满足项目基本要求。&#13;闪电：只能进行简单操作。&#13;阵雨：不会使用。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+				</mx:AdvancedDataGridColumnGroup>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.other')}">
+					<mx:AdvancedDataGridColumn dataField="initiative" headerText="{resourceManager.getString('Language','headText.initiative')}" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:经常主动和同事或lead、AD讨论问题，并且沟通非常高效。&#13;月亮：能和同事或lead、AD讨论问题，主动性良好。沟通顺畅。&#13;星星：能和同事或lead、AD讨论问题，但主动性一般。沟通能力需要加强。&#13;闪电：不主动与大家讨论问题，缺少分享精神和沟通能力。&#13;阵雨：不愿意和大家合作、沟通。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="communicate" headerText="{resourceManager.getString('Language','headText.communication')}" labelFunction="labFunc" width="100">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:有很好的合作、分享精神，积极配合工作需求。&#13;月亮：配合工作，配合度良好。&#13;星星：配合工作，但配合度一般，需要加强。&#13;闪电：勉强接受工作需求上的合作，配合度低。&#13;阵雨：不愿意配合工作。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="artCulture" headerText="{resourceManager.getString('Language','headText.art_culture')}" labelFunction="labFunc" width="100">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:有较高的美术基础与艺术修养，高与项目需求,经常得到客户的表扬。&#13;月亮：有良好的美术基础与艺术修养，胜任项目需求,得到项目内AD与大家的认可。&#13;星星：有一定的美术基础与艺术修养，刚好达到项目需求,反馈较少。&#13;闪电：美术基础与艺术修养需要加强。&#13;阵雨：美术基础与艺术修养比较薄弱。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="innovation" headerText="{resourceManager.getString('Language','headText.innovation')}" labelFunction="labFunc" width="100">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:比较强。&#13;月亮：良好。&#13;星星：一般。&#13;闪电：较弱。&#13;阵雨：不愿意接受。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="punctual" headerText="{resourceManager.getString('Language','headText.punctual')}">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:全勤。&#13;月亮：迟到=1次。&#13;星星：迟到=2次。&#13;闪电：迟到=≥3次。&#13;阵雨：有旷工现象。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+					</mx:AdvancedDataGridColumn>
+				</mx:AdvancedDataGridColumnGroup>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.performance')}">
+					<mx:AdvancedDataGridColumn dataField="assignedEffort" headerText="{resourceManager.getString('Language','label.report.resource_effort')}" width="100"/>
+					<mx:AdvancedDataGridColumn dataField="productivity" headerText="{resourceManager.getString('Language','label.report.resource_productivity')}" width="100"/>
+					<mx:AdvancedDataGridColumn dataField="taskQuality" headerText="{resourceManager.getString('Language','headText.taskQuality')}" width="150"/>
+					<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.taskQualityDetail')}">
+						<mx:AdvancedDataGridColumn dataField="sun" headerText="{resourceManager.getString('Language','label.sun')}" width="80"/>
+						<mx:AdvancedDataGridColumn dataField="luna" headerText="{resourceManager.getString('Language','label.luna')}" width="80"/>
+						<mx:AdvancedDataGridColumn dataField="star" headerText="{resourceManager.getString('Language','label.star')}" width="80"/>
+						<mx:AdvancedDataGridColumn dataField="starlight" headerText="{resourceManager.getString('Language','label.starlight')}" width="80"/>
+						<mx:AdvancedDataGridColumn dataField="stardust" headerText="{resourceManager.getString('Language','label.stardust')}" width="80"/>
+					</mx:AdvancedDataGridColumnGroup>
+				</mx:AdvancedDataGridColumnGroup>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.subjoin')}">
+					<mx:AdvancedDataGridColumn dataField="contribute" headerText="{resourceManager.getString('Language','headText.contribute')}" labelFunction="labFunc" width="80"/>
+					<mx:AdvancedDataGridColumn dataField="remark" headerText="{resourceManager.getString('Language','headText.remark')}" width="200"/>
+				</mx:AdvancedDataGridColumnGroup>
+			</mx:groupedColumns>
+		</mx:AdvancedDataGrid>
+		</mx:HBox>
+	</mx:VBox>
+</advancedPanel:AdvancedPanel>

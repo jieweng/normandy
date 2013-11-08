@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" horizontalAlign="center" 
+	xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*" 
+	xmlns:code="http://code.google.com/p/flexlib/">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.ObjectUtil;
+			import mx.controls.Alert;
+			import mx.rpc.events.FaultEvent;
+			import mx.utils.StringUtil;
+			import com.pearl.normandy.vo.UserSalaryVO;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridNumberEditor;
+			import com.pearl.normandy.utils.Constants;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			private var _user:UserVO;
+			
+			public function get user():UserVO{
+				return this._user;
+			}
+			[Bindable]
+			public function set user(value:UserVO):void{
+				this._user = value;				
+				userSalaryRo.getUserSalarysByUserId(user.id);
+				if(user.id == 0){
+					addSalaryBtn.enabled = false;
+					deleteSalaryBtn.enabled = false;
+					submitBtn.enabled = false;
+				}else{
+					addSalaryBtn.enabled = true;
+					deleteSalaryBtn.enabled = true;
+					submitBtn.enabled = true;
+				}
+			}
+			[Bindable]
+			private var salaries:ArrayCollection = new ArrayCollection();
+			
+			private var newSalary:UserSalaryVO;
+			private var selectedSalary:UserSalaryVO;
+			
+			private function getUserSalarysByUserIdHandler(e:ResultEvent):void{
+				var result:ArrayCollection = e.result as ArrayCollection;
+				if(result.length > 0){
+					if(model.SALARY_MODULU && model.SALARY_EXPONENT){
+						userSalaryRo.getDecryptedUserSalarysByUserId(user.id, model.SALARY_MODULU, model.SALARY_EXPONENT, model.currUser.userName);
+					}
+				}
+			}
+			
+			private function getDecryptedUserSalarysByUserIdHandler(e:ResultEvent):void{
+				var result:ArrayCollection = e.result as ArrayCollection;
+				model.SALARY_MODULU = modulu;
+				model.SALARY_EXPONENT = exponent;
+				if(salaries){
+					salaries.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+				}
+				salaries = result;
+				salaries.addEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+			}
+			
+			private function onSalaryChange(e:CollectionEvent):void{
+				if(e.kind == CollectionEventKind.UPDATE){
+					for each(var pce:PropertyChangeEvent in e.items){
+						if(pce.property!=null&&pce.property.toString()=="startTime"){
+							if(pce.newValue!=null && ObjectUtil.dateCompare(pce.newValue as Date,pce.oldValue as Date)!=0){
+								var us1:UserSalaryVO = pce.source as UserSalaryVO;
+								userSalaryRo.updateUserSalary(us1);
+								break;
+							}
+						}
+						else if((pce.newValue != "") && (pce.newValue != pce.oldValue)){
+							var us:UserSalaryVO = pce.source as UserSalaryVO;
+							userSalaryRo.updateUserSalary(us);
+							break;
+						}
+					}
+				}
+			}
+			
+			private function onAddSalary():void{
+				newSalary = new UserSalaryVO();
+				newSalary.userId = user.id;
+				newSalary.creatorId = model.currUser.id;
+				newSalary.startTime = new Date();
+				userSalaryRo.createUserSalary(newSalary);
+			}
+			
+			private function createUserSalaryHandler(e:ResultEvent):void{
+				var id:int = e.result as int;
+				newSalary.id = id;
+				
+				salaries.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+				salaries.addItem(newSalary);
+				salaries.addEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+				
+				salaryAdg.selectedItem = newSalary;
+				selectedSalary = newSalary;
+			}
+			
+			private function ondeleteSalary():void{
+				selectedSalary = salaryAdg.selectedItem as UserSalaryVO;
+				if(selectedSalary){
+					userSalaryRo.deleteUserSalary(selectedSalary);
+				}				
+			}
+			
+			private function deleteUserSalaryHandler(e:ResultEvent):void{
+				var index:int = salaries.getItemIndex(selectedSalary);
+				
+				salaries.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+				salaries.removeItemAt(index);
+				salaries.addEventListener(CollectionEvent.COLLECTION_CHANGE, onSalaryChange);
+				
+				selectedSalary = null;
+			}
+			
+			private function onItemEditEnd(e:AdvancedDataGridEvent):void{
+				if(e.dataField == Constants.SALARY  || e.dataField == Constants.INSURANCE || e.dataField == Constants.HOUSE_FOUND
+						|| e.dataField == Constants.SOCIAL_BENEFIT_TYPE_1 || e.dataField == Constants.SOCIAL_BENEFIT_TYPE_2 
+						|| e.dataField == Constants.LUNCH_BENEFIT){
+					var value:String = AdvancedDataGridNumberEditor(AdvancedDataGrid(e.target).itemEditorInstance).text;
+					if((value.length == 0) || (isNaN(Number(value)))){
+						e.preventDefault();
+					}		
+				}
+				
+				if(e.dataField == Constants.START_TIME){
+					//e.preventDefault();
+					salaryAdg.editedItemRenderer.data.startTime = DateField(AdvancedDataGrid(e.target).itemEditorInstance).selectedDate;
+					salaryAdg.destroyItemEditor();
+					salaryAdg.dataProvider.itemUpdated(e.itemRenderer.data);
+				}
+			}
+			
+			private var modulu:String = model.SALARY_MODULU;
+			private var exponent:String = model.SALARY_EXPONENT;
+			
+			private function submitParams():void{
+				modulu = StringUtil.trim(moduluTA.text);
+				exponent = StringUtil.trim(exponentTA.text);
+				if((modulu.length > 0) && (exponent.length > 0)){
+					userSalaryRo.getDecryptedUserSalarysByUserId(user.id, modulu, exponent, model.currUser.userName);
+				}
+			}
+			
+			private function decryptFaultHandler(e:FaultEvent):void{
+				Alert.show(resourceManager.getString('Language', 'alert.param_error'));
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject id="userSalaryRo" destination="ro.userSalary" showBusyCursor="true">
+		<mx:method name="getUserSalarysByUserId" result="getUserSalarysByUserIdHandler(event)"/>
+		<mx:method name="getDecryptedUserSalarysByUserId" result="getDecryptedUserSalarysByUserIdHandler(event)"
+			 fault="decryptFaultHandler(event)"/>
+		<mx:method name="createUserSalary" result="createUserSalaryHandler(event)"/>
+		<mx:method name="deleteUserSalary" result="deleteUserSalaryHandler(event)"/>
+		<mx:method name="updateUserSalary"/>
+	</mx:RemoteObject>
+	
+	<mx:HBox width="100%" horizontalAlign="center">
+		<mx:Form>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.recommender')}:">
+				<mx:TextInput id="recommenderTI" text="{user.recommendorName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.recommendation_bonus')}:">
+				<mx:TextInput id="recommendationBonusTI" text="{user.recommendationBonus}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.recommedation_bonus_payment')}:">
+				<mx:TextInput id="recommendationBonusPaymentTI" text="{user.recommendationBonusPayment}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.recommendation_bonus_payment_time')}:">
+				<mx:DateField id="recommendationBonusPaymentTimeDF" selectedDate="{user.recommendationBonusPaymentTime}"/>
+			</mx:FormItem>
+		</mx:Form>
+	</mx:HBox>
+	<mx:HBox width="80%" horizontalAlign="left" verticalGap="0" paddingBottom="0">
+		<mx:Button id="addSalaryBtn" icon="{ImageEnum.IMAGECLASS_ADD_USER}" enabled="false" 
+			click="onAddSalary()" toolTip="{resourceManager.getString('Language', 'tooltip.add_user_salary_info')}"/>
+		<mx:Button id="deleteSalaryBtn" icon="{ImageEnum.IMAGECLASS_SUB_USER}" enabled="false" 
+			click="ondeleteSalary()" toolTip="{resourceManager.getString('Language', 'tooltip.delete_user_salary_info')}"/>
+	</mx:HBox>
+	<mx:AdvancedDataGrid id="salaryAdg" dataProvider="{salaries}" editable="true" itemEditEnd="onItemEditEnd(event)" 
+		width="80%">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.base_salary')}" 
+				dataField="salary" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="salary"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.social_Benefit_1')}" 
+				dataField="socialBenefitType1" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="socialBenefitType1"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.social_Benefit_2')}" 
+				dataField="socialBenefitType2" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="socialBenefitType2"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.house_found_base')}" 
+				dataField="houseFound" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="houseFound"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.insurance')}" 
+				dataField="insurance" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="insurance"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.lunch_benefit')}" 
+				dataField="lunchBenefit" editorDataField="text">
+				<mx:itemEditor>
+					<mx:Component>
+						<advancedDataGridClasses:AdvancedDataGridNumberEditor field="lunchBenefit"/>
+					</mx:Component>
+				</mx:itemEditor>
+			</mx:AdvancedDataGridColumn>
+			<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.start_time')}" dataField="startTime"
+				itemEditor="mx.controls.DateField" labelFunction="formatDateShort" editorDataField="selectedDate"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+	<mx:VBox id="paramBox" width="80%" horizontalAlign="center">
+		<code:PromptingTextInput id="moduluTA" prompt="Modulus" text="{model.SALARY_MODULU}" width="100%"/>
+		<code:PromptingTextInput id="exponentTA" prompt="Exponent" text="{model.SALARY_EXPONENT}" width="100%"/>
+		<mx:Button id="submitBtn" label="{resourceManager.getString('Language', 'label.submit')}" click="submitParams()"/>
+	</mx:VBox>		
+</mx:VBox>

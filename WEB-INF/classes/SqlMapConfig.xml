@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+	<!DOCTYPE sqlMapConfig
+	PUBLIC "-//ibatis.apache.org//DTD SQL Map Config 2.0//EN"
+	"http://ibatis.apache.org/dtd/sql-map-config-2.dtd">
+
+<sqlMapConfig>
+
+	<settings useStatementNamespaces="true" cacheModelsEnabled="false"/>
+	
+	<sqlMap resource="com/pearl/normandy/user/User.xml" />
+	<sqlMap resource="com/pearl/normandy/customer/Customer.xml" />
+	<sqlMap resource="com/pearl/normandy/project/Project.xml" />
+	<sqlMap resource="com/pearl/normandy/projectuser/ProjectUser.xml" />
+	<sqlMap resource="com/pearl/normandy/activity/Activity.xml" />
+	<sqlMap resource="com/pearl/normandy/usergroup/UserGroup.xml" />
+	<sqlMap resource="com/pearl/normandy/listofvalue/ListOfValue.xml"/>
+	<sqlMap resource="com/pearl/normandy/productionprocess/ProductionProcess.xml" />
+	<sqlMap resource="com/pearl/normandy/task/Task.xml" />
+	<sqlMap resource="com/pearl/normandy/processstep/ProcessStep.xml" />
+	<sqlMap resource="com/pearl/normandy/taskdetail/TaskDetail.xml" />
+	<sqlMap resource="com/pearl/normandy/projectmember/ProjectMember.xml" />
+	<sqlMap resource="com/pearl/normandy/comment/Comment.xml" />
+	<sqlMap resource="com/pearl/normandy/timesheet/Timesheet.xml" />
+	<sqlMap resource="com/pearl/normandy/feedback/Feedback.xml" />	
+	<sqlMap resource="com/pearl/normandy/feedbackreference/FeedbackReference.xml" />				
+	<sqlMap resource="com/pearl/normandy/baseline/BaselineProject.xml" />	
+	<sqlMap resource="com/pearl/normandy/baseline/BaselineMilestone.xml" />	
+	<sqlMap resource="com/pearl/normandy/baseline/BaselineProductionProcess.xml" />	
+	<sqlMap resource="com/pearl/normandy/baseline/BaselineProcessStep.xml" />	
+	<sqlMap resource="com/pearl/normandy/baseline/BaselineTask.xml" />	
+	<sqlMap resource="com/pearl/normandy/report/Report.xml" />	
+	
+	<sqlMap resource="com/pearl/normandy/actionlog/ActionLog.xml"/>		
+	<sqlMap resource="com/pearl/normandy/statuslog/StatusLog.xml"/>
+	<sqlMap resource="com/pearl/normandy/reportlog/ReportLog.xml"/>
+	<sqlMap resource="com/pearl/normandy/calendar/Calendar.xml"/>
+	<sqlMap resource="com/pearl/normandy/checkitem/CheckItem.xml"/>
+	<sqlMap resource="com/pearl/normandy/checkitemlog/CheckItemLog.xml"/>
+	<sqlMap resource="com/pearl/normandy/sysConfig/SysConfig.xml"/>	
+	<sqlMap resource="com/pearl/normandy/projectTimeValue/ProjectTimeValue.xml"/>
+	<sqlMap resource="com/pearl/normandy/userContract/UserContract.xml"/>
+	<sqlMap resource="com/pearl/normandy/userSalary/UserSalary.xml"/>
+	<sqlMap resource="com/pearl/normandy/userPrivilege/UserPrivilege.xml"/>
+	<sqlMap resource="com/pearl/normandy/userpunctual/UserPunctual.xml"/>	
+	<sqlMap resource="com/pearl/normandy/projectmemberability/ProjectMemberAbility.xml"/>										
+</sqlMapConfig>

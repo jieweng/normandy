@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="UserPunctual">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+ 	<typeAlias alias="UserPunctual" type="com.pearl.normandy.userpunctual.UserPunctual"/>
+ 	
+	<select id="select" parameterClass="java.util.Map" resultClass="UserPunctual">
+   	 	select 
+   	 		IFNULL(up.ID, 0) 						as id,
+   	 		u.ID 									as userId,
+   	 		u.EMPLOYEE_NO							as employeeNo,
+		    IFNULL(up.YEAR, 0)						as year,
+		    IFNULL(up.MONTH, 0)						as month,
+   	 		IFNULL(up.NUMBER, 0) 					as number,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME,
+				   "(",u.ENGLISH_FIRST_NAME, " ",
+				   u.ENGLISH_LAST_NAME,")")			as fullName,
+			CONCAT(u.FIRST_NAME," ",
+				   u.LAST_NAME," ",
+				   u.ENGLISH_FIRST_NAME," ",
+				   u.ENGLISH_LAST_NAME," ",
+				   u.USER_NAME," ",
+				   u.EMPLOYEE_NO," ",
+				   ug.GROUP_NAME)					as 	searchStr,	 		
+   	 		ug.ID									as	userGroupId,
+   	 		ug.GROUP_NAME							as	userGroupName,
+   	 		ug.STATE								as	state,
+   	 		ug.PRODUCTION							as	productionGroup
+    	from USER u LEFT JOIN USER_PUNCTUAL up ON u.ID = up.USER_ID 
+				 AND up.YEAR = #year# AND up.MONTH = #month#, USER_GROUP ug
+    	where u.USER_GROUP_ID = ug.ID and (u.DELETED is null or u.DELETED != 'Y') and u.user_group_id in (0,1,13,14,15)
+    	order by u.EMPLOYEE_NO
+	</select> 
+ 	
+ 	<insert id="create" parameterClass="UserPunctual">
+ 	 	INSERT INTO USER_PUNCTUAL(
+ 			USER_ID,
+ 			YEAR,
+ 			MONTH,
+ 			NUMBER
+ 		) VALUES(
+ 			#userId#,
+ 			#year#,
+ 			#month#,
+ 			#number#
+ 		);
+ 		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+ 	</insert>
+ 	
+ 	<update id="update" parameterClass="UserPunctual">
+ 	 	UPDATE USER_PUNCTUAL
+ 		SET	NUMBER					= #number#
+ 		WHERE ID = #id#;
+ 	</update>
+</sqlMap>

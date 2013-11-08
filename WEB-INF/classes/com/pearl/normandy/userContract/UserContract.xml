@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="UserContract">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+ 	<typeAlias alias="UserContract" type="com.pearl.normandy.userContract.UserContract"/>
+ 	
+ 	<select id="selectUserContractByUserId" parameterClass="java.lang.Integer" resultClass="UserContract">
+ 	 	SELECT	ID						as id,
+ 				USER_ID					as userId,
+ 				START_TIME				as startTime,
+ 				DURATION				as duration,
+ 				CREATOR_ID				as creatorId,
+ 				CREATE_TIME				as createTime
+ 		FROM USER_CONTRACT
+ 		WHERE USER_ID = #userId#;
+ 	</select>
+ 	
+ 	<insert id="create" parameterClass="UserContract">
+ 	 	INSERT INTO USER_CONTRACT(
+ 			USER_ID,
+ 			START_TIME,
+ 			DURATION,
+ 			CREATOR_ID,
+ 			CREATE_TIME
+ 		) VALUES(
+ 			#userId#,
+ 			#startTime#,
+ 			#duration#,
+ 			#creatorId#,
+ 			NOW()
+ 		);
+ 		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+ 	</insert>
+ 	
+ 	<update id="update" parameterClass="UserContract">
+ 	 	UPDATE USER_CONTRACT
+ 		SET	USER_ID					= #userId#,
+ 			START_TIME				= #startTime#,
+ 			DURATION				= #duration#,
+ 			CREATOR_ID				= #creatorId#
+ 		WHERE ID = #id#;
+ 	</update>
+ 	
+ 	<delete id="delete" parameterClass="UserContract">
+ 	 	DELETE FROM USER_CONTRACT 
+ 		WHERE ID = #id#;
+ 	</delete>
+</sqlMap>

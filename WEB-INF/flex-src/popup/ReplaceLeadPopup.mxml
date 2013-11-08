@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	title="{resourceManager.getString('Language', 'title.replace_lead')}"
+	borderAlpha="1"
+	paddingLeft="10" paddingRight="10"
+	minWidth="400"
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);"
+	>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.event.ChangeEvent;
+			import com.pearl.normandy.vo.UserVO;
+			import mx.managers.PopUpManager;
+		
+			import mx.collections.ArrayCollection;
+			private var _leadUsers:ArrayCollection;
+			[Bindable]
+			public function set leadUsers(val:ArrayCollection):void{
+				_leadUsers = val;
+			}
+			
+			public function get leadUsers():ArrayCollection{
+				return _leadUsers;
+			}
+			
+			private function onReplaceLeader(evt:MouseEvent):void{
+				var event:ChangeEvent = new ChangeEvent(ChangeEvent.LEAD_REPLACE, leadDG.selectedItem);
+				this.dispatchEvent(event);
+			}
+		]]>
+	</mx:Script>
+	<mx:VBox width="100%" height="100%">
+		<mx:DataGrid id="leadDG" width="100%" height="100%" dataProvider="{leadUsers}">
+			<mx:columns>
+				<mx:DataGridColumn dataField="name" 
+					headerText="{resourceManager.getString('Language','label.name')}"/>
+<!--				<mx:DataGridColumn dataField="projectsName"
+					headerText="{resourceManager.getString('Language','label.current_project')}"/>  --> 
+			</mx:columns>
+		</mx:DataGrid> 
+		<mx:ControlBar width="100%" horizontalAlign="center">
+	        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}"
+	        	click="onReplaceLeader(event);PopUpManager.removePopUp(this)" enabled="{leadDG.selectedItem}"/>
+	        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+	            click="PopUpManager.removePopUp(this);"/>
+    	</mx:ControlBar>
+	</mx:VBox>
+	<mx:Metadata>
+		[Event(name="leadReplace", type="com.pearl.normandy.event.ChangeEvent")]
+	</mx:Metadata>
+</mx:TitleWindow>

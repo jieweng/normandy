@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*"	
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','title.view_task')}"
+	width="900" height="650"
+	borderAlpha="1"
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#e2e2e2, #e2e2e2]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+            import mx.collections.ArrayCollection;
+            import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+
+			import com.pearl.normandy.event.CommentEvent;            
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.CommentVO;
+			import com.pearl.normandy.utils.Constants;
+			
+			import popup.AddCommentPopUp;
+
+		    //==============================
+		    //Data Attributes
+		    //==============================
+            [Bindable]
+			private var referenceUrl:String;
+			
+			[Bindable]
+			public var task:TaskVO;						
+			
+			private var _taskId:int;
+			[Bindable]			
+			public function set taskId(value:int):void{
+				this._taskId = value;							
+				taskRo.getTaskById(this._taskId);
+			}
+			
+			public function get taskId():int{
+				return this._taskId;
+			}
+
+ 		    //==============================
+		    //Methods
+		    //==============================   			
+			private function init():void{
+				this.setFocus();				
+			}	                        
+            
+            private function addComment():void{
+            	var addCommentPopUp:AddCommentPopUp = AddCommentPopUp(PopUpManager.createPopUp(this, AddCommentPopUp, true));
+            	addCommentPopUp.task = task;
+		        PopUpManager.centerPopUp(addCommentPopUp);		        
+            }
+            
+            
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================	
+			private function getTaskByIdHandler(event:ResultEvent):void{				
+				this.task = event.result as TaskVO;
+			}		    
+		    		
+			
+			private function saveOrUpdateFeedback():void{				
+				feedbackRo.saveFeedback(editInternalFeedback.feedbacks);
+				feedbackRo.saveFeedback(editCustomerFeedback.feedbacks);
+				PopUpManager.removePopUp(this);
+			}
+
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    } 				
+		]]>
+	</mx:Script>
+	
+	
+    <!--==========================
+	    Services
+	  ===========================-->	
+	<mx:RemoteObject id="taskRo" destination="ro.task" fault="faultHandler(event)">
+		<mx:method name="getTaskById" result="getTaskByIdHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="feedbackRo" destination="ro.feedback" fault="faultHandler(event)">
+		<mx:method name="saveFeedback"/>
+	</mx:RemoteObject>
+
+	
+	 <!--==========================
+	    Page Layout
+  	 ===========================-->
+  	<mx:TabBar width="100%" dataProvider="{viewTaskVS}"/>
+	<mx:ViewStack id="viewTaskVS" width="100%" height="100%" creationPolicy="all">			
+		<widget:ViewTaskBasic id="viewTaskBasic" task="{task}"/>
+    	<widget:ViewTaskDetail id="viewTaskDetail" task="{task}"/>
+    	<widget:EditFeedback id="editInternalFeedback" CATEGORY="{Constants.FEEDBACK_CATEGORY_INTERNAL}" task="{task}"
+    		label="{resourceManager.getString('Language','label.qa_feedback')}"/>    	    		
+    	<widget:EditFeedback id="editCustomerFeedback" CATEGORY="{Constants.FEEDBACK_CATEGORY_CUSTOMER}" task="{task}"
+    		label="{resourceManager.getString('Language','label.customer_feedback')}"/> 		
+		<widget:ViewTaskComments id="viewTaskComments" task="{task}"/>
+	</mx:ViewStack>
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button label="{resourceManager.getString('Language','button.ok')}" 
+        	click="saveOrUpdateFeedback()"
+        	toolTip="{resourceManager.getString('Language','button.ok')}"/>
+        <mx:Button label="{resourceManager.getString('Language','button.add_comment')}" 
+        	click="addComment()"
+        	toolTip="{resourceManager.getString('Language','button.add_comment')}"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.close')}"
+            click="PopUpManager.removePopUp(this);"
+            toolTip="{resourceManager.getString('Language','button.close')}"/>
+    </mx:ControlBar>
+</advancedPanel:AdvancedPanel>

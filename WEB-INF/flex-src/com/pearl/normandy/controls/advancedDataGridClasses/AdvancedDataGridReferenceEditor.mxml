@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" horizontalAlign="center" 
+	horizontalScrollPolicy="off" verticalScrollPolicy="off" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[	
+			[Bindable]
+			public var text:String;
+					
+			private function init():void{
+				valueTI.setFocus();
+				valueTI.setSelection(0, valueTI.text.length);
+			}
+			
+			private var _data:Object;
+			public override function get data():Object{
+				return this._data;
+			}
+			[Bindable]
+			public override function set data(value:Object):void{
+				this._data = value;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="valueTI.text" destination="text"/>
+	
+	<mx:NumberValidator id="nv" source="{valueTI}" property="text" trigger="{valueTI}" triggerEvent="change" required="true" minValue="0"/>
+	<mx:TextInput id="valueTI" text="{text}" width="100%" height="100%"/>
+</mx:HBox>

@@ -1,0 +1,889 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*" 
+	width="1300" height="700" creationComplete="init()" keyDown="onKeyDown(event)" showControls="true" enableResize="true"
+	title="{resourceManager.getString('Language','label.resource_management')} - [{project.projectName}]" backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0" xmlns:code="http://code.google.com/p/flexlib/" 
+	xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*" 
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+	xmlns:ibizDataGrid="com.pearl.normandy.component.ibizDataGrid.*" xmlns:popTextInput="com.pearl.normandy.component.popTextInput.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			import mx.events.TreeEvent;
+			import mx.core.DragSource;
+			import mx.managers.DragManager;
+			import com.pearl.normandy.enum.ImageEnum;
+			import mx.events.ListEvent;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import mx.managers.PopUpManager;
+			import mx.messaging.messages.ErrorMessage;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.UserVO;
+			import mx.utils.StringUtil;
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import mx.collections.ICollectionView;
+			import com.pearl.normandy.utils.Constants;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.vo.ProjectVO;
+			
+			private var currUser:UserVO = model.currUser;
+			
+			private var _project:ProjectVO;
+			[Bindable]
+		 	public function set project(value:ProjectVO):void{
+		 		_project = value;
+		 		
+		 		projectMemberRo.getProjectMembersByProjectId(project.id);
+		 		projectUserRo.getProjectUserHierarchical(project.id);
+		 	}		
+		 	 	
+		 	public function get project():ProjectVO{				
+				return this._project;
+			}
+			
+			private var _projectMember:ProjectMemberVO;
+			[Bindable]
+		 	public function set projectMember(value:ProjectMemberVO):void{
+		 		_projectMember = value;
+	 			resourcePrivilege();
+		 	}		
+		 	 	
+		 	public function get projectMember():ProjectMemberVO{				
+				return this._projectMember;
+			}
+			
+			private function getProjectMembersByProjectIdHandler(evt:ResultEvent):void{	
+				members = evt.result as ArrayCollection;
+//				showChange();
+			}
+			
+			private var _memberStateFilter:Boolean = true;
+			[Bindable]
+			public function set memberStateFilter(value:Boolean):void{
+				this._memberStateFilter = value;
+				showChange();
+			}
+			
+			public function get memberStateFilter():Boolean{
+				return this._memberStateFilter
+			}
+			
+			private function showChange():void{
+		  		//update resource collection
+		    	var resourceCollection:ICollectionView = memberADG.dataProvider as ICollectionView;
+		    	if (resourceCollection.filterFunction == null) {
+		      		resourceCollection.filterFunction = resourceFilter;
+		    	}
+		    	resourceCollection.refresh();    		
+			}
+
+		  	private function resourceFilter(item:Object):Boolean {
+				var member:ProjectMemberVO = item as ProjectMemberVO;
+				if(_memberStateFilter){
+					if(member.status == Constants.RESOURCE_PROJECT_STATUS_ASSIGNED){
+						return true;
+					}else{
+						return false;
+					}
+				}
+				return true;
+		  	}
+			
+			private function getProjectUserHierarchicalHandler(e:ResultEvent):void{
+				projectUsers = e.result as ArrayCollection;
+				if(projectUsers){
+					displayItemNum = projectUsers.length;
+				}else{
+					displayItemNum = 0;
+				}
+			}
+			
+			[Bindable]    
+		    private var userProjects:ArrayCollection;
+		    [Bindable]
+		    private var projectUsers:ArrayCollection = new ArrayCollection();
+		    [Bindable]
+		   	private var members:ArrayCollection = new ArrayCollection();
+		   	[Bindable]
+			private var users:ArrayCollection;
+			
+			private var memberContextMenu:ContextMenu;
+			private var treeContextMenu:ContextMenu;
+			
+			private var delProjectMembers:Array;
+			
+			private function init():void{
+				this.setFocus();
+				
+				memberContextMenu = new ContextMenu();
+				removeDefaultItems(memberContextMenu);
+				addMemberMenuItems();
+				memberADG.contextMenu = memberContextMenu;
+				
+				treeContextMenu = new ContextMenu();
+				removeDefaultItems(treeContextMenu);
+				addTreeMenuItems();
+				projectTree.contextMenu = treeContextMenu;
+										
+				userRo.getAllProductionUsers();				
+				if(model.GLOBAL_SELECTED_PROJECT != null)
+				{
+					var currProjectId:int = model.GLOBAL_SELECTED_PROJECT.id;
+	   				for(var i:int=0;i<userProjects.length;i++){
+			   			var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+		   				if(item.id == currProjectId){
+		   					this.project = model.GLOBAL_SELECTED_PROJECT;
+		   					projectCB.selectedIndex = i;
+		   					break;
+		   				}
+	   				}
+	   				resourcePrivilege();
+				}
+			}
+			
+			private function resourcePrivilege():void{
+				if(model.privilegeResource == Constants.PRIV_RW){
+					memberADG.editable  = "true";
+				}else{
+					if(model.currProjectMember == null){
+						memberADG.editable = "false";
+						projectTree.editable = false;
+						memberADG.dropEnabled = false;
+						memberADG.dragEnabled = false;
+						projectTree.dragEnabled = false;
+						projectTree.dropEnabled = false;
+						memberADG.contextMenu = null;
+						projectTree.contextMenu = null;
+					}else{
+						if(model.currProjectMember.privPrivilege == Constants.BOOLEAN_NO){
+							memberADG.editable = "false";
+						}else{
+							memberADG.editable = "true";
+						}
+						if(model.currProjectMember.privResource == Constants.PRIV_NONE){
+							projectTree.editable = false;
+							memberADG.dropEnabled = false;
+							memberADG.dragEnabled = false;
+							projectTree.dragEnabled = false;
+							projectTree.dropEnabled = false;
+							memberADG.contextMenu = null;
+							projectTree.contextMenu = null;
+						}
+						if(model.currProjectMember.privResource == Constants.PRIV_ALL){
+							projectTree.editable = false;
+							memberADG.dropEnabled = true;
+							memberADG.dragEnabled = true;
+							projectTree.dragEnabled = true;
+							projectTree.dropEnabled = true;
+							memberADG.contextMenu = memberContextMenu;
+							projectTree.contextMenu = treeContextMenu;
+						}
+						if(model.currProjectMember.privResource == Constants.PRIV_ASSIGNED){
+							projectTree.editable = false;
+							memberADG.dragEnabled = true;
+							projectTree.dragEnabled = false;
+							projectTree.dropEnabled = false;
+							memberADG.dropEnabled = false;
+							memberADG.contextMenu = null;
+							projectTree.contextMenu = treeContextMenu;
+						}
+					}
+				}
+			}
+			
+			private function addMemberMenuItems():void{
+				var item:ContextMenuItem = new ContextMenuItem("Delete Member");
+				memberContextMenu.customItems.push(item);
+				item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, deleteProjectMember);
+			}
+			
+			private function addTreeMenuItems():void{
+				var item:ContextMenuItem = new ContextMenuItem("Delete Member");
+				treeContextMenu.customItems.push(item);
+				item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, deleteProjectTreeMember);
+			}
+			
+			private function deleteProjectMember(e:ContextMenuEvent):void{
+				if(memberADG.selectedItems != null && memberADG.selectedItems.length > 0){
+					confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmRemoveMembers);
+				}
+			}
+			
+			private function deleteProjectTreeMember(e:ContextMenuEvent):void{
+				var pu:ProjectUserVO = projectTree.selectedItem as ProjectUserVO;
+				if(pu){
+					if(pu.children == null || pu.children.length == 0){
+						confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+				   				resourceManager.getString("Language","title.confirmation"), confirmRemoveProjectUserFun);
+					}else{
+						Alert.show(resourceManager.getString('Language','alert.delete_ad'));
+					}
+				}
+			}
+			
+			private function confirmRemoveMembers(e:CloseEvent):void{
+				if(e.detail == Alert.YES){
+					delProjectMembers = memberADG.selectedItems as Array;
+					projectMemberRo.deleteProjectMembers(delProjectMembers, project.id);
+				}
+			}
+			
+			private function confirmRemoveProjectUserFun(evt:CloseEvent):void{
+				if (evt.detail == Alert.YES) {
+					var selParent:ProjectUserVO = projectTree.getParentItem(projectTree.selectedItem) as ProjectUserVO;
+					if(selParent == null){
+						projectUserRo.deleteProjectUser(projectTree.selectedItem as ProjectUserVO);
+						projectUsers.removeItemAt(projectUsers.getItemIndex(projectTree.selectedItem));
+					}else{
+						projectUserRo.deleteProjectUser(projectTree.selectedItem as ProjectUserVO);
+						selParent.children.removeItemAt(selParent.children.getItemIndex(projectTree.selectedItem));
+						
+					}
+					
+					displayItemNum--;
+				}
+			}
+			
+			private function deleteProjectMembersHandler(evt:FaultEvent):void{
+				var errorMsg:ErrorMessage = evt.message as ErrorMessage;
+				if(errorMsg.hasOwnProperty("extendedData") && errorMsg.extendedData && (errorMsg.extendedData["ProjectUser"] as ArrayCollection).length > 0){
+					var projectUserList:ArrayCollection = errorMsg.extendedData["ProjectUser"] as ArrayCollection;
+					var tempProjectMember:ProjectMemberVO;
+
+					for each(var projectUser:ProjectUserVO in projectUserList){
+						for(var i:int = 0; i < delProjectMembers.length; i++){
+						
+							tempProjectMember = delProjectMembers[i] as ProjectMemberVO;
+							if(tempProjectMember.userId == projectUser.userId){
+								delProjectMembers.splice(i, 1);
+								i--;
+							}
+						}
+					}
+					deleteMembersFromMemberADG(delProjectMembers);
+					var faultHandlerPopup:FaultHandlerPopup = FaultHandlerPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FaultHandlerPopup, true));
+					PopUpManager.centerPopUp(faultHandlerPopup);
+					faultHandlerPopup.message = errorMsg;
+				}else{
+					if(!errorMsg.extendedData){
+						faultHandler(evt);
+					}else{
+						deleteMembersFromMemberADG(delProjectMembers);
+					}
+				}	
+			}
+			
+			private function deleteMembersFromMemberADG(delMembers:Array):void{			
+				var tempProjectMember:ProjectMemberVO;
+				for(var j:int = 0; j < delMembers.length; j++){
+					tempProjectMember = delMembers[j] as ProjectMemberVO;
+					for each(var user:UserVO in users){
+						if(user.id == tempProjectMember.userId){
+							deleteProjectName(user);
+						}
+					}
+					
+					members.removeItemAt(members.getItemIndex(tempProjectMember));
+				}
+			}
+			
+			private function deleteProjectName(user:UserVO):void{
+				if(user.projectsName.indexOf(project.projectName) >= 0){
+					var arr:Array = new Array();
+					arr = user.projectsName.split(", ");
+					for(var i:int = 0; i < arr.length; i++){
+						if((arr[i] as String)== project.projectName){
+							arr.splice(i, 1);
+							break;
+						}
+					}
+					user.projectsName = arr.join(", ");
+				}	
+			}
+			
+			private function getUsersHandler(e:ResultEvent):void{    			
+    			users = e.result as ArrayCollection;
+    		}
+			
+			private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		    
+			private var _userInforFilter:String="";
+			[Bindable]
+			public function set userInforFilter(value:String):void{
+				_userInforFilter=value;
+				updateCollectionFilter();
+			}
+			
+			public function get userInforFilter():String{
+				return this._userInforFilter;
+			}
+			
+			private function updateCollectionFilter():void{
+		    	var collection:ICollectionView = userADG.dataProvider as ICollectionView;
+		    	if (collection.filterFunction == null) {
+		      		collection.filterFunction = collectionFilter;
+		    	}
+		    	collection.refresh();    		
+		  	}
+		  	
+		  	private function collectionFilter(item:Object):Boolean {
+		     	var user:UserVO = item as UserVO;
+		   		if(StringUtil.trim(userInforFilter)==""){
+		   			return true;
+	   			}
+	   			var searchArr:Array=StringUtil.trim(userInforFilter).split(" ");
+	   			var pattern:RegExp = / /g;
+	   			var searchStr:String=user.name.replace(pattern, "")+user.employeeNo+user.projectsName;
+	   			if(user.userName!="null"){
+	   				searchStr=searchStr+user.userName;
+	   			}
+	   			if(user.userGroupName!="null"){
+	   				searchStr=searchStr+user.userGroupName;
+	   			}
+	   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+	   				return true;
+	   			}		   			
+				else{
+					return false;
+				}
+		  	}
+			
+			private var _memberNameFilter:String = "";
+			[Bindable]
+			public function set memberNameFilter(value:String):void{
+				this._memberNameFilter = value;
+				updateMemberFilter();
+			}
+			
+			public function get memberNameFilter():String{
+				return this._memberNameFilter
+			}
+			
+			private function updateMemberFilter():void{
+		  		var collection:ICollectionView = memberADG.dataProvider as ICollectionView;
+		    	if (collection.filterFunction == null) {
+		      		collection.filterFunction = memberFilter;
+		    	}
+		    	collection.refresh();
+		  	}
+		  	
+		  	private function memberFilter(item:Object):Boolean {
+		     	var member:ProjectMemberVO = item as ProjectMemberVO;
+		   			
+				if(memberNameFilter == "" || fuzzyCompare(member.userName+member.englishName, memberNameFilter)){
+					return true;
+				}else{
+					return false;
+				}				  
+		  	}
+			
+			private function resourceStatusStyleFunc(item:Object, column:AdvancedDataGridColumn):Object{
+		    	if(item!=null && item.status == Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+		    		return	{color: 0xc72020, fontWeight:"bold", textAlign: "center" };			
+		    	}
+		    	else{
+		    		return	{color: 0x81ba55, fontWeight:"bold", textAlign: "center" };
+		    	}
+		    }
+		    
+		    private var dragUserList:Array;
+		    
+		    private function onMemberDragDrop(e:DragEvent):void{
+		    	e.preventDefault();
+		    	e.currentTarget.hideDropFeedback(e);
+		    	
+		    	if(e.dragInitiator == userADG && project){
+		    		dragUserList = e.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+		    		if(dragUserList != null && dragUserList.length > 0){
+		    			var tempUser:UserVO;
+		    			for each(var pmv:ProjectMemberVO  in members){
+							for(var i:int = 0; i < dragUserList.length; i++){
+								tempUser = dragUserList[i] as UserVO;
+								if(tempUser.id == pmv.userId){
+									dragUserList.splice(i, 1);
+									i--;
+								}
+							}
+						}
+						var newProjectMember:ProjectMemberVO;
+						var projectMemberList:ArrayCollection;
+						if(dragUserList.length > 0){
+							projectMemberList = new ArrayCollection();
+						}else{
+							return;
+						}
+						for(var j:int; j < dragUserList.length; j++){
+							tempUser = dragUserList[j] as UserVO;
+							newProjectMember = new ProjectMemberVO();
+							newProjectMember.name = tempUser.firstName + " " + tempUser.lastName;
+							newProjectMember.userName = tempUser.firstName + " " + tempUser.lastName;
+							newProjectMember.projectId = project.id;
+							newProjectMember.userId = tempUser.id;
+							newProjectMember.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+							newProjectMember.createdBy = currUser.userName;
+							newProjectMember.createdByName = currUser.firstName + " " + currUser.lastName;
+							newProjectMember.createdDate = new Date();
+							projectMemberList.addItem(newProjectMember);
+							
+						}
+						projectMemberRo.saveProjectMembers(projectMemberList);
+		    		}
+		    	}
+		    }
+		    
+		    private function saveProjectMembersHandler(evt:ResultEvent):void{				
+				var memberList:Array = evt.result.source as Array;
+				if(memberList && memberList.length != 0){
+    				memberList.sortOn("userId", Array.NUMERIC | Array.DESCENDING);
+    				dragUserList.sortOn("id", Array.NUMERIC | Array.DESCENDING);
+    			}else{
+    				return;
+    			}
+    			 
+				for(var i:int = 0; i < memberList.length; i++){
+					concatProjectName(dragUserList[i] as UserVO, memberList[i] as ProjectMemberVO);
+				}
+				for each(var member:ProjectMemberVO in memberList){
+					if(!members){
+						members = new ArrayCollection();
+					}
+					members.addItem(member);
+				}
+			}
+			
+			private function concatProjectName(userVO:UserVO, projectMember:ProjectMemberVO = null):void{								
+				if(projectMember && members != null && members.length > 0){
+					for each(var s:ProjectMemberVO in members){
+						if(projectMember.userId == s.userId){
+							return;
+						}
+					}
+				}
+				
+				if(userVO.projectsName == null || userVO.projectsName == ""){
+					userVO.projectsName = project.projectName;
+				}
+				else{
+					userVO.projectsName += ", " + project.projectName;
+				} 
+			}
+			
+			private function resourceStatusLabelFunc(item:Object, column:AdvancedDataGridColumn):String{
+				if(item.status == Constants.RESOURCE_PROJECT_STATUS_ASSIGNED){
+					return Constants.RESOURCE_PROJECT_STATUS_ON;
+				}
+				else if(item.status == Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+					return Constants.RESOURCE_PROJECT_STATUS_OFF;
+				}
+				else{
+					return item.status;
+				}
+			}
+			
+			private function projectPrivilegeFunc(item:Object, column:AdvancedDataGridColumn):String{
+				if(column.dataField == "privTask1"){
+					return item.privTask1;
+				}else if(column.dataField == "privTask2"){
+					return item.privTask2;
+				}else if(column.dataField == "privResource"){
+					return item.privResource;
+				}else if(column.dataField == "privPrivilege"){
+					return item.privPrivilege;
+				}else if(column.dataField == "privMail"){
+					return item.privMail;
+				}else if(column.dataField == "privPerformance"){
+					return item.privPerformance;
+				}
+				return "";
+			}
+			
+			private var dragItem:ProjectUserVO;
+			private var dragItemParent:ProjectUserVO;
+			private var dragItemIndex:int;//拖动的Item在它父节点下的位置。
+			private var dragIndex:int;//拖动的Item在树中的位置。
+			[Bindable]
+			private var dropIndex:int;//接受drop的Item在树中的位置。
+			[Bindable]
+			private var selectedProjectUser:ProjectUserVO;
+			[Bindable]
+			private var displayItemNum:int;		//树中显示的Item的数目。
+			
+			private function onProjectTreeDragStartHandler(e:DragEvent):void{
+				var pu:ProjectUserVO = projectTree.selectedItem as ProjectUserVO;
+				
+				if(pu.projectRoleId == Constants.PROJECT_ROLE_ARTIST_NUM){
+					dragIndex = projectTree.selectedIndex;
+					dragItem = projectTree.selectedItem as ProjectUserVO;
+					dragItemParent = projectTree.getParentItem(dragItem) as ProjectUserVO;
+					dragItemIndex = dragItemParent.children.getItemIndex(dragItem);
+				}else{
+					e.preventDefault();
+				}
+			}
+			
+			private function onProjectTreeDragOverHandler(e:DragEvent):void{
+				dropIndex = projectTree.calculateDropIndex(e);
+				projectTree.selectedIndex = dropIndex;
+				selectedProjectUser = projectTree.selectedItem as ProjectUserVO;
+				if(!selectedProjectUser || selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_AD_NUM 
+						|| selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_LEAD_NUM){
+					DragManager.acceptDragDrop(Tree(e.currentTarget));
+				}else{
+					e.preventDefault();
+				}		
+			}
+			private var oldAdUser:ProjectUserVO;
+			private var newAdUser:ProjectUserVO;
+			private function onProjectTreeDragDropHandler(e:DragEvent):void{
+				e.preventDefault();
+				e.currentTarget.hideDropFeedback(e);
+				if(project){
+					var projectUser:ProjectUserVO;
+					
+				if(e.ctrlKey){
+					projectUser = selectedProjectUser;	
+					newAdUser = (e.dragSource.dataForFormat("treeItems") as Array)[0] as ProjectUserVO;				
+					if(projectUser.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+						oldAdUser = projectUser as ProjectUserVO;
+						confirm(StringUtil.substitute(resourceManager.getString("Language","alert.replace_ad"), oldAdUser.name),
+							resourceManager.getString("Language","title.confirmation"), confirmReplaceAD);
+					}					
+				}else{
+
+					if(e.dragInitiator == memberADG){
+						projectUser = (e.dragSource.dataForFormat("treeItems") as Array)[0] as ProjectUserVO;
+						if(dropIndex < displayItemNum){
+							if(!isInAC(projectUser, selectedProjectUser.children)){
+								if(selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+									projectUser.projectRoleId = Constants.PROJECT_ROLE_LEAD_NUM;
+								}else if(selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_LEAD_NUM){
+									projectUser.projectRoleId = Constants.PROJECT_ROLE_ARTIST_NUM;
+								}else{
+									return;
+								}
+								projectUser.createdDate = new Date();
+								projectUser.createdBy = model.currUser.userName;					
+								projectUser.version = 1;
+								projectUser.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+								projectUser.supervisorId = selectedProjectUser.userId;
+								projectUserRo.create(projectUser);
+							}								
+						}else{
+							if(!isInAC(projectUser, projectUsers)){
+								projectUser.projectRoleId = Constants.PROJECT_ROLE_AD_NUM;
+								projectUser.supervisorId = 0;
+								projectUser.createdDate = new Date();
+								projectUser.createdBy = model.currUser.userName;					
+								projectUser.version = 1;
+								projectUser.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+								projectUserRo.create(projectUser);
+							}							
+						}
+					}else if(e.dragInitiator == projectTree){
+						projectUser = dragItem;
+						
+						if(dropIndex < displayItemNum){
+							if(!isInAC(projectUser, selectedProjectUser.children)){
+								if(selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+									projectUser.projectRoleId = Constants.PROJECT_ROLE_LEAD_NUM;
+								}else if(selectedProjectUser.projectRoleId == Constants.PROJECT_ROLE_LEAD_NUM){
+									projectUser.projectRoleId = Constants.PROJECT_ROLE_ARTIST_NUM;
+								}else{
+									return;
+								}
+								projectUser.updatedDate = new Date();
+								projectUser.updatedBy = model.currUser.userName;					
+								projectUser.version = 1;
+								projectUser.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+								projectUser.supervisorId = selectedProjectUser.userId;
+								projectUserRo.updateProjectUser(projectUser);
+							}
+						}else{
+							if(!isInAC(projectUser, projectUsers)){
+								projectUser.projectRoleId = Constants.PROJECT_ROLE_AD_NUM;
+								projectUser.supervisorId = 0;
+								projectUser.updatedDate = new Date();
+								projectUser.updatedBy = model.currUser.userName;
+								projectUser.version = 1;
+								projectUser.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+								projectUserRo.updateProjectUser(projectUser);
+							}
+						}
+					}
+					}				
+				}				
+			}
+			
+			private function confirmReplaceAD(evt:CloseEvent):void{
+			
+				if(evt.detail == Alert.YES){
+					if(oldAdUser.userId == newAdUser.id){
+						return;
+					}
+					projectUserRo.replaceAD(oldAdUser, newAdUser);
+				}else if(evt.detail == Alert.CANCEL){
+					return;
+				}
+			}
+			
+			private function replaceADHandler(evt:ResultEvent):void{
+				oldAdUser.userId = newAdUser.userId;
+				oldAdUser.firstName = newAdUser.firstName;
+				oldAdUser.lastName  = newAdUser.lastName;
+				oldAdUser.name	  = newAdUser.name;	
+			}	
+			
+			//判断放入的Item是否已经在放入对象的children对象中
+			private function isInAC(projectUser:ProjectUserVO, ac:ArrayCollection):Boolean{
+				var b:Boolean = false;
+				for each(var pu:ProjectUserVO in ac){
+					if(pu.userId == projectUser.userId){
+						b = true;
+						break;
+					}
+				}
+				return b;
+			}
+			
+			private function createProjectUserHandler(e:ResultEvent):void{
+				var pu:ProjectUserVO = e.result as ProjectUserVO;
+				
+				if(pu.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+					projectUsers.addItem(pu);
+					projectTree.dataDescriptor.addChildAt(null, pu, dropIndex);
+					displayItemNum++;
+				}else{
+					if(selectedProjectUser.children == null){
+						selectedProjectUser.children = new ArrayCollection();
+					}
+					selectedProjectUser.children.addItem(pu);
+					if(projectTree.isItemOpen(selectedProjectUser)){
+						displayItemNum++;
+					}else{
+						projectTree.expandItem(selectedProjectUser, true);
+						displayItemNum += selectedProjectUser.children.length;
+					}
+				}
+				projectTree.selectedItem = pu;
+			}
+			
+			private function updateProjectUserHandler(e:ResultEvent):void{
+				var pu:ProjectUserVO = e.result as ProjectUserVO;
+				
+				dragItemParent.children.removeItemAt(dragItemIndex);
+				
+				if(pu.projectRoleId == Constants.PROJECT_ROLE_AD_NUM){
+					projectUsers.addItem(pu);
+					projectTree.dataDescriptor.removeChildAt(dragItemParent, dragItem, dragIndex);
+					projectTree.dataDescriptor.addChildAt(null, pu, dropIndex);
+				}else{
+					if(selectedProjectUser.children == null){
+						selectedProjectUser.children = new ArrayCollection();
+					}
+					selectedProjectUser.children.addItem(pu);
+					if(projectTree.isItemOpen(selectedProjectUser)){
+						displayItemNum++;
+					}else{
+						projectTree.expandItem(selectedProjectUser, true);
+						displayItemNum += selectedProjectUser.children.length;
+					}
+				}
+				projectTree.selectedItem = pu;
+			}
+			
+			private function onTreeItemClick(e:ListEvent):void{
+				selectedProjectUser = projectTree.selectedItem as ProjectUserVO;
+			}
+			
+			private function onTreeItemOpenHandler(e:TreeEvent):void{
+				var pu:ProjectUserVO = e.itemRenderer.data as ProjectUserVO;
+				displayItemNum += pu.children.length;
+				for each(var child:ProjectUserVO in pu.children){
+					if(projectTree.isItemOpen(child)){
+						displayItemNum += child.children.length;
+					}
+				}
+			}
+			
+			private function onTreeItemCloseHandler(e:TreeEvent):void{
+				var pu:ProjectUserVO = e.itemRenderer.data as ProjectUserVO;
+				displayItemNum -= pu.children.length;
+				for each(var child:ProjectUserVO in pu.children){
+					if(projectTree.isItemOpen(child)){
+						displayItemNum -= child.children.length;
+					}
+				}
+			}
+			private function onTreeAllOpenHandler():void{
+				for each(var child:ProjectUserVO in projectUsers){
+					if(!projectTree.isItemOpen(child)){
+						projectTree.selectedItem = child;
+						projectTree.expandItem(child,true)
+						for each(var child1:ProjectUserVO in child.children){
+							projectTree.selectedItem = child1;
+							projectTree.expandItem(child1,true)
+							if(child1.children==null){
+								displayItemNum+= 1;
+							}else{
+								displayItemNum+= child1.children.length+1;
+							}
+						}
+					}
+				}
+			}
+			private function onTreeAllCloseHandler():void{
+				for each(var child:ProjectUserVO in projectUsers){
+					projectTree.selectedItem = child;
+					projectTree.expandItem(child,false)
+					for each(var child1:ProjectUserVO in child.children){
+						projectTree.selectedItem = child1;
+						projectTree.expandItem(child1,false)
+					}
+				}
+				displayItemNum = projectUsers.length;
+			}
+			
+			private function changeProject():void{
+				if(projectCB.selectedIndex !=-1){
+					this.project = projectCB.selectedItem as ProjectVO;
+				}
+			}
+			
+			private function treeLabelFunc(item:Object):String{
+				var pu:ProjectUserVO = item as ProjectUserVO;
+				if(pu.children != null){
+					return pu.name + "(" + pu.children.length + ")";
+				}else{
+					return pu.name;
+				}
+			}
+		 
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="model.GLOBAL_USER_PROJECTS" destination="this.userProjects"/>
+	<mx:Binding source="model.currProjectMember" destination="this.projectMember"/>
+	
+	<mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+		<mx:method name="getAllProductionUsers" result="getUsersHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" fault="faultHandler(event)">
+	  	<mx:method name="getProjectMembersByProjectId" result="getProjectMembersByProjectIdHandler(event)"/>
+	  	<mx:method name="deleteProjectMembers" fault="deleteProjectMembersHandler(event)"/>
+	  	<mx:method name="saveProjectMembers"  result="saveProjectMembersHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="projectUserRo" destination="ro.projectuser" fault="faultHandler(event)">
+		<mx:method name="create" result="createProjectUserHandler(event)"/>
+		<mx:method name="getProjectUserHierarchical" result="getProjectUserHierarchicalHandler(event)"/>
+		<mx:method name="updateProjectUser" result="updateProjectUserHandler(event)"/>
+		<mx:method name="replaceAD" result="replaceADHandler(event)"/>
+		<mx:method name="deleteProjectUser"/>
+	</mx:RemoteObject>
+	
+	<mx:HDividedBox width="100%" height="100%">
+		<mx:VBox width="200" height="100%">
+			<mx:HBox>
+				<mx:Button width="24" height="24" id="expandButton" textAlign="center" icon="{ImageEnum.IMAGECLASS_EXPAND}" 
+		      		styleName="iconButton" toolTip="{resourceManager.getString('Language','button.expand')}" click="onTreeAllOpenHandler()"/>
+		    	<mx:Button width="24" height="24" id="collapseButton" textAlign="center" icon="{ImageEnum.IMAGECLASS_COLLAPSE}" 
+		      		styleName="iconButton" toolTip="{resourceManager.getString('Language','button.collapse')}" click="onTreeAllCloseHandler()"/>
+			</mx:HBox>
+			<popTextInput:PopUpTextInput id="projectCB" width="200" dataProvider="{userProjects}" onChange="changeProject()"
+				labelFunction="projectLabelFunc" keepSelection="true"/>
+			<mx:Tree id="projectTree" dataProvider="{projectUsers}" labelField="name" dragEnabled="true" dropEnabled="true" 
+				showScrollTips="true" dragMoveEnabled="true" itemClick="onTreeItemClick(event)" itemOpen="onTreeItemOpenHandler(event)" 
+				itemClose="onTreeItemCloseHandler(event)" defaultLeafIcon="{ImageEnum.IMAGECLASS_USER}" labelFunction="treeLabelFunc" 
+				folderOpenIcon="{ImageEnum.IMAGECLASS_USER_GROUP}" folderClosedIcon="{ImageEnum.IMAGECLASS_USER_GROUP}"
+				dragDrop="onProjectTreeDragDropHandler(event)" dragStart="onProjectTreeDragStartHandler(event)"
+				dragOver="onProjectTreeDragOverHandler(event)" width="200" height="100%"/>
+		</mx:VBox>
+		<mx:VBox width="100%" height="100%">
+			<mx:HBox width="100%" >
+				<code:PromptingTextInput id="memberNameTI" width="100%" change="{memberNameFilter = memberNameTI.text}"
+					prompt="{resourceManager.getString('Language','label.search.by_resource_name')}"/>
+			</mx:HBox>
+			<ibizDataGrid:UserDataGrid id="memberADG" dataProvider="{members}" editable="true" dropEnabled="true" dragEnabled="true" 
+				dragDrop="onMemberDragDrop(event)" width="100%" height="100%">
+				<ibizDataGrid:groupedColumns>
+					<mx:AdvancedDataGridColumn dataField="userName" editable="false"
+						headerText="{resourceManager.getString('Language','label.member.name')}"/>
+					<mx:AdvancedDataGridColumn dataField="createdByName" editable="false"
+						headerText="{resourceManager.getString('Language','label.member.created_by')}"/>
+					<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language', 'label.privilege')}">
+						<mx:AdvancedDataGridColumn headerText="Task 1" dataField="privTask1" labelFunction="projectPrivilegeFunc">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privTask1"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn headerText="Task 2" dataField="privTask2" labelFunction="projectPrivilegeFunc">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privTask2"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn headerText="Resource" dataField="privResource" labelFunction="projectPrivilegeFunc">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privResource"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn headerText="Performance" dataField="privPerformance" labelFunction="projectPrivilegeFunc" width="110">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privPerformance"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn headerText="Privilege" dataField="privPrivilege" labelFunction="projectPrivilegeFunc" width="80">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privPrivilege"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+						<mx:AdvancedDataGridColumn headerText="Mail" dataField="privMail" labelFunction="projectPrivilegeFunc" width="55">
+							<mx:itemEditor>
+								<mx:Component>
+									<advancedDataGridClasses:AdvancedDataGridProjectPrivEditor field="privMail"/>
+								</mx:Component>
+							</mx:itemEditor>
+						</mx:AdvancedDataGridColumn>
+					</mx:AdvancedDataGridColumnGroup>
+					<mx:AdvancedDataGridColumn dataField="status" sortable="true" editable="true" labelFunction="resourceStatusLabelFunc"
+			  			headerText="{resourceManager.getString('Language','label.member.status')}" styleFunction="resourceStatusStyleFunc"
+			  			itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridResourceStatusItemRenderer"
+			  			editorDataField="text" width="70"/>
+				</ibizDataGrid:groupedColumns>
+			</ibizDataGrid:UserDataGrid>
+		</mx:VBox>		
+		<mx:VBox width="300" height="100%">
+			<code:PromptingTextInput id="searchTI" width="100%" prompt="{resourceManager.getString('Language','label.search_user')}" 
+				change="{userInforFilter = searchTI.text}"/>
+			<mx:AdvancedDataGrid id="userADG" dataProvider="{users}" dragMoveEnabled="false" allowMultipleSelection="true" 
+				dragEnabled="true" width="100%" height="100%">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="employeeNo" width="80" headerText="{resourceManager.getString('Language','label.employee_no')}"/>      	
+			      	<mx:AdvancedDataGridColumn dataField="name" width="80"	headerText="{resourceManager.getString('Language','label.name')}"/>
+			  		<mx:AdvancedDataGridColumn dataField="projectsName"	headerText="{resourceManager.getString('Language','label.current_project')}"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+		</mx:VBox>
+	</mx:HDividedBox>
+	<!--mx:Label text="{resourceManager.getString('Language','label.privilegeHelp')}"/-->
+</advancedPanel:AdvancedPanel>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:DateChooser xmlns:mx="http://www.adobe.com/2006/mxml" allowMultipleSelection="true" showToday="false" disabledDays="[0,6]" width="100%" height="100%"
+	 displayedYear="{year}" displayedMonth="{month}" keyDown="keyHandler(event)" change="changeHandler(event)">
+	<mx:Script>
+	<![CDATA[
+		import mx.utils.ObjectUtil;
+		import mx.events.CalendarLayoutChangeEvent;
+		import com.pearl.normandy.utils.DateUtil;
+		import mx.core.mx_internal;
+		
+	    private var _year:int=2000;
+	    private var _month:int=0;
+	    public var selectGroup:Array;
+	    private var hasKey:Boolean=false;
+	    
+		[Bindable]
+		public function set year(value:int):void{
+			_year=value;
+			init();
+		}
+		public function get year():int{
+			return _year;
+		}
+		
+		[Bindable]
+		public function set month(value:int):void{
+			_month=value;
+		}
+		public function get month():int{
+			return _month;
+		}
+		
+		private function init():void{
+			var currYM:Date=new Date(year,month);
+			var lastDay:Date=DateUtil.getLastDateOfMonth(currYM);
+			this.selectableRange={rangeStart: new Date(year,month,1),
+        						  rangeEnd: lastDay};
+            
+		}
+		
+		private function changeHandler(e:CalendarLayoutChangeEvent):void{
+			if(hasKey){
+				selectGroup=ObjectUtil.copy(selectedRanges) as Array;
+				hasKey=false;
+				return;
+			}
+			hasKey=false;
+			var d:Date=this.selectedDate;
+			if(d==null)return ;
+				if(selectGroup.length!=0){
+					for (var i:int=0;i<selectGroup.length;i++){
+						if(ObjectUtil.dateCompare(selectGroup[i].rangeStart,d)==0){
+							selectGroup.splice(i,1);
+							this.selectedRanges=ObjectUtil.copy(selectGroup) as Array;
+							return ;
+						}
+				   }
+				   var o:Object = new Object();
+				 			o.rangeStart = d;
+				 			o.rangeEnd	 = d;
+				 			selectGroup.push(o);
+				   this.selectedRanges=ObjectUtil.copy(selectGroup) as Array;
+				}else{
+					selectGroup=new Array();
+					var ob:Object = new Object();
+		 			ob.rangeStart = d;
+		 			ob.rangeEnd	 = d;
+		 			selectGroup.push(ob);
+			}
+	  }
+		private function keyHandler(e:KeyboardEvent):void{
+			if(e.ctrlKey || e.shiftKey){
+				hasKey=true;
+			}else hasKey=false;
+		}
+	]]>
+</mx:Script>
+</mx:DateChooser>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+
+
+	<!--===================== Customer/UserGroup/User ==============-->
+	<bean id="customerDao" class="com.pearl.normandy.customer.CustomerDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean>	 
+
+	<bean id="userGroupDao" class="com.pearl.normandy.usergroup.UserGroupDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean>	
+
+	<bean id="userDao" class="com.pearl.normandy.user.UserDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean>	
+
+
+	<!--=================== Project/Process ===============-->
+	<bean id="projectDao" class="com.pearl.normandy.project.ProjectDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean>  
+
+	<bean id="productionProcessDao" class="com.pearl.normandy.productionprocess.ProductionProcessDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean> 
+    
+	<bean id="processStepDao" class="com.pearl.normandy.processstep.ProcessStepDao">
+		<property name="sqlMapClient" ref="sqlMapClient" />
+	</bean>
+	
+
+
+	<!--=================== Project User/ Project Member =====================-->
+	<bean id="projectUserDao" class="com.pearl.normandy.projectuser.ProjectUserDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		
+
+	<bean id="projectMemberDao" class="com.pearl.normandy.projectmember.ProjectMemberDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+
+		
+	<!--====================== Task/Detail/Activity/Comment =========================-->
+	<bean id="taskDao" class="com.pearl.normandy.task.TaskDao">	 
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		      
+
+	<bean id="taskDetailDao" class="com.pearl.normandy.taskdetail.TaskDetailDao">	 
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<bean id="activityDao" class="com.pearl.normandy.activity.ActivityDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+	
+	<bean id="commentDao" class="com.pearl.normandy.comment.CommentDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+	
+	<!--====================== Timesheet/Feedback/FeedbackThread/FeedbackReference =========================-->
+	<bean id="timeSheetDao" class="com.pearl.normandy.timesheet.TimesheetDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<bean id="feedbackDao" class="com.pearl.normandy.feedback.FeedbackDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+
+	<bean id="feedbackReferenceDao" class="com.pearl.normandy.feedbackreference.FeedbackReferenceDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<!--====================== Check Item =========================-->	
+	<bean id="checkItemDao" class="com.pearl.normandy.checkitem.CheckItemDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+
+	
+	<!--====================== BaseLine =========================-->	
+	<bean id="baselineDao" class="com.pearl.normandy.baseline.BaselineDao">	 
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+
+	<!--====================== Report =========================-->	
+	<bean id="reportDao" class="com.pearl.normandy.report.ReportDao">	 
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+			
+    <!--===================== LOV =====================-->
+	<bean id="listOfValueDao" class="com.pearl.normandy.listofvalue.ListOfValueDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>	
+
+	
+	<!--====================== Log/Calendar =========================-->	
+	<bean id="actionLogDao" class="com.pearl.normandy.actionlog.ActionLogDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		
+	
+	<bean id="statusLogDao" class="com.pearl.normandy.statuslog.StatusLogDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<bean id="checkItemLogDao" class="com.pearl.normandy.checkitemlog.CheckItemLogDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		
+
+	<bean id="reportLogDao" class="com.pearl.normandy.reportlog.ReportLogDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<bean id="calendarDao" class="com.pearl.normandy.calendar.CalendarDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		
+	
+	<!--========================= Project Time Value =====================-->
+	<bean id="projectTimeValueDao" class="com.pearl.normandy.projectTimeValue.ProjectTimeValueDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>		
+	
+	<!--========================= User Contract =====================-->
+	<bean id="userContractDao" class="com.pearl.normandy.userContract.UserContractDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<!--========================= User Salary =====================-->
+	<bean id="userSalaryDao" class="com.pearl.normandy.userSalary.UserSalaryDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<!--========================= User Privilege =====================-->
+	<bean id="userPrivilegeDao" class="com.pearl.normandy.userPrivilege.UserPrivilegeDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<!--========================= User Punctual =====================-->
+	<bean id="userPunctualDao" class="com.pearl.normandy.userpunctual.UserPunctualDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<bean id="sysConfigDao" class="com.pearl.normandy.sysConfig.SysConfigDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+	
+	<!--========================= Project Member Ability =====================-->
+	<bean id="projectMemberAbilityDao" class="com.pearl.normandy.projectmemberability.ProjectMemberAbilityDao">
+		<property name="sqlMapClient" ref="sqlMapClient"/>
+	</bean>
+</beans>

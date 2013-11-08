@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="BaselineSubtask">
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insertBaselineSubtask" parameterClass="java.util.Map">
+		insert into BASELINE_SUBTASK
+		(ID,
+		TASK_ID,
+		QA_OWNER_ID,
+		PROCESS_STEP_ID,
+		B_REVISION,
+		SUBTASK_NAME,
+		START_TIME,
+		END_TIME,
+		ACTUAL_START_TIME,
+		ACTUAL_END_TIME,
+		FEEDBACK_DUE_DATE,
+		PLANNED_STAFF_DAYS,
+		PLANNED_FEEDBACK_DAYS,
+		PROGRESS,
+		REMAINING_STAFF_DAYS,
+		SUBTASK_STATUS_ID,
+		DELIVERABLE,
+		DESCRIPTION,
+		DELETED,
+		ASSIGNED,
+		PAUSED,
+		PREDECESSOR,
+		PREDECESSOR_TREE,
+		DEVIATION,
+		VERSION,
+		CREATED_DATE,
+		CREATED_BY,
+		UPDATED_DATE,
+		UPDATED_BY)
+		
+		select
+			s.ID,
+			s.TASK_ID,
+			s.QA_OWNER_ID,
+			s.PROCESS_STEP_ID,
+			#revision#,
+			s.SUBTASK_NAME,
+			s.START_TIME,
+			s.END_TIME,
+			s.ACTUAL_START_TIME,
+			s.ACTUAL_END_TIME,
+			s.FEEDBACK_DUE_DATE,
+			s.PLANNED_STAFF_DAYS,
+			s.PLANNED_FEEDBACK_DAYS,
+			s.PROGRESS,
+			s.REMAINING_STAFF_DAYS,
+			s.SUBTASK_STATUS_ID,
+			s.DELIVERABLE,
+			s.DESCRIPTION,
+			s.DELETED,
+			s.ASSIGNED,
+			s.PAUSED,
+			s.PREDECESSOR,
+			s.PREDECESSOR_TREE,
+			s.DEVIATION,
+			s.VERSION,
+			s.CREATED_DATE,
+			s.CREATED_BY,
+			s.UPDATED_DATE,
+			s.UPDATED_BY
+		from SUBTASK s,TASK t
+		where t.PROJECT_ID = #id#
+		and s.TASK_ID = t.ID
+	</insert>
+	
+	<delete id="deleteBaselineSubtask" parameterClass="java.lang.Integer">
+		delete from BASELINE_SUBTASK where ID in (
+			select * from (
+				select s.ID from BASELINE_TASK t ,BASELINE_SUBTASK s
+				where t.PROJECT_ID = #value#
+				and s.TASK_ID=t.ID
+			)tab
+		)
+	</delete>
+</sqlMap>

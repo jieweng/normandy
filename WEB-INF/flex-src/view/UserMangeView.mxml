@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" label="{user.id > 0 ? user.fullName : 'New User'}" 
+	xmlns:widget="widget.*" xmlns:validator="com.pearl.normandy.validator.*">
+	<mx:Script>
+		<![CDATA[
+			import mx.validators.Validator;
+			import mx.utils.StringUtil;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.vo.UserVO;
+			
+			[Bindable]
+			public var user:UserVO;
+
+			[Bindable]
+			public var users:ArrayCollection;
+			
+			private function isDeleted(obj:Object):Boolean{
+				return (UserVO(obj).deleted=="Y");
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:Array id="validatorArray">
+		<validator:NormandyStringValidator id="userNameSV" source="{basic.userNameTI}" property="text" required="true"
+			errorMessageString="{resourceManager.getString('Language','error.user_name')}" trigger="{basic.userNameTI}"
+			triggerEvent="change" collection="{users}" validatedObject="{user}" field="userName" ignoreFunction="isDeleted"/>
+		<mx:StringValidator id="cnFirstNameSV" source="{basic.cnFirstNameTI}" property="text" minLength="1" required="true"/>
+		<mx:StringValidator id="cnLastNameSV" source="{basic.cnLastNameTI}" property="text" minLength="1" required="true"/>
+		<mx:StringValidator id="enFirstNameSV" source="{basic.enFirstNameTI}" property="text" minLength="1" required="true"/>
+		<mx:StringValidator id="enLastNameSV" source="{basic.enLastNameTI}" property="text" minLength="1" required="true"/>
+		<mx:DateValidator	id="entryDateDV" source="{basic.entryDateDF}" property="text" required="true"/>
+		<validator:NormandyStringValidator id="employeeNoSV" source="{basic.employeeNoTI}" property="text" required="true" 
+			trigger="{basic.employeeNoTI}"  errorMessageString="{resourceManager.getString('Language','error.employee_no')}"
+			field="employeeNo" collection="{users}" validatedObject="{user}" triggerEvent="change" ignoreFunction="isDeleted"/>
+		<validator:NormandyEmailValidator id="emailEV" source="{basic.companyEmailTI}" property="text" required="true"
+			errorMessageString="{resourceManager.getString('Language','error.email')}" trigger="{basic.companyEmailTI}"
+			triggerEvent="change" collection="{users}" validatedObject="{user}" field="email" ignoreFunction="isDeleted"/>
+		<mx:NumberValidator source="{salary.recommendationBonusTI}" property="text" minValue="0"/>
+		<mx:NumberValidator source="{salary.recommendationBonusPaymentTI}" property="text" minValue="0"/>
+		<mx:NumberValidator source="{basic.paidLeaveTI}" property="text" minValue="0"/>
+		<mx:NumberValidator source="{basic.levelTI}" property="text" minValue="0"/>
+	</mx:Array>	
+	
+	<mx:TabBar dataProvider="{vs}"/>
+	<mx:ViewStack id="vs" width="100%" height="100%" creationPolicy="all">
+		<widget:UserBasic id="basic" label="{resourceManager.getString('Language', 'label.basic_information')}" user="{user}"  users="{users}" width="100%" height="100%"/>
+		<widget:UserSalary id="salary" label="{resourceManager.getString('Language', 'label.salary_info')}" 
+			user="{user}" width="100%" height="100%"/>
+		<widget:UserPrivilege id="privilege" label="{resourceManager.getString('Language', 'label.privilege')}" 
+			user="{user}" width="100%" height="100%"/>
+	</mx:ViewStack>
+	<mx:HBox width="100%" horizontalAlign="center" paddingBottom="20">
+		<mx:Button id="saveBtn" label="{resourceManager.getString('Language','label.save')}"/>
+		<mx:Button id="deleteBtn" label="{resourceManager.getString('Language','label.delete')}"/>
+	</mx:HBox>
+</mx:VBox>

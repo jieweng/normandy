@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="SysConfig">
+<typeAlias alias="SysConfig" type="com.pearl.normandy.sysConfig.SysConfig"/> 
+	<resultMap id="selectConfResult" class="SysConfig">
+		<result property="key" 				column="KEY" />
+		<result property="value" 			column="VALUE" />
+	</resultMap>
+	<select id="select" resultMap="selectConfResult">
+		select *
+		from SYS_CONFIG
+	</select>
+	
+	<update id="update" parameterClass="java.util.Map">
+		update SYS_CONFIG
+			set `VALUE`=#value#
+			where `KEY` = #key#
+	</update>
+	<insert id="insert" parameterClass="SysConfig">
+		insert into SYS_CONFIG(`KEY`,`VALUE`) values(#key#,#value#);
+	</insert>
+	<insert id="delete" parameterClass="SysConfig">
+		delete from SYS_CONFIG where `KEY`=#key#;
+	</insert>
+</sqlMap>

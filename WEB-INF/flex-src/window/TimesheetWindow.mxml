@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ganttClasses="com.pearl.normandy.controls.ganttClasses.*"	
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex"
+	xmlns:view="view.*"
+	width="100%" height="100%"
+	creationComplete="init()">	
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script source="../script/CalendarHelper.as"/>
+	<mx:Script source="../script/GanttSheetHelper.as"/>		
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.utils.HolidayUtil;								
+			import mx.controls.Alert;
+			import mx.collections.ICollectionView;
+            import mx.collections.ArrayCollection;			
+			import mx.events.CloseEvent;			
+			import mx.managers.PopUpManager;
+            import mx.rpc.events.ResultEvent;
+            import mx.utils.ObjectUtil;
+            
+			import ilog.gantt.GanttSheetEvent;            
+            import ilog.calendar.CalendarEvent;
+            
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.enum.ActivityEnum;			
+            import com.pearl.normandy.enum.ColorEnum;
+            import com.pearl.normandy.enum.ImageEnum;            
+            import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.CalendarConfig;            
+            import com.pearl.normandy.utils.NormandyModel;
+            import com.pearl.normandy.utils.TimeHelp;
+						
+			import popup.ExpiredActivityPopup;						
+		    
+		    //==============================
+		    //Data Attributes
+		    //==============================
+		    [Bindable]
+		    private var users:ArrayCollection = new ArrayCollection();
+		    	
+		    [Bindable]
+		    private var activities:ArrayCollection;
+            
+            [Bindable]
+            private var selectedActivity:ActivityVO;
+            
+            public var timer:Timer;
+            public var currDate:Date;
+            public var nextActivity:ActivityVO;
+            
+            private var i:int = 0;
+            private var types:ArrayCollection = new ArrayCollection();
+            
+		    //==============================
+		    //Methods
+		    //==============================	            
+            private function init():void {        
+	        	rangeLabel.text = computeRangeLabel(cal.startDisplayedDate, cal.endDisplayedDate);        
+	        	dc.selectedRanges = [{rangeStart:cal.startDisplayedDate, rangeEnd: cal.endDisplayedDate}];
+	        	dc2.displayedMonth = dc.displayedMonth + 1;
+	        	
+	        	users.addItem(NormandyModel.getInstance().currUser);
+	        	getActivities();
+	        	
+	        	var year:String = new Date().fullYear.toString();
+	        	types.addItem("Production");
+            	reportRo.getUserEfforts(year,users, types);
+            }            		        
+            
+            private function getActivities():void{
+            	activityRo.getActivitiesByUsers(users);
+            }
+            
+            private function getUserEffortsHandler(e:ResultEvent):void{
+            	var result:ArrayCollection = e.result as ArrayCollection;
+            	
+            	var dp:ArrayCollection;
+            	var arr:Array = new Array;
+            	var obj1:Object = new Object();
+            	var obj2:Object = new Object();
+            	var obj3:Object = new Object();
+            	var obj4:Object = new Object();
+            	
+            	for each (var rv:ReportVO in result) {
+            		switch (rv.month) {
+            			case 1:  obj1.a = rv.effort; break;
+        				case 2:	 obj1.b = rv.effort; break;
+        				case 3:	 obj1.c = rv.effort; break;
+        				case 4:	 obj2.a	= rv.effort; break;
+        				case 5:	 obj2.b	= rv.effort; break;
+        				case 6:	 obj2.c	= rv.effort; break;
+        				case 7:	 obj3.a	= rv.effort; break;
+        				case 8:	 obj3.b	= rv.effort; break;
+        				case 9:	 obj3.c	= rv.effort; break;
+        				case 10: obj4.a	= rv.effort; break;
+        				case 11: obj4.b	= rv.effort; break;
+        				case 12: obj4.c	= rv.effort; break;
+            		}
+            	}
+            	arr.push(obj1);
+        		arr.push(obj2);
+        		arr.push(obj3);
+        		arr.push(obj4);
+        		dp = new ArrayCollection(arr);  
+        		dataGrid.dataProvider = dp; 
+            }
+            			
+			private function yearChangeHandler(e:Event):void{
+				var yearStr:String;
+				var yearNum:Number = Number(yearLabel.text);
+				
+				if (e.target.id == "leftBtn"){
+					yearNum = yearNum - 1;
+					yearStr = yearNum.toString();
+					yearLabel.text = yearStr;
+				}
+				
+				if (e.target.id == "rightBtn"){
+					yearNum = yearNum + 1;
+					yearStr = yearNum.toString();
+					yearLabel.text = yearStr;
+				}
+				var year:String = yearLabel.text;
+				reportRo.getUserEfforts(year,users, types);
+			}
+		 	
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================   
+		    private function getActivitiesByUsersHandler(event:ResultEvent):void{
+		    	activities = event.result as ArrayCollection;
+		    	
+		    	i = 0;
+		    	getExpiredActivity();
+		    	getNextActivity();
+		    }
+		    
+		    [Bindable]
+		    public var expiredActivities:ArrayCollection;
+		    private var completeExpiredActivityPopup:ExpiredActivityPopup;
+		    private function getExpiredActivity():void{
+		    	expiredActivities = new ArrayCollection();
+		    	for each(var activity:ActivityVO in activities){		    		
+		    		if(activity.deleted == Constants.DELETE_YES){
+		    			continue;
+		    		}
+		    		else{
+						if(activity.activityType == ActivityEnum.PRODUCTION
+							&& activity.statusId < Constants.TASK_STATUS_COMPLETE_NUM
+							&& activity.actualEndTime == null
+							&& activity.endTime < new Date()){
+								expiredActivities.addItem(activity);
+						}		
+						else if(activity.activityType == ActivityEnum.FEEDBACK
+							&& activity.statusId < Constants.TASK_STATUS_APPROVED_NUM
+							&& activity.actualEndTime == null
+							&& activity.endTime < new Date()){
+								expiredActivities.addItem(activity);
+						}							    			
+		    		}
+		    	}
+		    			    	
+		    	if(expiredActivities.length>0){
+		    		openCompleteExpiredActivityPopup(resourceManager.getString('Language','label.complete.tasks.expire'));
+		    	}
+		    }
+			
+			private function openCompleteExpiredActivityPopup(message:String):void{		    
+	    		completeExpiredActivityPopup = ExpiredActivityPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication),ExpiredActivityPopup,true));
+	    		PopUpManager.centerPopUp(completeExpiredActivityPopup);
+	    		completeExpiredActivityPopup.expiredActivities = expiredActivities;
+	    		completeExpiredActivityPopup.activitiesMessage.text = message;
+	    		completeExpiredActivityPopup.ok.addEventListener(MouseEvent.CLICK,confirmExpiredActivityHandler);
+		 	}
+		    
+		    private function confirmExpiredActivityHandler(event:MouseEvent):void{
+		    	for(var i:int=0;i<expiredActivities.length;i++){
+		    		var activityVO:ActivityVO = expiredActivities.getItemAt(i) as ActivityVO;
+		    		if(!activityVO.selected)
+		    		continue;
+		    		
+		    		if(activityVO.actualStartTime == null){
+		    			activityVO.actualStartTime = new Date();
+		    			activityRo.startActivity(activityVO);
+		    		}
+		    		activityRo.completeActivity(activityVO,model.currUser);
+		    		checkItemRo.createCheckItem(activityVO.id, parseHtml(completeExpiredActivityPopup.comment[i].htmlText), model.currUser);
+		    	}
+		    	
+		    	for each(var activity:ActivityVO in expiredActivities){
+		    		if(activity.selected == true)
+		    		activity.status = Constants.TASK_STATUS_COMPLETE;
+		    	}
+		    	PopUpManager.removePopUp(completeExpiredActivityPopup);
+		    }
+		    
+		    private function getNextActivity():void{
+		    	currDate = new Date();
+				for(var k:int = i;k<activities.length;k++){
+					var activity:ActivityVO = activities.getItemAt(k) as ActivityVO;
+					var endTime:Date = activity.endTime;
+					if(endTime >= currDate && activity.actualEndTime == null){
+						nextActivity = activity;
+						i = k;
+						return;
+					}
+				}
+				nextActivity = null;
+		    }
+		    
+		    public function initClock():void{
+				timer = new Timer(60*1000);
+				timer.addEventListener(TimerEvent.TIMER,onTimeChange);
+				timer.start();
+			}
+			
+			public function onTimeChange(event:TimerEvent):void{
+				currDate = new Date();
+			    expiredActivities = new ArrayCollection();
+				
+				if(nextActivity !=null && nextActivity.actualEndTime == null && nextActivity.endTime <= currDate){
+				    expiredActivities.addItem(nextActivity);
+				    if(expiredActivities.length>0){
+				    	openCompleteExpiredActivityPopup(resourceManager.getString('Language','label.complete.task.submit'));
+				    }
+				    getNextActivity();
+				}
+			}
+			
+			//==============================
+		    //Event Handlers
+		    //==============================	    		    
+		    private function onActivityChange(event:Event):void{
+		    	var selectedItem:ActivityVO
+		    	
+		    	if(event is CalendarEvent){
+		    		if(cal.selectedItems.length != 0){
+		    			 selectedItem = (cal.selectedItems as Array).pop() as ActivityVO;
+		    		}		    		
+		    	}
+		    	
+		    	if(selectedItem){		    			    		
+		    		if(selectedItem.activityType == ActivityEnum.PRODUCTION || selectedItem.activityType == ActivityEnum.FEEDBACK){
+		    			selectedActivity = selectedItem;
+		    		}
+		    		else{
+		    			selectedActivity = null;
+		    		}
+		    	}
+		    }
+		]]>
+	</mx:Script>
+	<!--==========================
+	    Services
+	===========================-->  
+	<mx:RemoteObject id="activityRo" destination="ro.activity" fault="faultHandler(event)" showBusyCursor="true">
+		<mx:method name="getActivitiesByUsers" result="getActivitiesByUsersHandler(event)"/>
+		<mx:method name="completeActivity"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="checkItemRo" destination="ro.checkitem" fault="faultHandler(event)" showBusyCursor="true">
+		<mx:method name="createCheckItem"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getUserEfforts" result="getUserEffortsHandler(event)"/>
+	</mx:RemoteObject>				
+		
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox width="100%" height="100%">										
+		<mx:ApplicationControlBar width="100%" height="100%">
+			<mx:VBox width="80%" height="100%">							
+			    <mx:Canvas width="100%">
+			      <mx:HBox left="0">
+			        <mx:Label id="rangeLabel" fontWeight="bold" fontSize="14" />                                
+			      </mx:HBox>
+			    
+			      <mx:HBox id="box" right="20">
+			        <mx:Button id="zoomInButton" icon="{ImageEnum.IMAGECLASS_ZOOM_IN}" 
+			        	click="zoomInCalendar()" 
+			        	toolTip="{resourceManager.getString('Language','button.zoom_in')}"/>
+			        <mx:Button id="zoomOutButton" icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}" 
+			        	click="zoomOutCalendar()" 
+			        	toolTip="{resourceManager.getString('Language','button.zoom_out')}"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.refresh')}" 
+			        	click="getActivities()" 
+			        	toolTip="{resourceManager.getString('Language','label.refresh')}"/>
+			        <mx:Box width="30" height="10" />
+			        
+			        <mx:Button icon="@Embed('../resource/left.png')" click="cal.previousRange()"/>
+			        <mx:Button icon="@Embed('../resource/right.png')" click="cal.nextRange()"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.today')}" 
+			        	click="moveToCurrentDay(cal)" 
+			        	toolTip="{resourceManager.getString('Language','label.today')}"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.day')}"
+			        	click="changeMode(Calendar.DAY_MODE)" 
+			        	toolTip="{resourceManager.getString('Language','label.day')}"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.work_week')}"
+			        	click="changeWWMode()" 
+			        	toolTip="{resourceManager.getString('Language','label.work_week')}"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.week')}"
+			        	click="changeMode(Calendar.WEEK_MODE)" 
+			        	toolTip="{resourceManager.getString('Language','label.week')}"/>
+			        <mx:Button label="{resourceManager.getString('Language','label.month')}"
+			        	click="changeMode(Calendar.MONTH_MODE)" 
+			        	toolTip="{resourceManager.getString('Language','label.month')}"/>
+			      </mx:HBox>
+			    </mx:Canvas>
+	    	
+			    <mx:HBox width="100%" height="100%" paddingBottom="20">                              
+			      <mx:VBox height="100%"> 
+			           
+			        <mx:DateChooser id="dc" allowMultipleSelection="true" allowDisjointSelection="false"
+			        	change="onDateChange(event)" scroll="onDateChooserScrolled(event)"/>
+			        <mx:DateChooser id="dc2" allowMultipleSelection="true" allowDisjointSelection="false"
+			        	change="onDateChange(event)" scroll="onDateChooserScrolled2(event)"/>
+			        <mx:Label text="Range: shift+click" />      
+			         			        
+			        <mx:Panel title="{resourceManager.getString('Language','title.effort')}" 
+			        		width="100%" borderStyle="solid" borderColor="#CCCCCC">
+			        	<mx:DataGrid id="dataGrid" showHeaders="false" rowCount="4">
+			        		<mx:columns>
+			        			<mx:DataGridColumn dataField="a" width="50"/>
+			        			<mx:DataGridColumn dataField="b" width="50"/>
+			        			<mx:DataGridColumn dataField="c" width="50"/>
+			        		</mx:columns>
+			        	</mx:DataGrid>
+			        	<mx:ControlBar>
+			        		<mx:Button id="leftBtn" icon="@Embed('../resource/left.png')" 
+			        			click="yearChangeHandler(event)" paddingTop="1"/>
+							<mx:Label id="yearLabel" text="{new Date().getFullYear().toString()}" fontWeight="bold" paddingTop="1"/>
+							<mx:Button id="rightBtn" icon="@Embed('../resource/right.png')" 
+								click="yearChangeHandler(event)" paddingTop="1"/>
+			        	</mx:ControlBar>
+			        </mx:Panel>			                                                                                        		       
+			      </mx:VBox> 
+			      
+				  <ilog:Calendar id="cal" width="100%" height="100%" 
+				  	dataProvider="{activities}"
+				    summaryFunction="calendarSummaryFunc"
+				  	mode="month"
+				  	dataTipFunction="calendarDataTip"
+				  	editingTipFunction="calendarDataTip"
+				  	itemColorFunction="{itemColorFunction}"
+				  	
+				  	change="onActivityChange(event)"
+				  	itemDoubleClick="showViewTaskWindow(event.item)"
+				  	visibleTimeRangeChange="visibleTimeRangeChanged(event)"
+				  	
+				  	creationComplete="initClock()"
+				  	
+				  	moveEnabled="false"
+				  	resizeEnabled="false"					  		
+				  	doubleClickEnabled="true" 	
+				  	allowTimeRangeSelection="false" 
+				  	
+				  	startDisplayedTime="{[CalendarConfig.WORKING_TIME_START_HOUR, CalendarConfig.WORKING_TIME_START_MINUTE]}"
+				  	endDisplayedTime="{[CalendarConfig.WORKING_TIME_END_HOUR, CalendarConfig.WORKING_TIME_END_MINUTE]}"
+				  	workingTimes="{CalendarConfig.WORKING_TIMES}">
+			        <ilog:currentTimeIndicatorStroke >
+			          <mx:Stroke alpha="0.8" color="#9C35BE" weight="2" caps="none" />
+			        </ilog:currentTimeIndicatorStroke>			        		  	
+				  </ilog:Calendar>		
+				</mx:HBox>	
+			</mx:VBox>
+	
+			<view:TimesheetDetailView activity="{selectedActivity}" activities="{activities}"
+				width="20%" height="100%"/>			
+		</mx:ApplicationControlBar>	
+	</mx:VBox>					
+</mx:HBox>

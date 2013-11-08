@@ -1,0 +1,49 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	<body>
+		<font style="font-size: 15;font-weight: bold;">
+			操作人：$!{currUser.EmployeeNo} [$!{currUser.Name}]
+		</font>
+		<br>
+		<br>
+	#foreach($checkItem in $checkItems)
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#993300" bordercolor="#993300">
+				<td colspan="8" style="color: white;font-weight: bold;">基本信息</td>
+			</tr>
+			<tr bgcolor="#FFFFFF" align="center">
+				<th width="8%">项目ID</th>
+				<th width="20%">项目名称</th>
+				<th width="10%">父任务ID</th>
+				<th width="25%">父任务名称</th>
+				<th width="10%">任务ID</th>
+				<th width="20%">任务名称</th>
+				<th width="12%">Lead</th>
+				<th width="30%">Artist</th>
+			</tr>
+		
+			<tr bgcolor="#FFFFFF" align="center">
+				<td>$!{checkItem.ProjectId}</td>
+				<td>$!{checkItem.ProjectName}</td>
+				<td>$!{checkItem.ParentId}</td>
+				<td>$!{checkItem.ParentName}</td>
+				<td>$!{checkItem.TaskId}</td>
+				<td>$!{checkItem.TaskName}</td>
+				<td>$!{checkItem.Owner}</td>
+				<td>$!{checkItem.ResourceName}</td>
+			</tr>
+		</table>
+		
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000"
+			style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#FFFFFF">
+				<td>$!{checkItem.comment}</td>
+			</tr>
+		</table>
+		<br>
+	#end
+	</body>
+</html>

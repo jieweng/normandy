@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" backgroundColor="white" horizontalAlign="center" xmlns:local="*" creationComplete="init()">
+<mx:Script>
+	<![CDATA[
+		import mx.managers.CursorManager;
+		import mx.utils.ObjectUtil;
+		import mx.rpc.events.ResultEvent;
+		import com.pearl.normandy.vo.CalendarVO;
+		import mx.collections.ArrayCollection;
+		[Bindable]
+		private var currDate:Date=new Date();
+		
+		private var holidaysAC:ArrayCollection;
+		private var selectArr:Array;
+		
+		private function init():void{
+			calendarRo.getAllHolidays();
+		}
+		
+		private function getAllHolidaysHandler(e:ResultEvent):void {
+	 		holidaysAC = e.result as ArrayCollection;
+	 		dateChooserInit();	 				
+	 	}
+	 	
+	 	private function dateChooserInit():void{
+	 		var arr1:Array = new Array();
+	 		var arr2:Array = new Array();
+	 		var arr3:Array = new Array();
+	 		var arr4:Array = new Array();
+	 		var arr5:Array = new Array();
+	 		var arr6:Array = new Array();
+	 		var arr7:Array = new Array();
+	 		var arr8:Array = new Array();
+	 		var arr9:Array = new Array();
+	 		var arr10:Array = new Array();
+	 		var arr11:Array = new Array();
+	 		var arr12:Array = new Array();
+	 		
+	 		for each (var calendar:CalendarVO in holidaysAC) {
+	 			
+	 			if(calendar.date.fullYear==year.value){
+	 				var o:Object = new Object();
+	 				o.rangeStart = calendar.date;
+	 				o.rangeEnd	 = calendar.date;
+	 				switch(calendar.date.month){
+	 					case 0:arr1.push(o);break;
+	 					case 1:arr2.push(o);break;
+	 					case 2:arr3.push(o);break;
+	 					case 3:arr4.push(o);break;
+	 					case 4:arr5.push(o);break;
+	 					case 5:arr6.push(o);break;
+	 					case 6:arr7.push(o);break;
+	 					case 7:arr8.push(o);break;
+	 					case 8:arr9.push(o);break;
+	 					case 9:arr10.push(o);break;
+	 					case 10:arr11.push(o);break;
+	 					case 11:arr12.push(o);break;
+	 				}
+	 			}
+	 		}
+	 		
+	 		m1.selectedRanges = arr1;
+	 		m2.selectedRanges = arr2;
+	 		m3.selectedRanges = arr3;
+	 		m4.selectedRanges = arr4;
+	 		m5.selectedRanges = arr5;
+	 		m6.selectedRanges = arr6;
+	 		m7.selectedRanges = arr7;
+	 		m8.selectedRanges = arr8;
+	 		m9.selectedRanges = arr9;
+	 		m10.selectedRanges = arr10;
+	 		m11.selectedRanges = arr11;
+	 		m12.selectedRanges = arr12;
+	 		m1.selectGroup = ObjectUtil.copy(arr1) as Array;
+	 		m2.selectGroup = ObjectUtil.copy(arr2) as Array;
+	 		m3.selectGroup = ObjectUtil.copy(arr3) as Array;
+	 		m4.selectGroup = ObjectUtil.copy(arr4) as Array;
+	 		m5.selectGroup = ObjectUtil.copy(arr5) as Array;
+	 		m6.selectGroup = ObjectUtil.copy(arr6) as Array;
+	 		m7.selectGroup = ObjectUtil.copy(arr7) as Array;
+	 		m8.selectGroup = ObjectUtil.copy(arr8) as Array;
+	 		m9.selectGroup = ObjectUtil.copy(arr9) as Array;
+	 		m10.selectGroup = ObjectUtil.copy(arr10) as Array;
+	 		m11.selectGroup = ObjectUtil.copy(arr11) as Array;
+	 		m12.selectGroup = ObjectUtil.copy(arr12) as Array;
+	 	}
+	 	
+	 	private function okHandler():void{
+	 		var createArr:ArrayCollection=new ArrayCollection();
+	 		var deleteArr:ArrayCollection=new ArrayCollection();
+	 		selectArr=m1.selectGroup.concat(m2.selectGroup,m3.selectGroup,m4.selectGroup,m5.selectGroup,m6.selectGroup,
+	 		                         m7.selectGroup,m8.selectGroup,m9.selectGroup,m10.selectGroup,m11.selectGroup,m12.selectGroup) as Array;
+	 		for each(var selectDate:Object in selectArr){
+	 			if(!isExistInHoliday(selectDate.rangeStart as Date)){
+	 				var c:CalendarVO = new CalendarVO();
+	 				c.type = "HOLIDAY";
+	 				c.date = selectDate.rangeStart as Date;
+	 				createArr.addItem(c);
+	 			}
+ 			}
+ 			for each(var calendar:CalendarVO in holidaysAC){
+ 				if(calendar.date.fullYear==year.value && !isExistInSelectArr(calendar.date)){
+ 					deleteArr.addItem(calendar);
+ 				}
+ 			}
+ 			calendarRo.updateHoliday(createArr,deleteArr);
+	 	}
+	 	
+	 	private function isExistInHoliday(d:Date):Boolean{//selectedDate Existed in the holidayCollection?
+	 		for each (var calendar:CalendarVO in holidaysAC){
+	 			if (ObjectUtil.dateCompare(calendar.date,d)==0){
+	 				return true;
+	 			}
+	 		}
+	 		return false;
+	 	}
+	 	
+	 	private function isExistInSelectArr(d:Date):Boolean{
+	 		for each (var selectDate:Object in selectArr){
+	 			if (ObjectUtil.dateCompare(selectDate.rangeStart as Date,d)==0){
+	 				return true;
+	 			}
+	 		}
+	 		return false;
+	 	}
+	 	
+	 	private function reset():void{
+	 		m1.selectedRanges=new Array();
+	 		m2.selectedRanges=new Array();
+	 		m3.selectedRanges=new Array();
+	 		m4.selectedRanges=new Array();
+	 		m5.selectedRanges=new Array();
+	 		m6.selectedRanges=new Array();
+	 		m7.selectedRanges=new Array();
+	 		m8.selectedRanges=new Array();
+	 		m9.selectedRanges=new Array();
+	 		m10.selectedRanges=new Array();
+	 		m11.selectedRanges=new Array();
+	 		m12.selectedRanges=new Array();
+	 		m1.selectGroup = new Array();
+	 		m2.selectGroup = new Array();
+	 		m3.selectGroup = new Array();
+	 		m4.selectGroup = new Array();
+	 		m5.selectGroup = new Array();
+	 		m6.selectGroup = new Array();
+	 		m7.selectGroup = new Array();
+	 		m8.selectGroup = new Array();
+	 		m9.selectGroup = new Array();
+	 		m10.selectGroup = new Array();
+	 		m11.selectGroup = new Array();
+	 		m12.selectGroup = new Array();
+	 	}
+	 	
+	 	private function updateHolidayHandler(e:ResultEvent):void{
+	 		this.init();
+	 	}
+	 	
+	 	private function yearChange(e:Event):void{
+	 		dateChooserInit();
+	 	}
+	]]>
+</mx:Script>
+	<mx:RemoteObject id="calendarRo" destination="ro.calendar" showBusyCursor="true">
+		<mx:method name="getAllHolidays" result="getAllHolidaysHandler(event)"/>
+		<mx:method name="updateHoliday" result="updateHolidayHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:HBox width="100%" horizontalAlign="center" >
+		<mx:NumericStepper id="year" minimum="2000" maximum="9999" value="{currDate.fullYear}" change="yearChange(event)"/>
+		<mx:Label text="{resourceManager.getString('Language','label.year')}"/>
+	</mx:HBox>
+	<mx:Grid id="monthDisplay">
+		<mx:GridRow>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m1" year="{year.value}" month="0" />
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m2" year="{year.value}" month="1" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m3" year="{year.value}" month="2" />			
+			</mx:GridItem>
+		</mx:GridRow>
+		<mx:GridRow>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m4" year="{year.value}" month="3" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m5" year="{year.value}" month="4" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m6" year="{year.value}" month="5" />	
+			</mx:GridItem>
+		</mx:GridRow>
+		<mx:GridRow>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m7" year="{year.value}" month="6" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m8" year="{year.value}" month="7" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m9" year="{year.value}" month="8" />			
+			</mx:GridItem>
+		</mx:GridRow>
+		<mx:GridRow>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m10" year="{year.value}" month="9" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m11" year="{year.value}" month="10" />			
+			</mx:GridItem>
+			<mx:GridItem>
+				<local:OneMonthDateChooser id="m12" year="{year.value}" month="11" />			
+			</mx:GridItem>
+		</mx:GridRow>
+		
+	</mx:Grid>
+	<mx:HBox width="100%" horizontalAlign="center">
+		<mx:Button label="{resourceManager.getString('Language','label.submit')}" click="okHandler()"/>
+		<mx:Button label="{resourceManager.getString('Language','button.resize')}" click="reset()"/>
+	</mx:HBox>
+</mx:VBox>

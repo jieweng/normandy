@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Pod xmlns="com.esria.samples.dashboard.view.*" xmlns:mx="http://www.adobe.com/2006/mxml" width="50%" height="100%"
+	title="{resourceManager.getString('Language','title.project.summary.burndown')} - [{project.projectName}]">
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.charts.renderers.CircleItemRenderer;
+			import mx.charts.series.LineSeries;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridReferenceDateEditor;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridReferenceEditor;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.utils.ObjectUtil;
+			import com.pearl.normandy.vo.ProjectTimeValueVO;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.DateUtil;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.enum.ImageEnum;
+			import mx.controls.Alert;
+			import com.pearl.normandy.event.CheckBoxChangeEvent;
+			import popup.SelectChartSeriesPopUp;
+			import com.pearl.normandy.vo.ProjectVO;
+			
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				reportRo.getProjectBurndown(project.id, milestone, Constants.TIMEUNIT_MONTH);
+				projectTimeValueRo.getProjectTimeValues(project);
+				reportRo.getProjectProgress(project, null);
+				reportRo.getProjectMonthWorkDays(project);
+				setReferenceVBEnable();
+				newBtn.enabled = true;
+			}
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			private var _milestone:String;
+			[Bindable]
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				reportRo.getProjectBurndown(project.id, milestone,Constants.TIMEUNIT_MONTH);
+			}
+			public function get milestone():String{
+				return this._milestone;
+			}
+			[Bindable]
+			private var timeValues:ArrayCollection;
+			[Bindable]
+			private var baselineBurndown:ArrayCollection;
+			[Bindable]
+			private var completeBurndown:ArrayCollection;
+			[Bindable]
+			private var originalBaseline:ArrayCollection;
+			[Bindable]
+			private var originalComplete:ArrayCollection;
+			[Bindable]
+		    private var references:ArrayCollection;
+		    [Bindable]
+		    private var actualWorkDays:ArrayCollection;
+			[Bindable]
+			public var profile:ProjectVO;
+			private var _selectedProjectTimeValue:ProjectTimeValueVO;
+			public function get selectedProjectTimeValue():ProjectTimeValueVO{
+				return this._selectedProjectTimeValue;
+			}
+			[Bindable]
+			public function set selectedProjectTimeValue(value:ProjectTimeValueVO):void{
+				this._selectedProjectTimeValue = value;
+			}
+			
+			private function setReferenceVBEnable():void{
+		    	tbb.selectedIndex = 0;
+		    	referenceVB.enabled = false;
+		    	if(model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3){
+					referenceVB.enabled = true;
+				}					
+		    }
+			
+			private function popUpButtonInit():void{
+				var popupComp:SelectChartSeriesPopUp = new SelectChartSeriesPopUp();
+				popupComp.addEventListener(CheckBoxChangeEvent.RESULT, resultHandler);
+				popUpBtn.popUp = popupComp;
+			}
+			
+			private function resultHandler(e:CheckBoxChangeEvent):void{
+				var result:ArrayCollection = e.object as ArrayCollection;
+				lineSeriesPlanned.visible = false;								
+				lineSeriesComplete.visible = false;
+				lineSeriesReference.visible = false;
+				lineSeriesActual.visible = false;
+				
+				columnSeriesComplete.visible = false;
+				columnSeriesPlanned.visible = false;
+				columnSeriesReference.visible = false;
+				columnSeriesActual.visible = false;
+				
+				columnSeriesPlanned.setStyle("labelAlign", "none");
+				columnSeriesPlanned.setStyle("labelPosition", "none");
+				columnSeriesComplete.setStyle("labelAlign", "none");
+				columnSeriesComplete.setStyle("labelPosition", "none");				
+				columnSeriesReference.setStyle("labelAlign", "none");
+				columnSeriesReference.setStyle("labelPosition", "none");
+				columnSeriesActual.setStyle("labelAlign", "none");
+				columnSeriesActual.setStyle("labelPosition", "none");
+				
+				for each(var obj:Object in result){
+					if(obj.value == 1){
+						lineSeriesPlanned.visible = true;
+						columnSeriesPlanned.visible = true;
+						columnSeriesPlanned.setStyle("labelAlign", "top");
+						columnSeriesPlanned.setStyle("labelPosition", "outside");						
+					}else if(obj.value == 2){
+						lineSeriesComplete.visible = true;
+						columnSeriesComplete.visible = true;
+						columnSeriesComplete.setStyle("labelAlign", "top");
+						columnSeriesComplete.setStyle("labelPosition", "outside");
+					}else if(obj.value == 3){
+						lineSeriesReference.visible = true;
+						columnSeriesReference.visible = true;
+						columnSeriesReference.setStyle("labelAlign", "top");
+						columnSeriesReference.setStyle("labelPosition", "outside");
+					}else if(obj.value == 4){
+						lineSeriesActual.visible = true;
+						columnSeriesActual.visible = true;
+						columnSeriesActual.setStyle("labelAlign", "top");
+						columnSeriesActual.setStyle("labelPosition", "outside");
+					}
+				}
+			}
+			
+			private function refresh():void{
+				reportRo.getProjectBurndown(project.id, milestone, Constants.TIMEUNIT_MONTH);
+				projectTimeValueRo.getProjectTimeValues(project);
+				reportRo.getProjectProgress(project, null);
+				reportRo.getProjectMonthWorkDays(project);
+				newBtn.enabled = true;
+			}
+			
+			private function getProjectBurndownHandler(e:ResultEvent):void{
+				baselineBurndown = e.result.baseline as ArrayCollection;
+				completeBurndown = e.result.complete as ArrayCollection;
+				originalComplete = e.result.originalComplete as ArrayCollection;
+				originalBaseline = e.result.originalBaseline as ArrayCollection;
+			}
+			
+			private function getProjectProgressHandler(e:ResultEvent):void{	
+		    	var result:ArrayCollection = e.result as ArrayCollection;
+		    	if(result && result.length > 0){	  		    			    	
+		    		profile = (e.result as ArrayCollection).getItemAt(0) as ProjectVO;	
+		    	}
+		    }
+		    
+		    private function getProjectTimeValuesHandler(e:ResultEvent):void{
+		    	timeValues = e.result as ArrayCollection;
+		    	references = new ArrayCollection();
+		    	for each(var ptv:ProjectTimeValueVO in timeValues){
+		    		references.addItem(ObjectUtil.copy(ptv));
+		    	}
+		    }
+		    
+		    private function onAdgItemClick():void{
+		    	selectedProjectTimeValue = adg.selectedItem as ProjectTimeValueVO;
+		    }
+		    
+		    private function onItemEditEnd(e:AdvancedDataGridEvent):void{
+		    	if(e.dataField == "time"){
+		    		var time:Date = AdvancedDataGridReferenceDateEditor(AdvancedDataGrid(e.target).itemEditorInstance).df.selectedDate;
+		    		if(time){
+		    			adg.editedItemRenderer.data.time = time;
+			    		selectedProjectTimeValue.time = time;
+			    		adg.destroyItemEditor();
+			    		timeValues.itemUpdated(e.itemRenderer.data);
+		    		}else{
+		    			e.preventDefault();
+		    		}			    		
+		    	}
+		    	if(e.dataField == "value"){
+		    		var value:String = AdvancedDataGridReferenceEditor(adg.itemEditorInstance).text;
+		    		if(value != ""){
+		    			adg.editedItemRenderer.data.value = value;
+			    		selectedProjectTimeValue.value = Number(value);
+			    		adg.destroyItemEditor();
+			    		timeValues.itemUpdated(e.itemRenderer.data);
+		    		}else{
+		    			e.preventDefault();
+		    			adg.destroyItemEditor();
+		    		}			    		
+		    	}
+		    }
+		    
+		    private function newReference():void{
+		    	var newRef:ProjectTimeValueVO = new ProjectTimeValueVO();
+		    	newRef.projectId = project.id;
+		    	newRef.value = 0;
+		    	timeValues.addItem(newRef);
+		    	adg.selectedItem = newRef;
+		    	selectedProjectTimeValue = newRef;
+		    	newBtn.enabled = false;
+		    }
+		    
+		    private function saveReference():void{
+		    	if(selectedProjectTimeValue.time && selectedProjectTimeValue.value >= 0){
+		    		var total:Number = 0;
+		    		for each(var ptv:ProjectTimeValueVO in timeValues){
+	    				if(ptv.id != selectedProjectTimeValue.id && ObjectUtil.dateCompare(ptv.time, selectedProjectTimeValue.time) == 0){
+	    					Alert.show(resourceManager.getString('Language', 'alert.burndown.time_duplicate'));
+	    					return;
+	    				}
+	    				total += ptv.value;	    				
+	    			}
+	    			if(total <= profile.plannedStaffDays){
+	    				if(selectedProjectTimeValue.id == 0){
+				    		projectTimeValueRo.createProjectTimeValue(selectedProjectTimeValue);
+				    	}else{
+				    		projectTimeValueRo.updateProjectTimeValue(selectedProjectTimeValue);
+				    	}
+	    			}else{
+	    				var num:Number = profile.plannedStaffDays - total + selectedProjectTimeValue.value;
+		    			var text:String = StringUtil.substitute(resourceManager.getString('Language','alert.burndown.number_big'), num);
+		    			Alert.show(text);
+	    			}
+		    	}
+		    }
+		    
+		    private function deleteReference():void{
+		    	projectTimeValueRo.deleteProjectTimeValue(selectedProjectTimeValue);
+		    }
+		    
+		    private function createProjectTimeValueHandler(e:ResultEvent):void{
+		    	var result:ProjectTimeValueVO = e.result as ProjectTimeValueVO
+		    	selectedProjectTimeValue.id = result.id;
+		    	newBtn.enabled = true;
+		    }
+		    
+		    private function updateProjectTimeValueHandler(e:ResultEvent):void{
+		    	newBtn.enabled = true;
+		    }
+		    
+		    private function deleteProjectTimeValueHandler(e:ResultEvent):void{
+		    	newBtn.enabled = true;
+		    	var index:int = timeValues.getItemIndex(selectedProjectTimeValue);
+		    	timeValues.removeItemAt(index);
+		    	if(timeValues.length > 0){
+		    		adg.selectedItem = timeValues.getItemAt(timeValues.length - 1);
+		    		selectedProjectTimeValue = adg.selectedItem as ProjectTimeValueVO;
+		    	}else{
+		    		selectedProjectTimeValue = null;
+		    	}
+		    }
+		    
+		    private function timeLabFunc(item:Object, column:AdvancedDataGridColumn):String{
+		    	var ptv:ProjectTimeValueVO = item as ProjectTimeValueVO;
+		    	return DateUtil.getDateFormatterYearMonth().format(ptv.time);
+		    }
+		    
+		    private function getProjectMonthWorkDaysHandler(e:ResultEvent):void{
+		    	actualWorkDays = e.result as ArrayCollection;
+		    }
+		    
+		    private function parseFunc(s:String):Date{
+		    	var a:Array = s.split("/");
+		    	var newDate:Date = new Date(a[0],a[1]-1,a[2]);
+              	return newDate;
+		    }
+		]]>
+	</mx:Script>
+	
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+ 		<mx:method name="getProjectBurndown" result="getProjectBurndownHandler(event)"/>
+ 		<mx:method name="getProjectProgress" result="getProjectProgressHandler(event)"/> 
+ 		<mx:method name="getProjectMonthWorkDays" result="getProjectMonthWorkDaysHandler(event)"/>
+ 	</mx:RemoteObject>
+ 	<mx:RemoteObject id="projectTimeValueRo" destination="ro.projectTimeValue" showBusyCursor="true">
+ 		<mx:method name="getProjectTimeValues" result="getProjectTimeValuesHandler(event)"/>
+ 		<mx:method name="createProjectTimeValue" result="createProjectTimeValueHandler(event)"/>
+ 		<mx:method name="updateProjectTimeValue" result="updateProjectTimeValueHandler(event)"/>
+ 		<mx:method name="deleteProjectTimeValue" result="deleteProjectTimeValueHandler(event)"/>
+ 	</mx:RemoteObject>
+	
+	<mx:SeriesInterpolate id="interpolate"/>
+	
+	<mx:HBox width="100%">
+		<mx:ToggleButtonBar id="tbb" dataProvider="{vs}"/>
+		<mx:PopUpButton id="popUpBtn" label="Select" textAlign="center" creationComplete="popUpButtonInit()" width="135"/>
+		<mx:Button id="refreshBtn" label="{resourceManager.getString('Language','label.refresh')}" click="refresh()"/>
+	</mx:HBox>
+	
+	<mx:ViewStack id="vs" creationPolicy="all" width="100%" height="100%">
+		<mx:VBox width="100%" height="100%" icon="{ImageEnum.IMAGECLASS_ICON_CHART}">
+			<mx:LineChart id="lineChart" showDataTips="true" width="100%" height="100%">
+				<mx:horizontalAxis>
+					<mx:DateTimeAxis id="lineChartDateTimeAxis" dataUnits="months" labelUnits="months" dataInterval="1" 
+						parseFunction="parseFunc" interval="1"/>
+				</mx:horizontalAxis>
+				<mx:series>
+					<mx:LineSeries id="lineSeriesPlanned" dataProvider="{baselineBurndown}" xField="day" yField="effort" left="0"
+						itemRenderer="mx.charts.renderers.CircleItemRenderer" width="100%" height="100%" showDataEffect="{interpolate}" 
+						displayName="{resourceManager.getString('Language','label.project.planned_burndown')}"/>
+					<mx:LineSeries id="lineSeriesComplete" dataProvider="{completeBurndown}" xField="day" yField="effort" left="0"
+						itemRenderer="mx.charts.renderers.CircleItemRenderer" width="100%" height="100%" showDataEffect="{interpolate}"
+						displayName="{resourceManager.getString('Language','label.project.remaining_work')}"/>
+					<mx:LineSeries id="lineSeriesReference" dataProvider="{references}" xField="day" yField="value" left="0"
+						itemRenderer="mx.charts.renderers.CircleItemRenderer" width="100%" height="100%" showDataEffect="{interpolate}"
+						displayName="{resourceManager.getString('Language','label.project.reference')}" visible="false"/>
+					<mx:LineSeries id="lineSeriesActual" dataProvider="{actualWorkDays}" xField="day" yField="value" left="0"
+						itemRenderer="mx.charts.renderers.CircleItemRenderer" width="100%" height="100%" showDataEffect="{interpolate}"
+						displayName="{resourceManager.getString('Language','label.actual_staff_days')}" visible="false"/>
+				</mx:series>
+				<mx:backgroundElements>
+		            <mx:Array>
+		                <mx:GridLines direction="both">
+		                    <mx:verticalStroke>
+		                        <mx:Stroke weight="1" color="#CCCCCC"/>
+		                    </mx:verticalStroke>
+		                </mx:GridLines>
+		            </mx:Array>
+		        </mx:backgroundElements>
+			</mx:LineChart>
+			<mx:Legend id="lineChartLegend" dataProvider="{lineChart}" direction="horizontal" width="100%"/>
+		</mx:VBox>
+		<mx:VBox width="100%" height="100%" icon="{ImageEnum.IMAGECLASS_COLUMN_CHART}">
+			<mx:ColumnChart id="columnChart" showDataTips="true" width="100%" height="100%">
+				<mx:horizontalAxis>
+					<mx:DateTimeAxis id="columnChartDateTimeAxis" dataUnits="months" labelUnits="months" dataInterval="1"
+						parseFunction="parseFunc" interval="1"/>
+				</mx:horizontalAxis>
+				<mx:series>
+					<mx:ColumnSet type="clustered">
+						<mx:ColumnSeries id="columnSeriesPlanned" dataProvider="{originalBaseline}" xField="day" yField="effort"  
+							left="0" labelAlign="top" labelPosition="outside"
+							displayName="{resourceManager.getString('Language','label.project.planned_burndown')}"/>
+						<mx:ColumnSeries id="columnSeriesComplete" dataProvider="{originalComplete}" xField="day" yField="effort"
+							left="0" labelAlign="top" labelPosition="outside"
+							displayName="{resourceManager.getString('Language','label.project.remaining_work')}"/>
+						<mx:ColumnSeries id="columnSeriesReference" dataProvider="{references}" xField="day" yField="value" 
+							left="0" height="100%" visible="false"  
+							displayName="{resourceManager.getString('Language','label.project.reference')}"/>
+						<mx:ColumnSeries id="columnSeriesActual" dataProvider="{actualWorkDays}" xField="day" yField="value" 
+							left="0" height="100%" visible="false"  
+							displayName="{resourceManager.getString('Language','label.actual_staff_days')}"/>
+					</mx:ColumnSet>						
+				</mx:series>
+				<mx:backgroundElements>
+		            <mx:Array>
+		                <mx:GridLines direction="both">
+		                    <mx:verticalStroke>
+		                        <mx:Stroke weight="1" color="#CCCCCC"/>
+		                    </mx:verticalStroke>
+		                </mx:GridLines>
+		            </mx:Array>
+		        </mx:backgroundElements>
+			</mx:ColumnChart>
+			<mx:Legend id="columnChartLegend" dataProvider="{columnChart}" direction="horizontal" width="100%"/>
+		</mx:VBox>	
+		<mx:VBox id="referenceVB" width="100%" height="100%" icon="{ImageEnum.IMAGECLASS_ICON_GRID}" enabled="false">
+			<mx:AdvancedDataGrid id="adg" dataProvider="{timeValues}" itemClick="onAdgItemClick()" editable="true" 
+				itemEditEnd="onItemEditEnd(event)" width="100%" height="100%">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.time')}" dataField="time" 
+						labelFunction="timeLabFunc"
+						itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridReferenceDateEditor"/>
+					<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.value')}" dataField="value"
+						itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridReferenceEditor"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<mx:HBox width="100%" horizontalAlign="center">
+				<mx:Button id="newBtn" label="{resourceManager.getString('Language', 'label.new')}" click="newReference()"/>
+				<mx:Button id="saveBtn" label="{resourceManager.getString('Language', 'label.apply_changes')}" click="saveReference()"/>
+				<mx:Button id="deleteBtn" label="{resourceManager.getString('Language', 'label.delete')}" click="deleteReference()"/>
+			</mx:HBox>
+		</mx:VBox>	
+	</mx:ViewStack>
+</Pod>

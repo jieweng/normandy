@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actionScriptProperties mainApplicationPath="index.mxml" version="3">
+<compiler additionalCompilerArguments="-services &quot;K:\normandy\workspace\normandy\WEB-INF\flex\services-config.xml&quot; -locale=en_US,zh_CN" copyDependentFiles="true" enableModuleDebug="true" generateAccessible="false" htmlExpressInstall="true" htmlGenerate="true" htmlHistoryManagement="true" htmlPlayerVersion="10.0.0" htmlPlayerVersionCheck="true" outputFolderPath="" sourceFolderPath="WEB-INF/flex-src" strict="true" useApolloConfig="false" verifyDigests="true" warn="true">
+<compilerSourcePath>
+<compilerSourcePathEntry kind="1" linkType="1" path="WEB-INF/flex-src/resource/locale/{locale}"/>
+</compilerSourcePath>
+<libraryPath defaultLinkType="1">
+<libraryPathEntry kind="4" path="">
+<modifiedEntries>
+<libraryPathEntry index="0" kind="3" linkType="1" path="${PROJECT_FRAMEWORKS}/libs/flex.swc" useDefaultLinkType="false"/>
+</modifiedEntries>
+<excludedEntries>
+<libraryPathEntry kind="3" linkType="2" path="${PROJECT_FRAMEWORKS}/libs/player/10/playerglobal.swc" useDefaultLinkType="false"/>
+</excludedEntries>
+</libraryPathEntry>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/ilog-elixir.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/locale/en_US/ilog-elixir_rb.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/fds.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/locale/en_US/fds_rb.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/KapInspect.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/dishboardLibrary.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/flexlib.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/Degrafa_Beta3.1_Flex3.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/dpcpTimeChooser.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/Cairngorm.swc" useDefaultLinkType="false"/>
+<libraryPathEntry kind="3" linkType="1" path="WEB-INF/flex/libs/playerglobal.swc" useDefaultLinkType="false"/>
+</libraryPath>
+<sourceAttachmentPath/>
+</compiler>
+<applications>
+<application path="index.mxml"/>
+</applications>
+<modules/>
+<buildCSSFiles/>
+</actionScriptProperties>

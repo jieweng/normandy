@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%"
+	mouseWheel="onMouseWheel(event)"
+	creationComplete="init();" 
+	xmlns:fabulousFlex="com.fabulousFlex.*">
+	<mx:Script>
+		<![CDATA[ 				
+			import mx.events.FlexEvent;
+			import mx.managers.CursorManager;
+			import mx.controls.TileList;
+			import mx.collections.ArrayCollection;
+			import mx.managers.SystemManager;
+			import mx.automation.codec.KeyModifierPropertyCodec;
+			import mx.automation.codec.KeyCodePropertyCodec;
+			import mx.events.DragEvent;
+			import mx.managers.PopUpManager;
+			
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			import com.fabulousFlex.SquaresSpinnerPreloadingWindow;			
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			private var imageMask:Sprite = new Sprite();
+			private var initImageWidth:int;
+			private var initImageHeight:int;
+			private var initX:int;
+			private var initY:int;
+			
+			private var myMatrix:Matrix = new Matrix();
+			private var rectangleTrans:Transform;
+			private var isMouseDown:Boolean = false;
+			private var isMouseUp:Boolean = false;
+			private var previousP:Point;
+			private var nextP:Point;
+			private var previousMouseP:Point;
+			private var nextMouseP:Point;
+			private var offX:int;
+			private var offY:int;
+			private var cursorIndex:int;
+			
+			private var _selectedTarget:Object;
+			[Bindable]
+			public function set selectedTarget(val:Object):void{
+				_selectedTarget = val;
+				if(selectedTarget is TileList){
+					selectedItem = (selectedTarget as TileList).selectedItem;
+				}else if(selectedTarget is PreloadingImage){
+					viewImage.source = (selectedTarget as PreloadingImage).source;
+				}
+			}
+			
+			public function get selectedTarget():Object{
+				return _selectedTarget;
+			}
+			
+			[Bindable]
+			private var _selectedItem:Object;
+			public function set selectedItem(val:Object):void{
+				_selectedItem = val;
+			}
+			
+			public function get selectedItem():Object{
+				return _selectedItem;
+			}
+			
+			private var _url:String;
+			[Bindable]
+			public function set url(val:String):void{
+				_url = val;
+			}
+			public function get url():String{
+				return _url;
+			}
+			
+			public function init():void{
+				previousP = new Point(viewImage.x, viewImage.y);
+				rectangleTrans = new Transform(viewImage);
+				rectangleTrans.matrix = myMatrix;
+/* 				viewImage.x = initX;
+				viewImage.y = initY; */
+				viewImage.width = this.width;
+				viewImage.height = this.height;
+			}
+			
+			private function initImage():void{
+  				initImageWidth = viewImage.contentWidth; 
+				initImageHeight = viewImage.contentHeight;
+				calculateImageInitCoordinate();  
+				
+			}
+			
+			private function calculateImageInitCoordinate():void{
+				initX = this.width / 2 - initImageWidth / 2;
+				initY = this.height / 2 - initImageHeight / 2;
+			}
+			
+			public function onPreviousImage(evt:MouseEvent):void{
+				var index:int = getParentSelectedIndex();
+				var imageData:Object;
+				if(index > 0){
+					imageData = (selectedTarget.dataProvider as ArrayCollection).getItemAt(index - 1);
+					selectedItem = selectedTarget.selectedItem = imageData;
+				}
+			}
+			
+			public function onNextImage(evt:MouseEvent):void{
+				var index:int = getParentSelectedIndex();
+				var imageData:Object;
+				if((selectedTarget.dataProvider as ArrayCollection).length - 1 > index){
+					imageData = (selectedTarget.dataProvider as ArrayCollection).getItemAt(index + 1);
+					selectedItem = selectedTarget.selectedItem = imageData;
+				}
+			}
+			
+			private function getParentSelectedIndex():int{
+				return selectedTarget.selectedIndex;
+			}
+			
+			public function onZoomIn(evt:MouseEvent):void{
+				viewImage.x += Constants.ZOOM_SIZE  / 2;
+				viewImage.y += Constants.ZOOM_SIZE / 2;
+				viewImage.width -= Constants.ZOOM_SIZE;
+				viewImage.height -= Constants.ZOOM_SIZE;
+			}
+			
+			public function onZoomOut(evt:MouseEvent):void{
+				systemManager
+				viewImage.x -= Constants.ZOOM_SIZE  / 2;
+				viewImage.y -= Constants.ZOOM_SIZE / 2;
+				viewImage.width  += Constants.ZOOM_SIZE;
+				viewImage.height += Constants.ZOOM_SIZE;
+			}
+			
+			public function onMouseWheel(evt:MouseEvent):void{
+				if(!evt.altKey){
+					return;
+				}
+				evt.stopImmediatePropagation();
+				viewImage.x -= (Constants.MOUSE_WHEEL_ZOOM_SIZE * evt.delta)  / 2;
+				viewImage.y -= (Constants.MOUSE_WHEEL_ZOOM_SIZE * evt.delta) / 2;
+				viewImage.width += Constants.MOUSE_WHEEL_ZOOM_SIZE * evt.delta;
+				viewImage.height += Constants.MOUSE_WHEEL_ZOOM_SIZE * evt.delta;
+				
+			}
+			
+			public function onMouseDown(evt:MouseEvent):void{
+				isMouseDown = true;
+				previousMouseP = new Point(mouseX, mouseY);
+				previousP.x = viewImage.x;
+				previousP.y = viewImage.y;
+				previousMouseP.x = mouseX;
+				previousMouseP.y = mouseY;
+			}
+			
+			public function onMouseMove(evt:MouseEvent):void{
+				if(evt.buttonDown && isMouseDown){
+					offX = mouseX - previousMouseP.x;
+					offY = mouseY - previousMouseP.y;
+					viewImage.move(previousP.x + offX, previousP.y + offY);
+					previousMouseP.x = mouseX;
+					previousMouseP.y = mouseY;
+					previousP.x = previousP.x + offX;
+					previousP.y = previousP.y + offY; 				 				
+				}
+			}
+			
+			public function onMouseUp(evt:MouseEvent):void{
+				isMouseDown = false;
+			}
+			
+			public function onFact(evt:MouseEvent):void{
+				viewImage.x = initX;
+				viewImage.y = initY;
+				viewImage.width = initImageWidth;
+				viewImage.height = initImageHeight;
+			}
+			
+			public function onFit(evt:MouseEvent):void{
+				
+				if(this.horizontalScrollPosition > 0){
+					viewImage.height = this.height  - this.horizontalScrollBar.height;  
+				}else{
+					viewImage.height = this.height; 
+				} viewImage.contentHeight
+				if(this.verticalScrollPosition > 0){
+					viewImage.width = this.width - this.verticalScrollPosition;
+				}else{
+					viewImage.width = this.width;
+				}
+				viewImage.dispatchEvent(new FlexEvent("updateComplete"));
+				viewImage.x = this.width / 2 - viewImage.width / 2;
+				viewImage.y = this.height / 2 - viewImage.height / 2;
+			}
+		]]>
+	</mx:Script>
+	<fabulousFlex:PreloadingImage id="viewImage" source="{url}" preloaderTitleWindow="{SquaresSpinnerPreloadingWindow}"
+			mouseDown="onMouseDown(event)" mouseMove="onMouseMove(event)" mouseUp="onMouseUp(event)" 
+			complete="initImage()"/>
+<!--	<mx:Image
+			id="viewImage" source="{url}"
+			mouseDown="onMouseDown(event)" mouseMove="onMouseMove(event)" mouseUp="onMouseUp(event)" 
+			complete="initImage()"
+		/>-->
+</mx:Canvas>

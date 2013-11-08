@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ns:Pod xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','title.project.current_week_delivery_plan')} - [{project.projectName}]" 
+	width="100%" height="100%"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off">
+	<mx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			import mx.managers.PopUpManager;
+			import mx.charts.events.ChartItemEvent;
+			import mx.charts.series.BarSeries;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			import popup.TaskDeliveryPopup;			
+			
+			private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;				
+				reportRo.getRTDActivityByProjectId(project.id);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			public function reSetTitleList():void{
+				if(tileList == null)
+				return;
+				
+   				tileList.columnCount = Math.floor(currentWeekSubtask.length / 3) == 0? currentWeekSubtask.length:3;
+				tileList.rowCount = Math.floor(currentWeekSubtask.length / 3) == 0? 1:(currentWeekSubtask.length % 3 == 0? Math.floor(currentWeekSubtask.length / 3):Math.ceil(currentWeekSubtask.length / 3));
+/* 				tileList.columnWidth = this.width / tileList.columnCount;
+				tileList.rowHeight = this.height / tileList.rowHeight;  */
+				tileList.validateDisplayList(); 
+			}
+			
+			[Bindable]
+			private var activities:ArrayCollection;
+			
+			[Bindable]
+			private var barData:ArrayCollection;
+			
+			//==============================
+		    //Remote Object Handler
+		    //==============================
+		    private function getRTDActivityByProjectIdHandler(event:ResultEvent):void{
+		    	activities = event.result as ArrayCollection;
+		    	barData = barChartTransformer(activities);
+		    	
+				if(barData.length==0 || series1==null || series2==null || series3==null){
+					return;
+				}
+
+				if(barData.length<=3){
+					series1.maxBarWidth = 15;
+					series2.maxBarWidth = 15;
+					series3.maxBarWidth = 15;
+				}else{
+					var width:int = 60/barData.length;
+					series1.maxBarWidth = width;
+					series2.maxBarWidth = width;
+					series3.maxBarWidth = width;
+				}		    	
+		    }
+		    
+			private function getCurrentWeekDeliveryPlanDataGridHandler(event:ResultEvent):void{
+				currentWeekSubtask = event.result as ArrayCollection;				
+				reSetTitleList();
+			}
+			
+			private function barChartTransformer(arr:ArrayCollection):ArrayCollection{
+				var data:ArrayCollection = new ArrayCollection();
+				var todayDate:Date = new Date();
+				todayDate.hours 	= 0;
+				todayDate.minutes 	= 0;
+				todayDate.seconds 	= 0;
+								
+				var category:String = "";
+				var today:int 		= 0;
+				var tomorrow:int	= 0;
+				var others:int		= 0;
+				var todayIds:ArrayCollection = new ArrayCollection();
+				var tomorrowIds:ArrayCollection = new ArrayCollection();
+				var othersIds:ArrayCollection = new ArrayCollection();
+				
+				for(var i:int=0; i<arr.length; i++){
+					var activity:ActivityVO = arr.getItemAt(i) as ActivityVO;
+					
+					if(category != activity.taskCategory && category != ""){
+						data.addItem({category: category, today: today, tomorrow: tomorrow, others: others, 
+									  todayIds: todayIds, tomorrowIds: tomorrowIds, othersIds: othersIds})
+						today 		= 0;
+						tomorrow 	= 0;
+						others 		= 0;
+						todayIds 	= new ArrayCollection();
+						tomorrowIds = new ArrayCollection();
+						othersIds 	= new ArrayCollection();						
+					}
+					
+					category = activity.taskCategory;
+					if(activity.endTime >= todayDate){
+						if(activity.endTime.date - todayDate.date == 0){
+							today ++;
+							todayIds.addItem({id: activity.taskId});		
+						}
+						else if(activity.endTime.date - todayDate.date == 1){
+							tomorrow ++;
+							tomorrowIds.addItem({id: activity.taskId});
+						}
+						else{
+							others ++;
+							othersIds.addItem({id: activity.taskId});
+						}
+					}
+					
+					if(i == arr.length -1){
+						data.addItem({category: category, today: today, tomorrow: tomorrow, others: others,
+									  todayIds: todayIds, tomorrowIds: tomorrowIds, othersIds: othersIds});
+					}					
+				}	
+				
+				return data;							
+			}	
+								
+			
+			private function onItemDoubleClick(event:ChartItemEvent):void{
+				var day:String = (event.hitData.element as BarSeries).xField;
+
+		    	var taskDeliveryPopup:TaskDeliveryPopup = TaskDeliveryPopup(PopUpManager.createPopUp(this.parentApplication as UIComponent, TaskDeliveryPopup, true));
+		   		PopUpManager.centerPopUp(taskDeliveryPopup);
+		   		
+		   		switch(day){
+		   			case "today": 		taskDeliveryPopup.taskIds = event.hitData.item.todayIds as ArrayCollection; break;
+		   			case "tomorrow":    taskDeliveryPopup.taskIds = event.hitData.item.tomorrowIds as ArrayCollection; break;
+		   			case "others": 		taskDeliveryPopup.taskIds = event.hitData.item.othersIds as ArrayCollection; break;
+		   			default: break;
+		   		}
+		   		
+			}
+			
+			private function onChange():void{
+				if(deliveryPlanVS.selectedIndex == 1)
+				reSetTitleList();
+			}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	  Services
+	===========================-->	
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getRTDActivityByProjectId" result="getRTDActivityByProjectIdHandler(event)"/>    
+ 	</mx:RemoteObject>
+
+	<!--==========================
+	  Variables
+	===========================-->
+	<mx:ArrayCollection id="currentWeekSubtask"/>
+
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:ViewStack id="deliveryPlanVS" width="100%" height="100%" change="onChange()">
+		<mx:VBox width="100%" height="100%" icon="{ImageEnum.IMAGECLASS_ICON_CHART}">
+			<mx:BarChart id="barChart" width="100%" height="95%" 
+				paddingTop="10" paddingLeft="10" showDataTips="true" fontSize="12"
+				dataProvider="{barData}" itemDoubleClick="onItemDoubleClick(event)">
+				<mx:series>
+					<mx:BarSet type="stacked">
+						<mx:BarSeries id="series1" xField="today" labelPosition="inside" labelAlign="right" 
+							displayName="{resourceManager.getString('Language','label.today')}"/>
+						<mx:BarSeries id="series2" xField="tomorrow" labelPosition="inside" labelAlign="right" 
+							displayName="{resourceManager.getString('Language','label.tomorrow')}"/>
+						<mx:BarSeries id="series3" xField="others" labelPosition="inside" labelAlign="right" 
+							displayName="{resourceManager.getString('Language','label.others')}"/>
+					</mx:BarSet>
+				</mx:series>
+				<mx:verticalAxis>
+					<mx:CategoryAxis categoryField="category"/>
+				</mx:verticalAxis>
+			</mx:BarChart>
+			<mx:Legend dataProvider="{barChart}" width="100%" height="5%" direction="horizontal"/>
+		</mx:VBox>
+		<mx:VBox width="100%" height="100%" icon="{ImageEnum.IMAGECLASS_ICON_GRID}">
+			<mx:TileList id="tileList" width="100%" height="100%" enabled="false"
+				dataProvider="{currentWeekSubtask}" 
+				horizontalScrollPolicy="off"
+				verticalScrollPolicy="off"
+				itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridSummaryItemRenderer"/>
+		</mx:VBox>		
+	</mx:ViewStack>
+	<mx:ToggleButtonBar dataProvider="{deliveryPlanVS}"/>
+</ns:Pod>

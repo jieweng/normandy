@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Project">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="Project" type="com.pearl.normandy.project.ProjectTo" />
+
+<!--
+	<resultMap id="ProjectResult" class="Project">
+		<result property="id" column="p.ID" />
+		<result property="projectName" column="p.PROJECT_NAME" />
+		<result property="type" column="p.TYPE"/>		
+		<result property="status" column="p.STATUS"/>
+		<result property="projectKey" column="p.PROJECT_KEY" />
+		<result property="needQa" column="p.NEED_QA" />		
+		<result property="customerId" column="p.CUSTOMER_ID" />
+		<result property="baselineRevision" column="p.BASELINE_REVISION" />		
+		<result property="url" column="p.URL" />
+		<result property="description" column="p.DESCRIPTION" />
+		<result property="deleted" column="p.DELETED" />
+		<result property="version" column="p.VERSION" />
+		<result property="createdDate" column="p.CREATED_DATE" />
+		<result property="createdBy" column="p.CREATED_BY" />
+		<result property="updatedDate" column="p.UPDATED_DATE" />
+		<result property="updatedBy" column="p.UPDATED_BY" />
+	</resultMap>
+-->
+	
+	<!--========================= Select ========================-->
+	<select id="selectAllProjects" resultClass="Project">
+		select
+			p.ID				as id,
+			p.CUSTOMER_ID		as customerId,
+			p.PROJECT_NAME		as projectName,
+			p.PROJECT_KEY		as projectKey,
+			p.TYPE				as type,
+			p.STATUS			as status,
+			p.URL				as url,
+			p.NEED_QA			as needQa,
+			p.BASELINE_REVISION as baselineRevision,
+			p.DELETED			as deleted,
+			p.DESCRIPTION		as description,
+			p.VERSION			as version,
+			p.CREATED_BY		as createdBy,
+			p.CREATED_DATE		as createdDate,
+			p.UPDATED_BY		as updatedBy,
+			p.UPDATED_DATE		as updatedDate,
+			p.CHECK_LIST		as checkList,
+			p.DIFFICULTY		as difficulty,
+			c.CUSTOMER_NAME		as customerName		
+		from PROJECT p, CUSTOMER c
+		where (p.DELETED is null or p.DELETED != 'Y')
+		and p.CUSTOMER_ID = c.ID
+		order by p.STATUS desc, p.PROJECT_NAME
+	</select>
+	
+
+	<select id="selectProjectsByUserId" parameterClass="int" resultClass="Project">
+		select distinct			
+			p.ID				as id,
+			p.CUSTOMER_ID		as customerId,
+			p.PROJECT_NAME		as projectName,
+			p.PROJECT_KEY		as projectKey,
+			p.TYPE				as type,
+			p.STATUS			as status,
+			p.URL				as url,
+			p.NEED_QA			as needQa,
+			p.BASELINE_REVISION as baselineRevision,
+			p.DELETED			as deleted,
+			p.DESCRIPTION		as description,
+			p.VERSION			as version,
+			p.CREATED_BY		as createdBy,
+			p.CREATED_DATE		as createdDate,
+			p.UPDATED_BY		as updatedBy,
+			p.UPDATED_DATE		as updatedDate,
+			p.CHECK_LIST		as checkList,
+			p.DIFFICULTY		as difficulty,
+			c.CUSTOMER_NAME		as customerName				
+		from PROJECT p, PROJECT_MEMBER pm, CUSTOMER c
+		where (p.DELETED is null or p.DELETED != 'Y')
+		and pm.USER_ID = #value#		
+		and pm.STATUS != 'RELEASED'
+		and p.ID = pm.PROJECT_ID
+		and p.CUSTOMER_ID = c.ID
+		order by p.STATUS desc, p.PROJECT_NAME
+	</select>
+	
+	
+	<select id="selectProjectById" parameterClass="java.lang.Integer" resultClass="Project">
+		select 
+			p.ID					as id,
+			p.PROJECT_NAME			as projectName,
+			p.PROJECT_KEY			as projectKey,
+			p.NEED_QA				as needQa,
+			p.CUSTOMER_ID			as customerId,
+			p.BASELINE_REVISION		as baselineRevision,
+			p.TYPE					as type,
+			p.STATUS				as status,
+			p.URL					as url,
+			p.DESCRIPTION			as description,
+			p.DELETED				as deleted,
+			p.VERSION				as version,
+			p.CREATED_DATE			as createdDate,
+			p.CREATED_BY			as createdBy,
+			p.UPDATED_DATE			as updatedDate,
+			p.UPDATED_BY			as updatedBy,
+			p.DIFFICULTY		    as difficulty,
+			p.CHECK_LIST			as checkList
+		from PROJECT p
+		where p.ID = #value#
+	</select>
+	
+	<select id="selectProjectsByYear" parameterClass="java.lang.String" resultClass="Project">
+		select distinct
+			p.ID					as id,
+			p.PROJECT_NAME			as projectName,
+			p.PROJECT_KEY			as projectKey
+						
+		from PROJECT p, ACTIVITY a
+		where a.PROJECT_ID = p.ID 
+		and YEAR(a.END_TIME) = #value#
+		order by p.PROJECT_NAME
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insert" parameterClass="Project">
+		insert into PROJECT
+			(ID, 
+			PROJECT_KEY,  
+			NEED_QA,
+			CUSTOMER_ID,
+			BASELINE_REVISION,
+			TYPE,
+			STATUS,
+			PROJECT_NAME, 
+			URL, 
+			DESCRIPTION, 
+			DELETED, 
+			VERSION, 
+			CREATED_DATE,
+			CREATED_BY,
+			CHECK_LIST,DIFFICULTY)
+		values
+			(#id#,
+			 #projectKey#,
+			 #needQa#,
+			 #customerId#,
+			 #baselineRevision#,
+			 #type#,	
+			 #status#,		 
+			 #projectName#,
+			 #url#,
+			 #description#,
+			 #deleted#,
+			 #version#,
+			 #createdDate#,
+			 #createdBy#,
+			 #checkList#,#difficulty#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>		
+	</insert>
+	
+	<update id="update" parameterClass="Project">
+		update PROJECT set 
+			PROJECT_KEY 	= #projectKey#, 
+			NEED_QA 		= #needQa#,
+			CUSTOMER_ID 	= #customerId#,
+			PROJECT_NAME 	= #projectName#,
+			TYPE 			= #type#,
+			STATUS 			= #status#,
+			URL 			= #url#,
+			DESCRIPTION 	= #description#,
+			DELETED 		=  #deleted#,
+			VERSION 		= #version#,
+			UPDATED_DATE 	= #updatedDate#,
+			UPDATED_BY 		= #updatedBy#,
+			CHECK_LIST 		= #checkList#,
+			DIFFICULTY      = #difficulty#
+		where ID = #id#
+	</update>
+		
+	<update id="updateProjectCheckList" parameterClass="java.util.Map">
+		update PROJECT
+		set CHECK_LIST = #checkList#
+		where ID = #projectId#
+	</update>
+	
+	<update id="updateProjectDifficulty" parameterClass="java.util.Map">
+		update PROJECT
+		set DIFFICULTY = #difficulty#
+		where ID = #projectId#
+	</update>		
+		
+	<update id="updateProjectRevision" parameterClass="java.lang.Integer">
+		update PROJECT
+		set BASELINE_REVISION = BASELINE_REVISION+1
+		where ID = #value#
+	</update>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+<!--	
+	<select id="selectGroupProjectsByUserId" parameterClass="java.lang.Integer" resultMap="ProjectResult">
+		select p.* 
+		from PROJECT p, PROJECT_GROUP pg, USER u 
+		where pg.PROJECT_ID=p.ID 
+		and pg.GROUP_ID=u.USER_GROUP_ID 
+		and u.ID=#value#
+		order by p.STATUS desc, p.PROJECT_NAME
+	</select>
+-->	
+
+
+<!--
+	<select id="selectProjectsByRole" parameterClass="java.util.Map" resultMap="ProjectResult">
+		select
+			distinct p.* 
+		from PROJECT p, USER u, PROJECT_USER pu, PROJECT_ROLE pr
+		where pr.ID=pu.PROJECT_ROLE_ID
+		<dynamic>
+			<isNotNull prepend="and" property="userId">
+				u.ID=#userId#
+			</isNotNull>	
+			<isNotNull prepend="and" property="roleName">
+				pr.PROJECT_ROLE_NAME=#roleName#
+			</isNotNull>				
+		</dynamic>
+		and u.ID=pu.USER_ID 
+		and p.ID=pu.PROJECT_ID  
+	</select>
+-->
+
+
+<!--
+	<select id="selectProjectBySubtaskId" parameterClass="java.lang.String" resultClass="Project">
+		select 
+			p.ID					as id,
+			p.PROJECT_NAME			as projectName,
+			p.PROJECT_KEY			as projectKey,
+			p.NEED_QA				as needQa,
+			p.CUSTOMER_ID			as customerId,
+			p.BASELINE_REVISION		as baselineRevision,
+			p.TYPE					as type,
+			p.STATUS				as status,
+			p.URL					as url,
+			p.DESCRIPTION			as description,
+			p.DELETED				as deleted,
+			p.VERSION				as version,
+			p.CREATED_DATE			as createdDate,
+			p.CREATED_BY			as createdBy,
+			p.UPDATED_DATE			as updatedDate,
+			p.UPDATED_BY			as updatedBy
+		from SUBTASK s,TASK t,PROJECT p
+		where s.ID=#value#
+		and p.ID=t.PROJECT_ID
+		and s.TASK_ID=t.ID	
+	</select>
+-->
+
+</sqlMap>

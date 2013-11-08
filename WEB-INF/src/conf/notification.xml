@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<root>
+  <notifications>
+    <!--=======================Status Notifications=====================-->
+  	<Pending>
+  	  <title>Artist Submitted (Artist提交)</title>
+      <template>mail/CheckItem_Pending.vm</template>
+      <role> 
+      	<name>Lead</name>
+      	<name>Artist</name>          	      	      	      	      	      	
+      </role>        
+      <manager></manager>      
+    </Pending>   	  
+  
+    <Reviewed>
+      <title>Reviewed (通过Lead/AD检查)</title>
+      <template>mail/CheckItem_Reviewed.vm</template>
+      <role>
+      	<name>PM</name>
+      	<name>AD</name>
+      	<name>Lead</name>
+      	<name>Artist</name>      
+      	<name>QA</name>      	      	      	      	
+      </role>        
+      <manager>QA</manager>      
+    </Reviewed>    
+  
+    <Complete>
+      <title>Complete (提交通过)</title>
+      <template>mail/CheckItem_Complete.vm</template>
+      <role>
+      	<name>PM</name>
+      	<name>AD</name>
+      	<name>Lead</name>
+      	<name>Artist</name>
+      	<name>QA</name>      	      	      	      	
+      </role>
+      <manager>QA</manager>	
+    </Complete>
+    
+    <Fix>
+      <title>Fix Required (需要修改)</title>
+      <template>mail/CheckItem_Fix.vm</template>
+      <role>
+      	<name>PM</name>
+      	<name>AD</name>
+      	<name>Lead</name>
+      	<name>Artist</name>
+      	<name>QA</name>      	      	      	      	
+      </role>
+      <manager>QA</manager>              
+    </Fix>          
+    
+    
+   <!--=======================Account Notifications=====================-->
+    <ACCOUNT_CREATED>
+    	<title>Normandy Account Created (Normandy帐号已创建)</title>    
+      	<template>mail/ACCOUNT_CREATED.vm</template>
+    </ACCOUNT_CREATED>   
+    
+    <PASSWORD_RESET>
+    	<title>Normandy Password Reset (密码已重置)</title>    
+      	<template>mail/PASSWORD_RESET.vm</template>    
+    </PASSWORD_RESET>  
+    
+   <!--======================Idle Employee Notifications============-->
+    <IDLE_EMPLOYEE>
+    	<title>Idle Employee (空闲员工)</title>
+    	<template>mail/IdleEmployee.vm</template>
+    </IDLE_EMPLOYEE>
+    
+  </notifications>
+</root>

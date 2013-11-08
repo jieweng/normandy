@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" xmlns:code="http://code.google.com/p/flexlib/" 
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.enum.MenuEnum;
+			import com.pearl.normandy.utils.Constants;
+		]]>
+	</mx:Script>
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.UserGroupVO;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import frame.AdminIndex;
+			import mx.events.CollectionEvent;
+			import mx.managers.PopUpManager;
+			import mx.events.MenuEvent;
+			import mx.events.CloseEvent;
+			import mx.utils.Base64Encoder;
+			import mx.graphics.codec.PNGEncoder;
+			import widget.UserSalary;
+			import widget.UserBasic;
+			import mx.validators.Validator;
+			import com.pearl.normandy.utils.NormandyModel;
+			import mx.controls.Alert;
+			import mx.controls.Menu;
+			import view.UserMangeView;
+			import mx.events.ListEvent;
+			import com.pearl.normandy.vo.UserVO;
+			import mx.collections.ICollectionView;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.enum.ImageEnum;
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			private var users:ArrayCollection = new ArrayCollection();
+			
+			private function init():void{
+				userRo.getAllUsers();
+				var closeMenu:ContextMenu=new ContextMenu();
+				removeDefaultItems(closeMenu);
+				var itemMenu1:ContextMenuItem=new ContextMenuItem("Close");
+				var itemMenu2:ContextMenuItem=new ContextMenuItem("Close All");
+				var itemMenu3:ContextMenuItem=new ContextMenuItem("Close others");
+				closeMenu.customItems.push(itemMenu1);
+				closeMenu.customItems.push(itemMenu2);
+				closeMenu.customItems.push(itemMenu3);
+				itemMenu1.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeSelf);
+				itemMenu2.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeAll);
+				itemMenu3.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeOthers);
+				stn.contextMenu=closeMenu;
+				model.metaData.userGroups.addEventListener(CollectionEvent.COLLECTION_CHANGE,updateUsers);
+				
+			}
+			
+			private function updateUsers(e:CollectionEvent):void{
+				if(e.kind==CollectionEventKind.UPDATE){
+					for each(var eve:PropertyChangeEvent in e.items){
+						if(eve.property=="groupName"){
+							for each(var user:UserVO in users){
+								if(user.userGroupId==UserGroupVO(eve.source).id ){
+									user.userGroupName=eve.newValue.toString();
+								}
+							}
+//						userRo.getAllUsers();
+//						break;
+						}
+					}
+					
+				}
+			}
+			
+			private function closeSelf(e:Event):void{
+				if(stn.getChildren().length==0)return;
+				stn.removeChildAt(stn.selectedIndex);
+			}
+			
+			private function closeAll(e:Event):void{
+				if(stn.getChildren().length==0)return;
+				stn.removeAllChildren();
+			}
+			
+			private function closeOthers(e:Event):void{
+				if(stn.getChildren().length==0)	return;
+				var selectIndex:int=stn.selectedIndex;
+				var childNum:int = stn.getChildren().length;
+				for(var i:int=0;i<selectIndex;i++){
+					stn.removeChildAt(0);
+				}
+				for(var j:int=0;j<childNum-selectIndex-1;j++){
+					stn.removeChildAt(1);
+				}
+			}
+			
+			private function getAllUsersHandler(e:ResultEvent):void{
+				users = e.result as ArrayCollection;
+				search();
+			}
+			
+			private function search():void{
+				var userAC:ICollectionView = userAdg.dataProvider as ICollectionView;
+				if(userAC.filterFunction == null){
+					userAC.filterFunction = userFilter;
+				}
+				userAC.refresh();
+			}
+			
+			private function userFilter(item:Object):Boolean{
+				var user:UserVO = item as UserVO;
+				
+				var delMemFilterPass:Boolean = true;
+				if(!isShowDelMem){
+					if(user.deleted == Constants.BOOLEAN_YES){
+						delMemFilterPass = false;
+					}
+				}
+				if(delMemFilterPass){
+					return userSearch(user.searchStr, searchTI.text)
+				}
+				return false;
+			}
+			
+			private function onItemDoubleClick():void{
+				var user:UserVO = userAdg.selectedItem as UserVO;
+				var tab:UserMangeView = getTabByUser(user);
+				if(tab){
+					stn.selectedChild = tab;
+				}else{
+					stn.selectedChild = addTab(user);
+				}
+			}
+			
+			private function getTabByUser(u:UserVO):UserMangeView{
+				var children:Array = stn.getChildren();
+				for(var i:int = 0; i < children.length; i++){
+					var tab:UserMangeView = children[i] as UserMangeView;
+					if(u.id == tab.user.id){
+						return tab;
+					}
+				}
+				return null;
+			}
+			
+			private function addTab(u:UserVO):UserMangeView{
+				var form:UserMangeView = new UserMangeView();
+				form.user = u;
+				form.users = users;
+				stn.addChild(form);
+				form.saveBtn.addEventListener(MouseEvent.CLICK, saveUser);
+				form.deleteBtn.addEventListener(MouseEvent.CLICK, deleteUser);				
+				return form;
+			}
+			
+			private function saveUser(e:Event):void{
+				var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+				var result:Array = Validator.validateAll(selectedTab.validatorArray);
+				if(result.length <= 0){
+					var user:UserVO = selectedTab.user;
+					var basic:UserBasic = selectedTab.vs.getChildAt(0) as UserBasic;
+					var salary:UserSalary = selectedTab.vs.getChildAt(1) as UserSalary;
+					
+					user.userName 			= StringUtil.trim(basic.userNameTI.text);
+					user.gender				= basic.rbg.selectedValue as String;
+					user.firstName			= StringUtil.trim(basic.cnFirstNameTI.text);
+					user.lastName			= StringUtil.trim(basic.cnLastNameTI.text);
+					user.englishFirstName	= StringUtil.trim(basic.enFirstNameTI.text);
+					user.englishLastName	= StringUtil.trim(basic.enLastNameTI.text);
+					user.employeeNo			= StringUtil.trim(basic.employeeNoTI.text);
+					user.userType			= basic.categoryCB.selectedLabel;
+					user.email				= StringUtil.trim(basic.companyEmailTI.text);
+					user.userGroupId		= basic.groupCB.selectedIndex;
+					user.userGroupName		= basic.groupCB.selectedLabel;
+					user.birthday			= basic.birthdayDF.selectedDate;
+					user.personalEmail		= StringUtil.trim(basic.personalEmailTI.text);
+					user.mobile				= StringUtil.trim(basic.mobileTI.text);
+					user.home				= StringUtil.trim(basic.homeTI.text);
+					user.idNo				= StringUtil.trim(basic.idNoTI.text);
+					user.idAddress			= StringUtil.trim(basic.idAddressTA.text);
+					user.hukouAddress		= StringUtil.trim(basic.hukouAddressTA.text);
+					user.shangHaiAddress	= StringUtil.trim(basic.shAddressTA.text)
+					user.department			= StringUtil.trim(basic.departmentTI.text);
+					user.position			= StringUtil.trim(basic.positionTI.text);
+					user.levelId			= Number(StringUtil.trim(basic.levelTI.text));
+					user.paidLeave			= Number(StringUtil.trim(basic.paidLeaveTI.text));
+					user.employeeDate		= basic.employeeDateDF.selectedDate;
+					user.entryDate			= basic.entryDateDF.selectedDate;
+					user.leaveDate			= basic.leaveDateDF.selectedDate;
+					
+					if(basic.managerCB.selected){
+						user.manager = Constants.BOOLEAN_YES;
+					}else{
+						user.manager = Constants.BOOLEAN_NO;
+					}
+					if(basic.photo.source == ImageEnum.IMAGECLASS_DEFAULT_PIC){
+						user.photo = null;
+					}else {
+						var bitmapData:BitmapData = new BitmapData(basic.photo.width, basic.photo.height);              
+						bitmapData.draw(basic.photo);
+						var bytes:ByteArray = new PNGEncoder().encode(bitmapData);
+						user.photo = bytes;
+					}
+					
+					user.recommendorName				= StringUtil.trim(salary.recommenderTI.text);
+					user.recommendationBonus			= Number(salary.recommendationBonusTI.text);
+					user.recommendationBonusPayment		= Number(salary.recommendationBonusPaymentTI.text);
+					user.recommendationBonusPaymentTime	= salary.recommendationBonusPaymentTimeDF.selectedDate;
+					
+					if(user.id == 0){
+						userRo.createUser(user);
+					}else{
+						userRo.updateUser(user);
+					}
+				}				
+			}
+			
+			private function createUserHandler(e:ResultEvent):void{
+				var createdUser:UserVO = e.result as UserVO;
+				createdUser.fullName = createdUser.firstName + " " + createdUser.lastName + "(" + createdUser.englishFirstName + " " + 
+									createdUser.englishLastName + ")";
+				users.addItem(createdUser);
+				userAdg.selectedItem = createdUser;				
+				var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+				selectedTab.label = createdUser.fullName;
+				selectedTab.user=createdUser;
+				
+				var salary:UserSalary = selectedTab.vs.getChildAt(1) as UserSalary;
+				salary.user=createdUser;
+				salary.addSalaryBtn.enabled = true;
+				salary.deleteSalaryBtn.enabled = true;
+				salary.submitBtn.enabled = true;
+			}
+			
+			private function deleteUser(e:Event):void{
+				var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+				var user:UserVO = selectedTab.user;
+				if(user.id == 0){
+					var index:int = stn.selectedIndex;
+					stn.removeChildAt(index);
+				}else{
+					if(user.leaveDate == null){
+						Alert.show("请填上离职日期后再删除");
+						return;
+					}
+					 
+					confirm(resourceManager.getString("Language","alert.delete_user"),
+			    			resourceManager.getString("Language","title.confirmation"), confirmDeleteUserHandler);
+				}
+			}
+			
+			private var _isShowDelMem:Boolean = false;
+			[Bindable]
+			public function set isShowDelMem(value:Boolean):void{
+				this._isShowDelMem = value;
+				search();
+			}	
+			
+			public function get isShowDelMem():Boolean{
+				return this._isShowDelMem;
+			}
+			
+			
+			private function confirmDeleteUserHandler(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+					var user:UserVO = selectedTab.user;
+					userRo.deleteUser(user);
+				}
+			}
+			
+			private function deleteUserHanler(e:ResultEvent):void{
+				var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+				var user:UserVO = selectedTab.user;
+				var index:int = stn.selectedIndex;
+				for(var i:int; i < users.length; i++){
+					var u:UserVO = users.getItemAt(i) as UserVO;
+					if(u.id == user.id){
+						users.removeItemAt(i);
+						break;
+					}
+				}
+				stn.removeChildAt(index);
+			}
+			
+			private function resourceDGStyle(data:Object, column:AdvancedDataGridColumn):Object{
+				var user:UserVO = data as UserVO;
+				if(user != null){
+					if(user.deleted == Constants.BOOLEAN_YES){
+						return {color: 0xff5151, fontWeight:"bold", textAlign: "left" };
+					}
+				}
+				return null;
+			}
+			
+			private function updateResourceFilter():void{
+		  		//update resource collection
+		    	var resourceCollection:ICollectionView = userAdg.dataProvider as ICollectionView;
+		    	if (resourceCollection.filterFunction == null) {
+		      		resourceCollection.filterFunction = resourceFilter;
+		    	}
+		    	resourceCollection.refresh();    		
+		  	}
+			
+			private function resourceFilter(item:Object):Boolean {
+		     	var user:UserVO = item as UserVO;
+		   		
+				if(!isShowDelMem){
+					if(user.deleted == Constants.BOOLEAN_YES){
+						return false;
+					}
+				}
+				return true;
+		  	}
+			
+			private function onUserItemClick():void{
+				var user:UserVO = userAdg.selectedItem as UserVO;
+				var array:Array = stn.getChildren();
+				for(var i:int = 0; i < array.length; i++){
+					var form:UserMangeView = array[i] as UserMangeView;
+					if(form.user.id == user.id){
+						stn.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			private function addUser():void{
+				var newUser:UserVO = new UserVO();
+				newUser.createdDate = new Date();
+				newUser.createdBy = NormandyModel.getInstance().currUser.userName;
+				stn.selectedChild = addTab(newUser);
+			}
+			
+		  	private function updateUserHandler(e:ResultEvent):void{
+		  		var selectedTab:UserMangeView = stn.selectedChild as UserMangeView;
+		  		var user:UserVO = selectedTab.user;
+		  		user.fullName = user.firstName + " " + user.lastName + "(" + user.englishFirstName + " " + user.englishLastName + ")";
+		  	}
+		]]>
+	</mx:Script>
+	<mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+		<mx:method name="getAllUsers" result="getAllUsersHandler(event)"/>
+		<mx:method name="createUser" result="createUserHandler(event)"/>
+		<mx:method name="updateUser" result="updateUserHandler(event)"/>
+		<mx:method name="deleteUser" result="deleteUserHanler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:ApplicationControlBar width="100%" height="100%">
+		<mx:HDividedBox width="100%" height="100%">
+			<mx:VBox height="100%">			
+				<mx:AdvancedDataGrid id="userAdg" dataProvider="{users}" itemDoubleClick="onItemDoubleClick()" 
+					doubleClickEnabled="true" itemClick="onUserItemClick()" height="100%" width="100%" styleFunction="resourceDGStyle">
+					<mx:columns>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.employee_no')}" 
+							dataField="employeeNo" width="85"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.name')}" 
+							dataField="fullName" width="180"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.user_name')}"
+							dataField="userName" width="90"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.group')}" 
+							dataField="userGroupName" width="100"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.privilege')}" 
+							dataField="manager"  width="100">
+							<mx:itemRenderer>
+								<mx:Component>
+									<mx:Label text="{data.manager==Constants.BOOLEAN_YES ? 'Group Manager' : ''}">
+										<mx:Script>
+											<![CDATA[
+												import com.pearl.normandy.utils.Constants;
+											]]>
+										</mx:Script>
+									</mx:Label>
+								</mx:Component>
+							</mx:itemRenderer>
+						</mx:AdvancedDataGridColumn>
+					</mx:columns>
+				</mx:AdvancedDataGrid>
+				<mx:HBox width="100%">
+					<code:PromptingTextInput id="searchTI" prompt="Search" change="search()" width="100%"/>
+					<mx:Button id="addUserBtn" icon="{ImageEnum.IMAGECLASS_ADD_USER}" click="addUser()"
+						toolTip="{resourceManager.getString('Language', 'tooltip.add_user')}"/>
+					<mx:CheckBox id="deletedMemCB" selected="false" textAlign="center" width="24" height="24" 
+						toolTip="{resourceManager.getString('Language','label.deleted_member')}" styleName="checkBoxLeave"
+						change="this.isShowDelMem = deletedMemCB.selected"/>
+				</mx:HBox>						
+			</mx:VBox>
+			<code:SuperTabNavigator id="stn" doubleClickEnabled="true" allowTabSqueezing="false" width="100%" height="100%"/>
+		</mx:HDividedBox>
+	</mx:ApplicationControlBar>		
+</mx:VBox>

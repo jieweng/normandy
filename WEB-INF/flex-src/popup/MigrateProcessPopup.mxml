@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pm="pm.*"
+	title="{resourceManager.getString('Language','title.edit_migrate_process')}"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	showCloseButton="true" 
+	width="800" minHeight="400"	maxHeight="600" 
+	borderAlpha="1" 
+	layout="vertical"
+	creationComplete="init()"
+	close="PopUpManager.removePopUp(this);"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Metadata>
+		[Event(name="reload", type="com.pearl.normandy.event.ReloadEvent")] 
+	</mx:Metadata>	
+	
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.event.ReloadEventKind;
+			import com.pearl.normandy.event.ReloadEvent;
+			import mx.messaging.messages.ErrorMessage;
+			import mx.managers.PopUpManager;
+			import mx.events.CollectionEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.utils.Constants;
+			
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			private var oldProcess:ProductionProcessVO;
+			private var newProcess:ProductionProcessVO;
+			public var _project:ProjectVO;
+			
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				productionProcessRo.getProcessByProjectId(project.id, false);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			private function init():void{
+				this.setFocus();				
+			}			
+			
+			private function onOldProcessChange():void{
+				newProcess = null;
+				oldProcess = oldProcessDataGrid.selectedItem as ProductionProcessVO;
+				
+				taskRo.getTaskByProductionProcessId(oldProcess.id);
+//				productionProcessRo.getProductionProcessByProjectIdAndTaskCategoryId(project.id,oldProcess.taskCategoryId);
+			}
+			
+			private function onNewProcessChange():void{
+				newProcess = newProcessDataGrid.selectedItem as ProductionProcessVO;
+			}
+
+			private function getProcessByProjectIdHandler(event:ResultEvent):void{
+				oldProcessList = event.result as ArrayCollection;
+			}
+			
+			private function getProductionProcessByProjectIdAndTaskCategoryIdHandler(event:ResultEvent):void{
+				newProcessList = event.result as ArrayCollection;
+
+				for(var i:int=0;i<newProcessList.length;i++){
+					var newProcessVO:ProductionProcessVO = newProcessList.getItemAt(i) as ProductionProcessVO;
+					if(newProcessVO.processName==oldProcess.processName){
+						newProcessList.removeItemAt(i);
+						break;
+					}
+				}
+			}
+			
+			private function getTaskByProductionProcessIdHandler(event:ResultEvent):void{
+				var array:ArrayCollection = event.result as ArrayCollection;
+				taskWithOutList = array.getItemAt(0) as ArrayCollection;
+				taskWithNotStartedList = array.getItemAt(1) as ArrayCollection;
+				taskWithStartedList = array.getItemAt(2) as ArrayCollection;
+			}
+			
+			private function onUpdateClick():void{
+/* 				if(oldProcess != null && newProcess != null && oldProcess.id != newProcess.id){
+					var task:ArrayCollection = new ArrayCollection;
+					for(var i:int=0;i<taskWithOutList.length;i++){
+						var withOut:TaskVO = taskWithOutList.getItemAt(i) as TaskVO;
+						if(withOut.selected){
+							withOut.productionProcessId = newProcess.id;							
+							task.addItem(withOut);
+						}
+					}
+					for(var j:int=0;j<taskWithNotStartedList.length;j++){
+						var notStarted:TaskVO = taskWithNotStartedList.getItemAt(j) as TaskVO;
+						if(notStarted.selected){
+							notStarted.productionProcessId = newProcess.id;
+							task.addItem(notStarted);
+						}
+					}
+					taskRo.migrateProductionProcess(newProcess,task);
+				}
+				PopUpManager.removePopUp(this); */
+			}
+			
+		    //==============================
+		    //Remote Object Handler
+		    //==============================			
+			private function migrateProductionProcessHandler(event:ResultEvent):void{
+				dispatchEvent(new ReloadEvent(ReloadEvent.RELOAD, ReloadEventKind.PROJECT));
+			}
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }				
+		]]>
+	</mx:Script>
+	<mx:RemoteObject id="productionProcessRo" destination="ro.productionProcess">
+		<mx:method name="getProcessByProjectId" result="getProcessByProjectIdHandler(event)"/>
+		<mx:method name="getProductionProcessByProjectIdAndTaskCategoryId" result="getProductionProcessByProjectIdAndTaskCategoryIdHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getTaskByProductionProcessId" result="getTaskByProductionProcessIdHandler(event)"/>
+		<mx:method name="migrateProductionProcess" result="migrateProductionProcessHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:ArrayCollection id="oldProcessList"/>
+	<mx:ArrayCollection id="newProcessList"/>
+	<mx:ArrayCollection id="taskWithOutList"/>
+	<mx:ArrayCollection id="taskWithNotStartedList"/>
+	<mx:ArrayCollection id="taskWithStartedList"/>
+	
+	<mx:HDividedBox width="100%" height="100%">
+		<mx:HBox width="75%" height="100%">
+			<mx:AdvancedDataGrid id="newProcessDataGrid" width="50%" height="100%" 
+				dataProvider="{newProcessList}" change="onNewProcessChange()">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="processName" 
+						headerText="{resourceManager.getString('Language','label.migrate.to')}"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<mx:Image source="@Embed('../resource/left_arrow.png')" width="16" height="100%" 
+				horizontalAlign="center" verticalAlign="middle"/>
+			<mx:AdvancedDataGrid id="oldProcessDataGrid" width="50%" height="100%" 
+				dataProvider="{oldProcessList}" change="onOldProcessChange()">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="processName" 
+						headerText="{resourceManager.getString('Language','label.migrate.from')}"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+		</mx:HBox>
+		<mx:HBox width="35%" height="100%" horizontalAlign="center">
+			<mx:VDividedBox width="100%" height="100%">
+				<mx:DataGrid width="100%" height="33%" editable="true" dataProvider="{taskWithOutList}">
+					<mx:columns>
+						<mx:DataGridColumn width="30" dataField="selected" textAlign="center"
+							headerText=" "
+			                rendererIsEditor="true" 
+			                itemRenderer="mx.controls.CheckBox" 
+			                editorDataField="selected"/> 
+						<mx:DataGridColumn dataField="name" 
+							headerText="{resourceManager.getString('Language','label.migrate.not_assigned')}"
+							editable="false"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:DataGrid width="100%" height="33%" editable="true" dataProvider="{taskWithNotStartedList}">
+					<mx:columns>
+						<mx:DataGridColumn width="30" dataField="selected" textAlign="center"
+							headerText=" "
+			                rendererIsEditor="true" 
+			                itemRenderer="mx.controls.CheckBox" 
+			                editorDataField="selected"/> 
+						<mx:DataGridColumn dataField="name" 
+							headerText="{resourceManager.getString('Language','label.migrate.not_started')}"
+							editable="false"/>
+					</mx:columns>
+				</mx:DataGrid>
+				<mx:DataGrid width="100%" editable="false" dataProvider="{taskWithStartedList}">
+					<mx:columns>
+						<mx:DataGridColumn width="30" dataField="selected" textAlign="center"
+							headerText=" "
+							rendererIsEditor="false">
+							<mx:itemRenderer>
+								<mx:Component>
+									<mx:CheckBox enabled="false" />
+								</mx:Component>
+							</mx:itemRenderer>
+						</mx:DataGridColumn> 
+						<mx:DataGridColumn dataField="name" 
+							headerText="{resourceManager.getString('Language','label.migrate.started')}"/>
+					</mx:columns>
+				</mx:DataGrid>
+			</mx:VDividedBox>
+		</mx:HBox>
+	</mx:HDividedBox>
+	<mx:ControlBar width="100%" horizontalAlign="center">
+		<mx:Button label="{resourceManager.getString('Language','button.ok')}" click="onUpdateClick()" enabled="{model.taskEditable}"/>
+		<mx:Button label="{resourceManager.getString('Language','button.cancel')}" click="PopUpManager.removePopUp(this)"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

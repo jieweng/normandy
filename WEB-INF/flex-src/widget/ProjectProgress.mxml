@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ns:Pod xmlns:mx="http://www.adobe.com/2006/mxml"  xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','title.project.summary.completion')}" 
+	width="100%" height="100%"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off"	
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import mx.charts.events.ChartItemEvent;
+			import mx.events.ListEvent;
+			import mx.charts.chartClasses.Series;
+			import mx.charts.ChartItem;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;				
+			
+			import com.pearl.normandy.vo.MilestoneVO;				
+			import com.pearl.normandy.vo.ProjectVO;	
+			import com.pearl.normandy.utils.NormandyModel;	
+			import com.pearl.normandy.utils.Constants;	
+
+
+		    //==============================
+		    //Control Attributes
+		    //==============================			
+			[Bindable]			
+			private var model:NormandyModel = NormandyModel.getInstance();										
+						
+			private var _project:ProjectVO;
+			
+			[Bindable]	
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				taskRo.getMilestone(project.id, true);				
+			}	
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			
+			[Bindable]
+			public var milestone:String;
+			
+			private var selectedProject:ProjectVO;	
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================				
+			[Bindable]
+			public var projects:ArrayCollection;	
+			
+			[Bindable]
+			public var milestones:ArrayCollection;						
+				
+			
+		    //==============================
+		    //Methods
+		    //==============================
+			private function init():void{
+				reportRo.getProjectProgress(model.currUser);
+			}			
+			
+			private function setProgressLabel(chartItem:ChartItem, series:Series):String{
+    			 return Math.round(chartItem.item.progressInNum/chartItem.item.planned*100)+'%';
+			}		
+			
+			
+		  	/**
+		   	* Refreshes the collection view. 
+		   	*/  
+		  	private function updateCollectionFilter():void {
+			  	if(projects){
+			    	if (projects.filterFunction == null) {
+			      		projects.filterFunction = collectionFilter;
+			    	}
+			    	projects.refresh();
+			   }
+		  	}		    
+		    
+		    
+		  	/**
+		   	* The collection view filter that displays only current project activites.
+		   	*/  
+		  	private function collectionFilter(item:Object):Boolean {
+		    	var project:ProjectVO = item as ProjectVO;
+ 		   		
+ 		   		if(statusCB.selectedIndex == 0){
+ 		   			return true;
+ 		   		}
+ 		   		else if(statusCB.selectedIndex == 1 && project.status == Constants.PROJECT_STATUS_OPEN){
+ 		   			return true;
+ 		   		}
+ 		   		else if(statusCB.selectedIndex == 2 && project.status == Constants.PROJECT_STATUS_CLOSE){
+ 		   			return true;
+ 		   		}
+ 		   		else{
+ 		   			return false;
+ 		   		}
+		  	} 				
+			
+			//==============================
+		    //Remote Object Handler
+		    //==============================
+		    private function getProjectProgressHandler(event:ResultEvent):void{		    			    	
+		    	projects = event.result as ArrayCollection;
+		    	
+				if(projects && projects.length > 0){					
+									
+					var currProjectId:int;				
+					//if current project not exists, set first project as default
+					if(project == null){
+				    	statusCB.selectedIndex = 1;									 	
+					}								
+					//if current project already exists, navigate the drop down list and refresh
+					//this logic mostly is used by refresh function
+					else{
+						currProjectId = project.id;
+						
+						var match:Boolean = false;				
+		   				for(var i:int=0; i<projects.length; i++){
+				   			var item:ProjectVO = projects.getItemAt(i) as ProjectVO;
+			   				if(item.id == currProjectId){
+			   					project = projects.getItemAt(i) as ProjectVO;
+			   					match = true;
+			   					break;
+			   				}
+		   				}
+		   				
+		   				//if current select project list is not in refreshed list
+		   				//set the first project as default
+		   				if(!match){
+					    	statusCB.selectedIndex = 1;
+		   				}
+		   			}
+		   			
+				    updateCollectionFilter();				   			
+				}			    			    	
+		    }		
+		    		    
+		    private function getMilestoneHandler(event:ResultEvent):void{
+		    	milestones = event.result as ArrayCollection;
+		    	
+ 		    	if(milestones){					
+					if(milestone != null){
+						var match:Boolean = false;				
+		   				for(var i:int=0;i<milestones.length;i++){
+				   			var mitem:String = milestones.getItemAt(i) as String;
+			   				if(mitem == milestone){
+			   					milestoneCB.selectedIndex = i;
+			   					match = true;
+			   					break;
+			   				}						
+		   				}
+		   				
+		   				if(!match){
+		   					milestone = null;
+		   					milestoneCB.selectedIndex = 0;
+		   				}				   				
+					}					
+		    	}		 	    	
+		    } 
+		    
+			//==============================
+		    //Event Handler
+		    //==============================
+		    private function onProjectStatusChange():void{
+		    	updateCollectionFilter();
+		    }		  
+		    
+		    private function onMilestoneChange():void{
+		    	if(milestoneCB.selectedIndex == 0){
+		    		milestone = null;
+		    	}
+		    	else{
+		    		milestone = milestoneCB.selectedLabel;
+		    	}
+		    }  
+		    	
+		    private function onChartItemClick(event:ChartItemEvent):void{
+		    	selectedProject = event.hitData.item as ProjectVO;
+		    	projectuserRo.getProjectUserRole(selectedProject.id, model.currUser.id);
+		    }
+		    
+		    private function getProjectUserRoleHandler(e:ResultEvent):void{
+		    	var projectUserRoleAC:ArrayCollection = e.result as ArrayCollection;
+		    	model.projectUserRole = projectUserRoleAC;
+		    	project = selectedProject;
+		    }
+		    
+		    
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="model.reportSelectProject" destination="this.project"/>
+	
+	<!--==========================
+	  Services
+	===========================-->	
+ 	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+ 		<mx:method name="getProjectProgress" result="getProjectProgressHandler(event)"/>
+ 	</mx:RemoteObject>
+ 	
+ 	<mx:RemoteObject id="taskRo" destination="ro.task">
+ 		<mx:method name="getMilestone" result="getMilestoneHandler(event)"/>
+ 	</mx:RemoteObject>	 		
+	
+	<mx:RemoteObject id="projectuserRo" destination="ro.projectuser">
+		<mx:method name="getProjectUserRole" result="getProjectUserRoleHandler(event)"/>
+	</mx:RemoteObject>
+
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:HBox width="100%">		
+		<mx:ComboBox id="statusCB" change="onProjectStatusChange()">
+		  <mx:ArrayCollection>
+		  	 <mx:String>--All--</mx:String>
+		     <mx:String>Open</mx:String>
+		     <mx:String>Close</mx:String>
+		  </mx:ArrayCollection>			
+		</mx:ComboBox>
+		
+		<mx:ComboBox id="milestoneCB" dataProvider="{milestones}" change="onMilestoneChange()" 
+			width="150" dropdownWidth="200" rowCount="20"/>
+		
+		<mx:Button label="{resourceManager.getString('Language','label.refresh')}" 
+			toolTip="{resourceManager.getString('Language','label.refresh')}" 
+			click="init()"/>
+	</mx:HBox>		
+	
+	<mx:ColumnChart id="progressChart" dataProvider="{projects}"  
+		width="100%" height="100%"
+		showDataTips="true" paddingTop="0" 
+		itemClick="onChartItemClick(event)"
+		doubleClickEnabled="true"
+		itemDoubleClick="{this.parentDocument.parentDocument.projectStatusVS.selectedIndex=1}">
+	      <mx:horizontalAxis>
+			    <mx:CategoryAxis categoryField="projectName"/>
+	      </mx:horizontalAxis>
+	      <mx:series>
+		      <mx:ColumnSet type="clustered">
+			        <mx:ColumnSet type="overlaid">
+				        <mx:ColumnSeries yField="planned" fontSize="13" labelPosition="outside"
+				        	displayName="{resourceManager.getString('Language','label.project.total')}"/>					        
+			        	<mx:ColumnSeries yField="approved" fontSize="13" labelPosition="outside"
+			        		displayName="{resourceManager.getString('Language','label.project.approved')}"/> 
+		        	</mx:ColumnSet>
+	                <mx:ColumnSeries yField="progressInNum" labelAlign="top" labelPosition="outside" 
+	                	labelFunction="setProgressLabel" maxColumnWidth="10"
+	                	displayName="{resourceManager.getString('Language','label.project.completed')}"/>
+		      </mx:ColumnSet>
+	      </mx:series>
+	</mx:ColumnChart>
+	<mx:Legend id="progressLegend" dataProvider="{progressChart}" direction="horizontal"/>
+</ns:Pod>

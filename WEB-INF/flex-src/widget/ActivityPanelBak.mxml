@@ -1,0 +1,922 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:controls="com.pearl.normandy.controls.*" 
+    borderThickness="1" 
+    borderColor="0xB7BABC" 
+    borderStyle="solid"
+    creationComplete="init()">   
+    
+    <mx:Script source="../script/CommonScript.as"/>
+    <mx:Script source="../script/GanttSheetHelper.as"/>       
+    <mx:Script>
+    	<![CDATA[
+    		import mx.events.ItemClickEvent;
+    		import com.pearl.normandy.utils.NormandyModel;
+			import ca.dpcp.components.DPCPTimeChooser;
+
+    		import mx.collections.ArrayCollection;
+    		import mx.collections.ICollectionView;
+    		import mx.collections.ListCollectionView;
+    		import mx.events.CloseEvent;
+    		import mx.events.CollectionEvent;
+    		import mx.events.CollectionEventKind;
+    		import mx.events.PropertyChangeEvent;
+    		import mx.events.CalendarLayoutChangeEvent;
+    		import mx.rpc.events.ResultEvent;
+    		import mx.utils.StringUtil;    		    	
+    		import mx.utils.ObjectUtil;    			
+    			
+    		import ilog.gantt.ResourceChart;
+    		import ilog.utils.TimeUnit;
+
+    		import com.pearl.normandy.enum.ActivityEnum;
+    		import com.pearl.normandy.enum.ImageEnum;
+    		import com.pearl.normandy.event.ActivityOptEvent;      		
+    		import com.pearl.normandy.event.PopupEvent;    		  			
+    		import com.pearl.normandy.vo.UserVO;
+    		import com.pearl.normandy.vo.ActivityVO;
+    		import com.pearl.normandy.utils.CalendarConfig;    		
+    		import com.pearl.normandy.utils.Constants;    		
+    		import com.pearl.normandy.utils.GanttUtil;	
+    		import com.pearl.normandy.utils.HolidayUtil;
+    		
+    		import popup.DeleteActivityPopup;    		
+    		import popup.UpdateActivityPopup;    			
+	      	
+	      	private var startTC:DPCPTimeChooser;
+	      	private var endTC:DPCPTimeChooser;   			
+			
+									
+		    //==============================
+		    //Attributes
+		    //==============================		
+			private var currUser:UserVO = model.currUser;	
+		    private var holidayUtil:HolidayUtil = model.holidayUtil;			
+	        
+	        /**
+		     * The task item that represents the current activity.
+		     */
+			private var _activityItem:ActivityVO;		     
+		    [Bindable]
+	        public function set activityItem(value:ActivityVO):void
+	        {
+		        this._activityItem = value;		
+		        initActivityFields(activityItem);
+		
+		        if (activityItem){
+		        	if(ActivityVO.isProjectReason(activityItem)){
+		        		projReason.selected = true;
+		        		activityTypeCB.dataProvider = ActivityEnum.PROJECT_REASON;	
+		        	}else if(ActivityVO.isNonProjectReason(activityItem)){
+		        		otherReason.selected = true;
+		        		activityTypeCB.dataProvider = ActivityEnum.OTHER_REASON;				
+		        	}
+		        		
+		        	for each(var item:Object in activityTypeCB.dataProvider){
+		        		if(item.value == activityItem.activityType){
+		        			activityTypeCB.selectedItem = item;
+		        			activityNameTI.text = activityItem.name;
+		        			break;		
+		        		}
+		        	}
+		        	
+					if(ActivityVO.isProducton(activityItem)){
+						milestoneCB.selectedItem = activityItem.milestone;
+					}else{
+			        	milestoneCB.selectedItem = activityItem.actMilestone;					
+					}
+
+
+			        
+			        startDC.selectedDate = new Date(activityItem.startTime);
+			        endDC.selectedDate = new Date(activityItem.endTime);
+			         
+			        startTC.removeEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+			        startTC.setTimeFromString(getTimeString(activityItem.startTime));
+			        startTC.addEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+			         
+			        endTC.removeEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+			        endTC.setTimeFromString(getTimeString(activityItem.endTime));
+			        endTC.addEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+			        if(value.startTime<model.metaData.activityLockedTime){
+			        	lockActivityFields();
+			        }
+		        } 
+          	}
+          	
+		  public function get activityItem():ActivityVO{
+		       return this._activityItem;
+		  }          	
+          
+          private function initLockBtnStyle(activity:ActivityVO):void{
+          	if(activity){
+          		medalLockBtn.visible = true;
+          		if(activity.medalLocked == Constants.BOOLEAN_NO){
+	          		medalLockBtn.styleName = "unlockBtn";
+	          	}else{
+	          		medalLockBtn.styleName = "lockBtn";
+	          	}	          	
+          	}else{
+          		medalLockBtn.visible = false;
+          	}
+          	
+          }			      		      	
+		  
+		  private function initActivityFields(activity:ActivityVO):void{
+		  	initLockBtnStyle(activity);
+		  	
+		  	if(activity){
+	      		if(model.activityEditable){	      			
+//	      			medalLockBtn.enabled = true;
+//	      			initLockBtnStyle(activity);
+	      			
+	      			if(ActivityVO.isProjectReason(activity)){
+	      				if(activity.proved == Constants.BOOLEAN_YES){
+	      					provedBtn.enabled = false;
+	      					rejectBtn.enabled = true;
+	      				}else{
+	      					provedBtn.enabled = true;
+	      					rejectBtn.enabled = false;
+	      				}
+	      			}else{
+	      				provedBtn.enabled = false;
+	      				rejectBtn.enabled = false;
+	      			}
+	      		}else{
+	      			provedBtn.enabled = false;
+	      			rejectBtn.enabled = false;	      			
+//	      			medalLockBtn.enabled = false;
+//	      			initLockBtnStyle(activity);
+	      		}
+	      	}else{
+	      		provedBtn.enabled = false;
+	      		rejectBtn.enabled = false;
+//	      		initLockBtnStyle(activity);
+	      	}
+	      	
+	      	if(activity && isActivityEditable(activity)){	  
+	      		if(model.activityEditable){
+	      			delButton.enabled 		= true;
+	      			startDC.enabled			= true;
+	      			endDC.enabled			= true;
+	      			startTC.enabled			= true;
+	      			endTC.enabled			= true;	      			
+	      			
+	      			if(ActivityVO.isProducton(activity)){
+	      				modButton.enabled		= true;
+	      				feedbackCB.enabled		= true;
+	      				medalBox.enabled		= true;
+	      				activityNameTI.enabled 	= false;
+	      				activityTypeCB.enabled	= false;
+	      				reasonHB.enabled		= false;
+	      				milestoneCB.enabled		= false;
+	      				showSelectedActivityItemMedal();	      					      				
+	      			}else{
+	      				modButton.enabled		= false;
+	      				feedbackCB.enabled		= false;
+	      				medalBox.enabled		= false;
+	      				setAllMedalFalse();
+	      				activityNameTI.enabled 	= true;
+	      				activityTypeCB.enabled	= true;
+	      				milestoneCB.enabled		= true;	
+	      				
+	      				if(ActivityVO.isProjectReason(activity)){
+	      					if(activity.proved == Constants.BOOLEAN_YES){
+	      						reasonHB.enabled	= false;
+	      						if(model.currProjectLead || model.currProjectAd){
+	      							enableActivityFields(false);
+	      							delButton.enabled = true;
+	      						}
+	      					}else{
+	      						reasonHB.enabled	= true;
+//		      					provedBtn.enabled	= true;
+//		      					rejectBtn.enabled	= false;
+	      					}	      					
+	      				}else{
+	      					reasonHB.enabled	= true;
+	      				}      				
+	      			}	      			
+	      		}else{
+	      			enableActivityFields(false);
+	      		}
+	      	}else{
+	      		enableActivityFields(false);
+	      	}		  	
+		  }
+		  
+		  
+	      private function enableActivityFields(value:Boolean):void{
+	      	   modButton.enabled  = value;
+		       delButton.enabled  = value;
+		       feedbackCB.enabled = value;
+		       medalBox.enabled	  = value;
+		
+		       activityNameTI.enabled = value;
+		       activityTypeCB.enabled = value;
+		       milestoneCB.enabled = value;
+		       reasonHB.enabled		  = value;
+//		       provedBtn.enabled	  = value;
+//		       rejectBtn.enabled	  = value;
+		
+		       if(!value){
+		        	startDC.selectedDate = null;
+		        	startDC.close();
+		        	startDC.validateNow();
+		        	
+		          	endDC.selectedDate = null;          		         	
+		          	endDC.close();
+		          	endDC.validateNow();
+		          	
+		          	setAllMedalFalse();		          	
+		       }
+		        
+		       startDC.enabled 		= value;
+		       endDC.enabled 		= value;
+		       
+		       if(startTC){
+	      	   		startTC.enabled		= value;
+	      	   }
+	      	 
+	      	   if(endTC){
+	      	   		endTC.enabled		= value;
+	      	   }
+	      }
+
+	      /**
+	       * The resource item that represents the current employee.
+	       */	      
+		  private var _employeeItem:Object;
+		  [Bindable]	       
+	      public function set employeeItem(value:Object):void
+	      {
+	        this._employeeItem = value;
+			var isEmployee:Boolean = GanttUtil.isResource(resourceChart, employeeItem);
+				
+			if(model.activityEditable){	        		
+	        	addButton.enabled = isEmployee;
+	  		}
+	  		else{
+	  			addButton.enabled = false;
+	  		}
+	  		
+	        employeeLabel.text = isEmployee 
+	                        ? String(employeeItem.name)
+	                        : "";
+	      }
+	
+	      public function get employeeItem():Object{
+	        return this._employeeItem;
+	      }
+
+	      //-------------------------------
+	      //  resourceChart
+	      //-------------------------------
+	      private var _resourceChart:ResourceChart;
+	      [Bindable] 		      
+	      public function set resourceChart(value:ResourceChart):void
+	      {
+		       if (_resourceChart){
+		       		ICollectionView(_resourceChart.taskDataProvider).removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskDataProviderChange);
+		       }
+		
+		       this._resourceChart = value;
+		
+		       if (_resourceChart){
+		           ICollectionView(_resourceChart.taskDataProvider).addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskDataProviderChange);
+		       }
+	      }
+	
+	      public function get resourceChart():ResourceChart{
+	          return this._resourceChart;
+	      }
+	      
+	      
+	      
+	      //------------------------------------------------------------------------
+	      //
+	      //  Methods
+	      //
+	      //------------------------------------------------------------------------	    
+	      private function init():void{	      	
+			startTC = new DPCPTimeChooser();
+			startTC.id = "startTC";
+			startTimeHB.addChild(startTC);
+			
+			endTC 	= new DPCPTimeChooser();
+			endTC.id = "endTC";						 	
+	      	endTimeHB.addChild(endTC);
+
+	      	enableActivityFields(false);	      	
+	      }
+	        
+		  private function newActivity():void{
+		       if (employeeItem == null)
+		           return;
+		
+		       var start:Date = new Date();
+		       start = CalendarConfig.parseStartTime(start);
+		       var end:Date = resourceChart.calendar.addUnits(start, TimeUnit.DAY, 5);
+		       end 	 = CalendarConfig.parseEndTime(end);
+		        
+		       activityTypeCB.selectedIndex = 0;
+		       milestoneCB.selectedIndex = 0;
+		       
+		       var newActivity:ActivityVO 	= new ActivityVO()
+			   newActivity.resourceId 		= employeeItem.id;
+			   newActivity.activityType 	= activityTypeCB.selectedItem.value;
+//			   newActivity.name				= activityTypeCB.selectedLabel;
+			   newActivity.name				= "";
+			   newActivity.startTime 		= start;
+			   newActivity.endTime 			= end;
+			   newActivity.actualStaffDays	= holidayUtil.getWorkingDaysByMinutes(start, end);
+			   newActivity.assignedEffort	= 0;
+			   newActivity.remainingEffort	= 0;
+			   newActivity.createdDate		= new Date();
+			   newActivity.createdBy		= currUser.userName;
+			   newActivity.createdByName	= currUser.firstName + " " + currUser.lastName;
+			   newActivity.provedBy			= "";
+			   newActivity.actMilestone		= milestoneCB.selectedLabel;
+			  
+			   if(ActivityVO.isProjectReason(newActivity)){
+			   		newActivity.projectId	= model.GLOBAL_SELECTED_PROJECT.id;
+			   		newActivity.projectName	= model.GLOBAL_SELECTED_PROJECT.projectName;
+			   		newActivity.proved		= Constants.BOOLEAN_NO;
+			   }else if(ActivityVO.isNonProjectReason(newActivity)){
+			   		newActivity.projectId	= 0; 
+			   }			   
+		        
+		       activityRo.createActivity(newActivity, currUser);
+		  }		  
+		  
+		  public function popUpdateActivity():void {
+		    	if(activityItem){
+		        	var updateActivityPopup:UpdateActivityPopup = UpdateActivityPopup(createPopUp(UpdateActivityPopup));
+			        PopUpManager.centerPopUp(updateActivityPopup);		        
+			        updateActivityPopup.taskId= activityItem.taskId;			        			        
+			  		dispatchEvent(new PopupEvent(PopupEvent.POP_UP));
+			  	}
+		  }   		  
+			
+	      private function delActivity():void{
+			 if(activityItem){
+		        var dp:ListCollectionView = ListCollectionView(resourceChart.taskDataProvider);
+		        dp.removeItemAt(dp.getItemIndex(activityItem));		        
+		        activityItem = null;
+		        activityNameTI.text = "";
+			 }
+		  }
+		  
+			private function preDeleteActivity():void{
+			  if(activityItem){
+			   	if(ActivityVO.isNonProducton(activityItem)){
+			        confirmDeleteActivity();
+			    }
+		  	    else{
+		  	    	showDeleteActivityWindow();
+		  	    }			    
+		  	  }							
+			}	
+			
+		    private function confirmDeleteActivity():void{    
+			    confirm(resourceManager.getString("Language","alert.delete_activity"),
+			   		resourceManager.getString("Language","title.confirmation"), confirmDeleteActivityHandler);
+			}
+			 
+			private function confirmDeleteActivityHandler(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+			    	delActivity();
+				}
+			} 			
+			
+		    private function showDeleteActivityWindow():void{
+		        var deleteActivityPopup:DeleteActivityPopup = DeleteActivityPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), DeleteActivityPopup, true));
+			    PopUpManager.centerPopUp(deleteActivityPopup);
+			    deleteActivityPopup.activity = activityItem;
+				deleteActivityPopup.addEventListener(ActivityOptEvent.DELETE, onDeleteActivity);
+				deleteActivityPopup.addEventListener(ActivityOptEvent.CANCEL, onCancelActivity);
+		    }
+		    
+		    
+		    private function onDeleteActivity(event:ActivityOptEvent):void{	    	
+				delActivity();
+		    }  
+		    
+		    
+		    private function onCancelActivity(event:ActivityOptEvent):void{
+		    	if(activityItem && isActivityEditable(activityItem)){			
+					activityItem.assignedEffort = event.activity.assignedEffort;
+					activityItem.description = event.activity.description;
+					activityItem.deleted = Constants.BOOLEAN_YES;
+					activityRo.cancelActivity(activityItem, currUser);
+		    	}	    	
+		    } 		
+		    
+		    private function onFeedbackCBChange(event:Event):void{
+		    	if(feedbackCB.selected){
+		    		activityItem.activityType = ActivityEnum.FEEDBACK;
+		    	}
+		    	else{
+		    		activityItem.activityType = ActivityEnum.PRODUCTION;
+		    	}
+		    	
+		        // Notify the change
+		       ICollectionView(resourceChart.taskDataProvider).itemUpdated(activityItem);		    	
+		    }		  	      
+
+	      //------------------------------------------------------------------------
+	      //
+	      //  Event Handlers
+	      //
+	      //------------------------------------------------------------------------
+	      private function onActivityDateChange(event:CalendarLayoutChangeEvent):void
+	      {
+	      		if( event.newDate < model.metaData.activityLockedTime){
+	      			Alert.show(StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT)));
+				    startDC.selectedDate = activityItem.startTime;
+				    endDC.selectedDate = activityItem.endTime;
+				    return;
+	      		}
+	      	
+	      	   if(activityItem){
+			       if (startDC.selectedDate > endDC.selectedDate){
+				        startDC.selectedDate = event.newDate;			       	
+				        startTC.removeEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+				        startTC.setTimeFromString(CalendarConfig.START_TIME_STRING);
+				        startTC.addEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+				        
+				        activityItem.startTime = ObjectUtil.copy(event.newDate) as Date;
+			          	activityItem.startTime.hours   = startTC.getHours();
+			          	activityItem.startTime.minutes = startTC.getMinutes();				         				         
+
+				        endDC.selectedDate = event.newDate;				         
+				        endTC.removeEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+				        endTC.setTimeFromString(CalendarConfig.END_TIME_STRING);
+				        endTC.addEventListener(DPCPTimeChooser.TIME_CHANGED, onActivityTimeChange);
+				        
+				        activityItem.endTime = ObjectUtil.copy(event.newDate) as Date;				        				         
+						activityItem.endTime.hours   = endTC.getHours();
+			          	activityItem.endTime.minutes = endTC.getMinutes();				         
+			       }
+			       else if (event.currentTarget.id == "startDC"){
+			          	activityItem.startTime = event.newDate;
+			          	activityItem.startTime.hours   = startTC.getHours();
+			          	activityItem.startTime.minutes = startTC.getMinutes();
+			       }
+			       else{
+			         	activityItem.endTime = event.newDate;
+						activityItem.endTime.hours   = endTC.getHours();
+			          	activityItem.endTime.minutes = endTC.getMinutes();			         	
+			       }
+					
+				   activityItem.actualStaffDays = holidayUtil.getWorkingDaysByMinutes(activityItem.startTime, activityItem.endTime);
+				   activityRo.updateActivity(activityItem, currUser);
+			        // Notify the change
+			       ICollectionView(resourceChart.taskDataProvider).itemUpdated(activityItem);
+	      	   }
+	      }
+	      
+	      private function onActivityTimeChange(event:Event):void
+	      {
+	      	   if(activityItem){
+	      	   		if (activityItem.startTime.date == model.metaData.activityLockedTime.date && event.target.id == startTC.id && startTC.getHours() < model.metaData.activityLockedTime.hours){
+				   		startTC.setTimeFromString(getTimeString(activityItem.startTime));
+				   		Alert.show(StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT)));
+				    	return;
+			       }
+			       if (activityItem.endTime.date == model.metaData.activityLockedTime.date && event.target.id == endTC.id && endTC.getHours() < model.metaData.activityLockedTime.hours){
+						endTC.setTimeFromString(getTimeString(activityItem.endTime));
+						Alert.show(StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT)));
+				    	return;			       		
+			       }
+			       
+			       if (event.target.id == startTC.id){
+			          	activityItem.startTime.hours   = startTC.getHours();
+			          	activityItem.startTime.minutes = startTC.getMinutes();			       		
+			       }
+			       
+			       if (event.target.id == endTC.id){
+						activityItem.endTime.hours   = endTC.getHours();
+			          	activityItem.endTime.minutes = endTC.getMinutes();				       		
+			       }
+			       
+			       if(activityItem.startTime > activityItem.endTime){
+			       		var tmp:Date = activityItem.startTime;
+			       		activityItem.startTime = activityItem.endTime;
+			       		activityItem.endTime   = tmp;
+			       }			       
+					
+				   activityItem.actualStaffDays = holidayUtil.getWorkingDaysByMinutes(activityItem.startTime, activityItem.endTime);
+				   activityRo.updateActivity(activityItem, currUser);
+			        // Notify the change
+			       ICollectionView(resourceChart.taskDataProvider).itemUpdated(activityItem);
+	      	   }
+	      }	      
+	
+	      private function onActivityTypeChange(event:Event):void
+	      {
+			   var name:String;
+		       if (activityItem){		       		
+//		       		activityNameTI.text = activityTypeCB.selectedLabel;	
+//		        	activityItem.name = activityTypeCB.selectedLabel;
+					activityNameTI.text = activityItem.name;
+		        	activityItem.activityType = activityTypeCB.selectedItem.value;
+		        	if(ActivityVO.isNonProjectReason(activityItem)){
+		        		activityItem.projectId = 0;
+		        		activityItem.proved	= "";		
+		        	}else{
+		        		activityItem.projectId = model.GLOBAL_SELECTED_PROJECT.id;
+//		        		activityItem.proved = Constants.BOOLEAN_NO;
+		        	}
+		          	activityRo.updateActivity(activityItem, currUser);
+			 
+			        // Notify the change
+			        ICollectionView(resourceChart.taskDataProvider).itemUpdated(activityItem);
+		       }
+	      }
+	      
+	      private function onMilestoneChange(event:Event):void
+	      {
+		       if (activityItem){		       		
+					activityItem.actMilestone = milestoneCB.selectedLabel;
+		          	activityRo.updateActivity(activityItem, currUser);
+		       }
+	      }
+	      
+	      
+ 	      private function onActivityNameChange():void{
+	      	if(activityItem!=null){
+//	      		if(StringUtil.trim(activityNameTI.text) != ""){
+//	      			activityItem.name = StringUtil.trim(activityNameTI.text);
+//	      		}
+//	      		else{
+//	      			activityItem.name = activityTypeCB.selectedLabel;
+//	      		}
+	      		activityItem.name = StringUtil.trim(activityNameTI.text);
+		        activityRo.updateActivity(activityItem, currUser);	      		
+	      	}
+	      } 
+
+	      private function onTaskDataProviderChange(event:CollectionEvent):void
+	      {
+		       if (event.kind == CollectionEventKind.UPDATE)
+		       {
+		           for each (var pce:PropertyChangeEvent in event.items)
+		           {
+		               if (pce.source == activityItem)
+		               // Update the edited absence when it changes in the data provider
+		                    activityItem = pce.source as ActivityVO;
+		            }
+		       }
+	      }
+
+			    
+	    private var _projectMilestones:ArrayCollection;
+	    [Bindable]
+	    public function set projectMilestones(value:ArrayCollection):void{
+	    	this._projectMilestones = new ArrayCollection(value.toArray());
+	    	this._projectMilestones.removeItemAt(0);								    	
+	    }	  	    	
+	    
+	    public function get projectMilestones():ArrayCollection{
+	    	return this._projectMilestones;
+	    }
+
+
+	
+			
+	      //------------------------------------------------------------------------
+	      //
+	      //  Remote Object Handler
+	      //
+	      //------------------------------------------------------------------------			
+		  private function createActivityHandler(event:ResultEvent):void{
+				var activity:ActivityVO = event.result as ActivityVO;
+				ListCollectionView(resourceChart.taskDataProvider).addItem(activity);
+				activityItem = activity;
+				resourceChart.ganttSheet.selectedItem = activity;
+		  }
+		  
+		  private function onMedalClick(e:Event):void{
+		  	if(activityItem.medalLocked == Constants.BOOLEAN_NO){
+			  	var id:String  = e.currentTarget.id;
+			  	
+			  	if (id=="goldMedal"){
+			  		silverMedal.selected = false;
+			  		bronzeMedal.selected = false;
+			  		levinMedal.selected = false;
+			  		rainMedal.selected = false;
+			  		
+			  		if (goldMedal.selected){
+			  			activityItem.medal = 5;
+			  			activityItem.medalEdited = Constants.BOOLEAN_YES;
+			  		}else{
+			  			activityItem.medal = 3;
+			  		}
+			  	}
+			  	
+			  	if (id=="silverMedal"){
+			  		goldMedal.selected = false;
+			  		bronzeMedal.selected = false;
+			  		levinMedal.selected = false;
+			  		rainMedal.selected = false;
+			  		
+			  		if (silverMedal.selected){
+			  			activityItem.medal = 4;
+			  			activityItem.medalEdited = Constants.BOOLEAN_YES;
+			  		}else{
+			  			activityItem.medal = 3;
+			  		}
+			  	}
+			  	
+			  	if (id=="bronzeMedal"){
+			  		goldMedal.selected = false;
+			  		silverMedal.selected = false;
+			  		levinMedal.selected = false;
+			  		rainMedal.selected = false;
+			  		
+			  		if (bronzeMedal.selected){
+			  			activityItem.medal = 3;
+			  			activityItem.medalEdited = Constants.BOOLEAN_YES;
+			  		}else{
+			  			activityItem.medal = 3;
+			  		}
+			  	}
+			  	
+			  	if (id=="levinMedal"){
+			  		goldMedal.selected = false;
+			  		silverMedal.selected = false;
+			  		bronzeMedal.selected = false;
+			  		rainMedal.selected = false;
+			  		
+			  		if (levinMedal.selected){
+			  			activityItem.medal = 2;
+			  			activityItem.medalEdited = Constants.BOOLEAN_YES;
+			  		}else{
+			  			activityItem.medal = 3;
+			  		}
+			  	}
+			  	
+			  	if (id=="rainMedal"){
+			  		goldMedal.selected = false;
+			  		silverMedal.selected = false;
+			  		levinMedal.selected = false;
+			  		bronzeMedal.selected = false;
+			  		
+			  		if (rainMedal.selected){
+			  			activityItem.medal = 1;
+			  			activityItem.medalEdited = Constants.BOOLEAN_YES;
+			  		}else{
+			  			activityItem.medal = 3;
+			  		}
+			  	}
+		  	}else{
+		  		showSelectedActivityItemMedal();
+		  	}
+		  }
+		  
+		  private function setAllMedalFalse():void{
+			goldMedal.selected = false;
+			silverMedal.selected = false;
+			bronzeMedal.selected = false;
+			levinMedal.selected = false;
+			rainMedal.selected = false;
+		  }
+		  
+		  private function showSelectedActivityItemMedal():void{
+		  	if (activityItem){
+		  		setAllMedalFalse();
+		  		if (activityItem.medal==3){
+		  			bronzeMedal.selected = true;
+		  		}else if (activityItem.medal==4){
+		  			silverMedal.selected = true;
+		  		}else if (activityItem.medal==5){
+		  			goldMedal.selected = true;
+		  		}else if (activityItem.medal==1){
+		  			rainMedal.selected = true;
+		  		}else if (activityItem.medal==2){
+		  			levinMedal.selected = true;
+		  		}
+		  	}else{
+		  		setAllMedalFalse();
+		  	} 
+		  }
+		  
+		  private function onReasonRBClick(e:Event):void{
+		  	if(e.currentTarget.id == "projReason"){
+		  		activityTypeCB.dataProvider = ActivityEnum.PROJECT_REASON;
+		  		if(model.activityEditable){
+		  			provedBtn.enabled = true;
+		  			rejectBtn.enabled = false;
+		  		}else{
+		  			provedBtn.enabled = false;
+		  			rejectBtn.enabled = false;
+		  		}		  		
+		  	}else if(e.currentTarget.id == "otherReason"){
+		  		activityTypeCB.dataProvider = ActivityEnum.OTHER_REASON;
+		  		provedBtn.enabled = false;
+		  		rejectBtn.enabled = false;
+		  	}
+		  			  	
+		  	activityTypeCB.selectedIndex = 0;
+		  	
+		  	if(activityItem && ActivityVO.isNonProducton(activityItem)){
+		  		activityItem.activityType = activityTypeCB.selectedItem.value;
+		  		if(ActivityVO.isProjectReason(activityItem)){
+		  			activityItem.projectId	 = model.GLOBAL_SELECTED_PROJECT.id;
+		  			activityItem.projectName = model.GLOBAL_SELECTED_PROJECT.projectName;
+		  			activityItem.proved		 = Constants.BOOLEAN_NO;
+		  			activityItem.provedBy	 = "";
+		  		}else if (ActivityVO.isNonProjectReason(activityItem)){
+		  			activityItem.projectId = 0;
+		  		}
+		  		activityRo.updateActivity(activityItem, currUser);
+		  	}
+		  }
+		  
+		  private function onProvedBtnClick(e:Event):void{
+		  	if(e.currentTarget.id == "provedBtn"){
+		  		activityItem.proved 	= Constants.BOOLEAN_YES;
+		  		activityItem.provedBy 	= currUser.name;
+		  		provedBtn.enabled 		= false;
+		  		rejectBtn.enabled		= true;
+		  		reasonHB.enabled		= false;
+		  	}else if(e.currentTarget.id == "rejectBtn"){
+		  		activityItem.proved 	= Constants.BOOLEAN_NO;
+		  		activityItem.provedBy 	= "";		  		
+		  		provedBtn.enabled 		= true;
+		  		rejectBtn.enabled		= false;
+		  		reasonHB.enabled		= true;
+		  	}
+		  	activityItem.provedDate = new Date();
+		  	
+		  	activityRo.updateActivity(activityItem, currUser);
+		  }
+		  
+		  private function onMedalLockBtnClick():void{
+		  	if(model.activityEditable){
+		  		if(activityItem){
+			  		if(activityItem.medalLocked == Constants.BOOLEAN_YES){
+				  		activityItem.medalLocked = Constants.BOOLEAN_NO;
+				  		medalLockBtn.styleName = "unlockBtn";
+				  	}else{
+				  		activityItem.medalLocked = Constants.BOOLEAN_YES;
+				  		medalLockBtn.styleName = "lockBtn";
+				  	}
+				  	activityRo.updateActivity(activityItem, currUser);
+			  	}
+		  	}			  			  	
+		  }
+		  
+		  private function lockActivityFields():void{
+		  	   modButton.enabled  = false;
+		       delButton.enabled  = false;
+		       feedbackCB.enabled = false;
+		       startDC.enabled 	  = false;
+		       endDC.enabled 	  = false;
+		       if(startTC){
+	      	   		startTC.enabled		= false;
+	      	   }
+	      	 
+	      	   if(endTC){
+	      	   		endTC.enabled		= false;
+	      	   }
+		       activityNameTI.enabled = false;
+		       activityTypeCB.enabled = false;
+		       reasonHB.enabled		  = false;
+		  }
+    	]]>
+    </mx:Script>
+
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="activityRo" destination="ro.activity">
+		<mx:method name="createActivity" result="createActivityHandler(event)"/>
+	</mx:RemoteObject>	  
+
+
+	<mx:Binding source="model.GLOBAL_PROJECT_MILESTONES" destination="this.projectMilestones"/>
+
+    <!--==========================
+	    Page Layout
+	===========================-->		    		
+	<mx:Panel title="{resourceManager.getString('Language','label.activity.edit_activity')}" 
+		horizontalScrollPolicy="off" 
+		layout="absolute" width="100%"  height="100%"
+		backgroundColor="0xEEEEEE" backgroundAlpha="0.7"
+		borderThicknessBottom="0" borderThicknessTop="0" borderThicknessLeft="0" borderThicknessRight="0"
+		borderAlpha="1" cornerRadius="0" dropShadowEnabled="false"			
+		headerColors="[0xEEEEEE, 0xFFFFFF]"
+		borderColor="0x0"
+		borderSides=""
+		headerHeight="21"
+		verticalScrollPolicy="auto">	
+		
+		<mx:VBox height="100%" verticalGap="0" 
+         left="10" top="2" right="20">
+			<mx:Spacer height="2"/>
+			<mx:LinkButton id="addButton" enabled="false" height="22" textAlign="left"
+				label="{resourceManager.getString('Language','label.activity.new_activity')}"
+				icon="{ImageEnum.IMAGECLASS_ACTIVITY}"
+				color="#0054FF" 
+				click="newActivity()"
+          	    mouseOver="if (addButton.enabled) addButton.setStyle('textDecoration','underline')"
+	         	mouseOut="addButton.setStyle('textDecoration','none')"/>
+			<mx:LinkButton id="modButton" enabled="false" height="22" textAlign="left"
+				label="{resourceManager.getString('Language','label.activity.adjust_effort')}"
+				icon="{ImageEnum.IMAGECLASS_TASK}"
+				color="#0054FF" 
+				click="popUpdateActivity()"
+	            mouseOver="if (modButton.enabled) delButton.setStyle('textDecoration','underline')"
+	            mouseOut="modButton.setStyle('textDecoration','none')"/>	         					
+			<mx:LinkButton id="delButton" enabled="false" height="22" textAlign="left"
+				label="{resourceManager.getString('Language','label.activity.delete_activity')}"
+				icon="{ImageEnum.IMAGECLASS_DELETE}"
+				color="#0054FF" 
+				click="preDeleteActivity()"
+	            mouseOver="if (delButton.enabled) delButton.setStyle('textDecoration','underline')"
+	            mouseOut="delButton.setStyle('textDecoration','none')"/>
+	        <mx:HBox>
+	        	<mx:Image source="{ImageEnum.IMAGECLASS_FEEDBACK}"/>
+	        	<mx:Label text="Feedback"/>
+	        	<mx:CheckBox id="feedbackCB" enabled="false" selected="{activityItem.activityType==ActivityEnum.FEEDBACK}"
+	        		change="onFeedbackCBChange(event)"/>	
+	        </mx:HBox>
+	        
+	        <mx:HBox>	        
+		        <mx:HBox id="medalBox" enabled="false">
+		        	<mx:CheckBox id="rainMedal" width="20" height="20" styleName="checkBoxRain"
+		        	 	toolTip="{resourceManager.getString('Language','tooltip.stardust')}"  click="onMedalClick(event)"/>
+		        	<mx:CheckBox id="levinMedal" width="20" height="20" styleName="checkBoxLevin"
+		        	 	toolTip="{resourceManager.getString('Language','tooltip.starlight')}"  click="onMedalClick(event)"/>
+		        	<mx:CheckBox id="bronzeMedal" width="20" height="20" styleName="checkBoxStar" selected="true"
+		        	 	toolTip="{resourceManager.getString('Language','tooltip.star')}"  click="onMedalClick(event)"/>
+		        	<mx:CheckBox id="silverMedal" width="20" height="20" styleName="checkBoxLuna" 
+		        	 	toolTip="{resourceManager.getString('Language','tooltip.luna')}" click="onMedalClick(event)"/>
+		        	<mx:CheckBox id="goldMedal" width="20" height="20" styleName="checkBoxSun" 
+		        	 	toolTip="{resourceManager.getString('Language','tooltip.sun')}" click="onMedalClick(event)"/>
+		        </mx:HBox>
+		        <mx:Button id="medalLockBtn" width="20" height="20" enabled="true" visible="false"
+		        	toolTip="{resourceManager.getString('Language', 'label.lock')}" click="onMedalLockBtnClick()"/>
+	        </mx:HBox>
+	            
+	        <mx:Spacer height="5" width="100%"/>	
+			<mx:HRule width="100%"/>
+			
+			<mx:HBox width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.activity.employee')}"
+					textAlign="left" fontWeight="bold"/>
+				<mx:Label id="employeeLabel"/>				
+			</mx:HBox>  
+			
+			<mx:Spacer height="5"/>
+			
+			<mx:HBox id="startTimeHB" width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.activity.from')}" textAlign="left" fontWeight="bold"/>			
+				<mx:DateField id="startDC" width="88" change="onActivityDateChange(event)" enabled="false" yearNavigationEnabled="true"/>	
+			</mx:HBox>
+
+			<mx:Spacer height="5"/>
+					
+			<mx:HBox id="endTimeHB" width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.activity.to')}" fontWeight="bold"/>			
+				<mx:DateField id="endDC" width="88" change="onActivityDateChange(event)" enabled="false" yearNavigationEnabled="true"/>
+			</mx:HBox>			
+			
+			<mx:Spacer height="5"/>
+			
+			<mx:HBox id="milestoneHB" width="100%">
+			<mx:Label text="{resourceManager.getString('Language','label.milestone')}:"/>	
+			<mx:ComboBox id="milestoneCB" width="100" dropdownWidth="200" rowCount="20" labelField="milestone"  
+					dataProvider="{this.projectMilestones}" change="onMilestoneChange(event)"/>			
+			</mx:HBox>
+			
+			<mx:Spacer height="5"/>
+			
+			<mx:HBox id="reasonHB">
+				<!--<mx:Label text="{resourceManager.getString('Language','label.activity.reason')}" textAlign="left" fontWeight="bold"/>-->
+				<mx:RadioButton id="projReason" groupName="reasonType" selected="true" click="onReasonRBClick(event)" 
+					label="{resourceManager.getString('Language','label.activity.project_reason')}"/>
+				<mx:RadioButton id="otherReason" groupName="reasonType" selected="false" click="onReasonRBClick(event)" 
+					label="{resourceManager.getString('Language','label.activity.other_reason')}"/>
+			</mx:HBox>
+							 
+			<mx:VBox verticalGap="2" width="100%">
+				<mx:ComboBox id="activityTypeCB" width="220" dataProvider="{ActivityEnum.PROJECT_REASON}" labelField="label" 
+					 change="onActivityTypeChange(event)"/>
+				<mx:TextInput id="activityNameTI" width="220" change="onActivityNameChange()"/>																				
+			</mx:VBox>	
+			
+			<mx:Spacer height="5"/>	
+			
+			<mx:HBox id="passHB">
+				<mx:Button id="provedBtn" label="{resourceManager.getString('Language', 'button.label.proved')}" enabled="false" click="onProvedBtnClick(event)"/>
+				<mx:Button id="rejectBtn" label="{resourceManager.getString('Language', 'button.label.reject')}" enabled="false" click="onProvedBtnClick(event)"/>
+			</mx:HBox>		     																												
+		</mx:VBox>			
+	</mx:Panel>           
+	
+</mx:Canvas>

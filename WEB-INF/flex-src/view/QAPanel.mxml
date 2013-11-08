@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Panel xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','label.qa_management')} - [{group}]" horizontalScrollPolicy="off" 
+	layout="absolute" width="100%"  height="100%"
+	backgroundColor="0xEEEEEE" backgroundAlpha="0.7"
+	borderThicknessBottom="0" borderThicknessTop="0" borderThicknessLeft="0" borderThicknessRight="0"
+	borderAlpha="1" cornerRadius="0" dropShadowEnabled="false"
+	paddingLeft="0" paddingRight="0"			
+	headerColors="[0xEEEEEE, 0xFFFFFF]"
+	borderColor="0x0"
+	borderSides=""
+	headerHeight="21"
+	verticalScrollPolicy="auto"
+	creationComplete="init()">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.binding.utils.BindingUtils;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.ItemClickEvent;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.controls.Alert;
+			
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.UserGroupVO;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.utils.Constants;
+			
+			import widget.QACategory;			
+			
+			//==============================
+		    //Attributes
+		    //==============================			
+			[Bindable]
+			private var group:String;
+			
+			[Bindable]
+			public var project:ProjectVO;
+			
+			[Bindable]
+			private var qaUsers:ArrayCollection;
+		    public var screenType:String;
+			
+			//==============================
+		    //Methods
+		    //==============================	
+			private function init():void{			
+				userRo.getGroupUsers(Constants.GROUP_QA_NUM);
+				
+				for each(var userGroup:UserGroupVO in model.metaData.productionGroup){
+					var tab:QACategory = new QACategory();
+					BindingUtils.bindProperty(tab,'project',this,'project');
+					BindingUtils.bindProperty(tab,'screenType',this,'screenType');
+					tab.currUserGroup = userGroup;
+					tab.label = userGroup.groupName;
+					qaTabVS.addChild(tab);
+				}
+				group = model.metaData.userGroups.getItemAt(0).groupName;
+			}
+			
+			private function onTabClick(event:ItemClickEvent):void{
+				group = event.label;	
+			}
+			
+			private function refresh():void{
+				userRo.getGroupUsers(Constants.GROUP_QA_NUM);
+			}
+
+			//==============================
+		    //Remote Object Handlers
+		    //==============================		
+			private function getGroupUsersHandler(evt:ResultEvent):void{    			
+    			qaUsers = evt.result as ArrayCollection;
+    		}
+		]]>
+	</mx:Script>
+	<!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="userRo" destination="ro.user">
+    	<mx:method name="getGroupUsers" result="getGroupUsersHandler(event)"/>
+    </mx:RemoteObject>
+    
+	  <!--==========================
+	    Page Layout
+	  ===========================-->
+	<mx:VDividedBox width="100%" height="100%">
+		<mx:VBox width="100%" height="100%">
+			<mx:TabBar dataProvider="{qaTabVS}" itemClick="onTabClick(event)"/>
+			<mx:ViewStack id="qaTabVS" width="100%" height="40%"/>
+			
+			<mx:Label text="{resourceManager.getString('Language','title.available_resource')}" fontWeight="bold"/>
+            <mx:AdvancedDataGrid id="qaAdvancedDataGrid" dataProvider="{qaUsers}" 
+            	width="100%" height="60%"
+            	dragEnabled="true" dragMoveEnabled="false"
+            	allowMultipleSelection="true">
+            	<mx:columns>
+            		<mx:AdvancedDataGridColumn dataField="name" width="80"
+            			headerText="{resourceManager.getString('Language','label.name')}"/>
+            		<mx:AdvancedDataGridColumn dataField="projectsName"
+            			headerText="{resourceManager.getString('Language','label.current_project')}"/>            			
+            	</mx:columns>
+            </mx:AdvancedDataGrid>  
+  		</mx:VBox>
+	</mx:VDividedBox>
+</mx:Panel>

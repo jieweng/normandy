@@ -1,0 +1,33 @@
+<Context docBase="${catalina.home}/webapps/normandy" privileged="true"
+   antiResourceLocking="false" antiJARLocking="false">
+   
+   <Transaction factory="org.objectweb.jotm.UserTransactionFactory" jotm.timeout="60"/>
+   
+    <Resource name="jms/flex/TopicConnectionFactory"
+                type="org.apache.activemq.ActiveMQConnectionFactory"
+                description="JMS Connection Factory"
+                factory="org.apache.activemq.jndi.JNDIReferenceFactory"
+                brokerURL="tcp://localhost:61716"
+                brokerName="myBroker"/>
+                
+    <Resource name="jms/topic/flex/simpletopic"
+                type="org.apache.activemq.command.ActiveMQTopic"
+                description="my Topic"
+                factory="org.apache.activemq.jndi.JNDIReferenceFactory"
+                physicalName="FlexTopic"/>
+                
+    <Resource name="jms/flex/QueueConnectionFactory"
+                type="org.apache.activemq.ActiveMQConnectionFactory"
+
+                description="JMS Connection Factory"
+                factory="org.apache.activemq.jndi.JNDIReferenceFactory"
+                brokerURL="tcp://localhost:61716"
+                brokerName="myBroker"/>
+
+    <Resource name="jms/queue/flex/simplequeue"
+                type="org.apache.activemq.command.ActiveMQQueue"
+                description="my Queue"
+                factory="org.apache.activemq.jndi.JNDIReferenceFactory"
+                physicalName="FlexQueue"/> 
+                
+</Context>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" horizontalAlign="center" paddingTop="100" creationComplete="init()"
+	 label="{group.id >= 0? group.groupName : 'New Group'}">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.UserGroupVO;
+			import com.pearl.normandy.utils.Constants;
+			import mx.collections.ArrayCollection;
+			
+			private var _group:UserGroupVO;
+			
+			[Bindable]
+			public function set group(value:UserGroupVO):void{
+				_group=value;
+			}
+			
+			public function get group():UserGroupVO{
+				return _group;
+			}
+			
+			private function init():void{
+				if(group.production=='Y'){
+					g_production.selectedIndex=0;
+				}else g_production.selectedIndex=1;
+				if(group.state=="Production"){
+					g_state.selectedIndex=0;
+				}else g_state.selectedIndex=1;
+				if(group.deleted=='Y'){
+					g_deleted.selectedIndex=0;
+				}else g_deleted.selectedIndex=1;
+			}
+			
+			[Bindable]
+			private var isProduction:ArrayCollection=new ArrayCollection([{label:'Y'},{label:'N'}]);
+			[Bindable]
+			private var isDeleted:ArrayCollection=new ArrayCollection([{label:'Y'},{label:'N'}]);
+		]]>
+	</mx:Script>
+	<mx:Array id="validatorArray">
+		<mx:StringValidator id="groupNameSV" source="{g_name}" property="text" required="true"/>
+		<mx:DateValidator id="groupCreatedDateSV" source="{g_createdDate}" property="text" required="true"/>
+		<mx:StringValidator id="groupcreatedBySV" source="{g_createdBy}" property="text" required="true"/>
+		<mx:StringValidator id="groupDescriptionSV" source="{g_description}" property="text" maxLength="200" required="false"/>
+	</mx:Array>	
+	
+	<mx:Form>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_name')}" required="true">
+			<mx:TextInput id="g_name" text="{group.groupName}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_production')}" required="true">
+			<mx:ComboBox id="g_production" dataProvider="{isProduction}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_state')}" required="true">
+			<mx:ComboBox id="g_state" dataProvider="{Constants.USERGROUP_STATE}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','lable.usergroup_created_date')}" required="true">
+			<mx:DateField id="g_createdDate" selectedDate="{group.createdDate}" enabled="false"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_created_by')}" required="true">
+			<mx:TextInput id="g_createdBy" text="{group.createdBy}" enabled="false"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_updated_date')}">
+			<mx:DateField id="g_updatedDate" selectedDate="{group.updatedDate}" enabled="false"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_updated_by')}">
+			<mx:TextInput id="g_updatedBy" text="{group.updatedBy}" enabled="false"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_deleted')}">
+			<mx:ComboBox id="g_deleted" dataProvider="{isDeleted}"/>
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('Language','label.usergroup_description')}">
+			<mx:TextArea id="g_description" text="{group.description}" width="400" height="100"/>
+		</mx:FormItem>
+		
+	</mx:Form>
+	<mx:HBox width="100%" horizontalAlign="center" paddingBottom="20">
+		<mx:Button id="saveBtn" label="{resourceManager.getString('Language','label.save')}"/>
+	</mx:HBox>
+</mx:VBox>

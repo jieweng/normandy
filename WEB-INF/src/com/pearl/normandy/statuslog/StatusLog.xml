@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="StatusLog">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="StatusLog"
+		type="com.pearl.normandy.statuslog.StatusLogTo"/>
+
+	<!--========================= Select ========================-->
+	<select id="selectStatusLog" parameterClass="StatusLog" resultClass="StatusLog">
+		select 
+			sl.ID 					as id,
+			sl.TASK_ID				as taskId,
+			sl.STATUS				as status,
+			sl.DATE					as date
+		from STATUS_LOG sl
+		<dynamic prepend="where">
+			<isNotNull prepend="and" property="taskId">
+				sl.TASK_ID = #taskId#
+			</isNotNull>
+			<isNotNull prepend="and" property="status">
+				sl.STATUS = #status#
+			</isNotNull>
+		</dynamic>
+	</select>	
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="StatusLog">
+		insert into STATUS_LOG
+			(ID,
+			TASK_ID,
+			STATUS,
+			DATE)
+		values
+			(#id#,
+			#taskId#,
+			#status#,
+			#date#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>				
+	</insert>
+</sqlMap>

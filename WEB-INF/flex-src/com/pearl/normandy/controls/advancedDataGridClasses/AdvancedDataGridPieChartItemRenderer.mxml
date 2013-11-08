@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" height="100%" width="100%"
+	horizontalScrollPolicy="off"
+	horizontalAlign="center">
+	<mx:Script>
+		<![CDATA[
+			import mx.core.UIComponent;
+			import mx.managers.PopUpManager;
+			import mx.charts.events.ChartItemEvent;
+			
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.enum.ColorEnum;
+						
+			import popup.TaskStatusSummaryPopup;
+			
+			private var _data:Object;
+			[Bindable]
+			public override function set data(value:Object):void{
+				this._data = value;
+			}
+			
+			public override function get data():Object{
+				return this._data;
+			}
+			
+			private function onItemDoubleClick(event:ChartItemEvent):void{
+				var item:Object = event.hitData.item;
+ 		    	var taskStatusSummaryPopup:TaskStatusSummaryPopup = TaskStatusSummaryPopup(PopUpManager.createPopUp(this.parentApplication as UIComponent, TaskStatusSummaryPopup, true));
+		   		PopUpManager.centerPopUp(taskStatusSummaryPopup);
+		   		taskStatusSummaryPopup.projectId = data.projectId;
+		   		taskStatusSummaryPopup.milestone = data.milestone;
+		   		taskStatusSummaryPopup.item = item; 
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Label width="100%" height="30" paddingTop="10"
+		fontWeight="bold"
+		text="{data.category}" />
+	<mx:PieChart width="95%" height="65%"
+		showDataTips="true" doubleClickEnabled="true"
+		dataProvider="{data.charts}"
+		itemDoubleClick="onItemDoubleClick(event)">
+		<mx:series>
+			<mx:PieSeries labelPosition="inside" fontSize="13"
+				nameField="name" field="value">				
+				<mx:fills>
+                    <mx:Array>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.APPROVED]}"/>
+                        </mx:RadialGradient>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.COMPLETE]}"/>
+                        </mx:RadialGradient>                                            
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.NOT_STARTED]}"/>
+                        </mx:RadialGradient>
+                        <mx:RadialGradient>
+                        	<mx:GradientEntry color="{ColorEnum.statusToColorDark[ColorEnum.WIP]}"/>
+                        </mx:RadialGradient>
+                  	</mx:Array>
+            	</mx:fills>
+        	</mx:PieSeries>
+		</mx:series>
+	</mx:PieChart>
+</mx:VBox>

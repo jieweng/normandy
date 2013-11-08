@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" verticalScrollPolicy="off" horizontalScrollPolicy="off" 
+	creationComplete="init()" width="150" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import com.pearl.normandy.event.CheckBoxChangeEvent;
+			import mx.collections.ArrayCollection;			
+			
+			[Bindable]
+			private var dp:ArrayCollection = new ArrayCollection([
+				{label:"Planned Effort", value:1, selected:true},
+				{label:"Remaining Work", value:2, selected:true},
+				{label:"Referenced Plan", value:3, selected:false},
+				{label:"Actual Workload", value:4, selected:false}
+			]);
+			
+			private var ac:ArrayCollection = new ArrayCollection([
+				{label:"Planned Effort", value:1, selected:true},
+				{label:"Remaining Work", value:2, selected:true}
+			]);
+			
+			private function init():void{
+				addEventListener(CheckBoxChangeEvent.CHANGE, checkBoxChangeHandler);
+			}
+			
+			private function checkBoxChangeHandler(e:CheckBoxChangeEvent):void{
+				var obj:Object = e.object;
+				if(obj.selected){
+					ac.addItem(obj);
+				}else{
+					for(var i:int = 0; i < ac.length; i++){
+						var temp:Object = ac.getItemAt(i) as Object;
+						if(temp.value == obj.value){
+							ac.removeItemAt(i);
+							break;
+						}
+					}
+				}				
+			}
+			
+			private function okBtnClick():void{
+				var e:CheckBoxChangeEvent = new CheckBoxChangeEvent(CheckBoxChangeEvent.RESULT, ac, true);
+				dispatchEvent(e);
+				PopUpManager.removePopUp(this);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:VBox width="100%" verticalGap="0">
+		<mx:DataGrid dataProvider="{dp}" headerHeight="0" verticalGridLines="false" height="105" width="135" 
+					 borderStyle="solid" borderSides="left right top">
+			<mx:columns>
+				<mx:DataGridColumn dataField="selected" width="20">
+					<mx:itemRenderer>
+						<mx:Component>
+							<mx:HBox horizontalAlign="right">
+								<mx:CheckBox id="checkBox" selected="{data.selected}" change="onChange()">
+									<mx:Script>
+										<![CDATA[
+											import com.pearl.normandy.event.CheckBoxChangeEvent;
+											
+											private function onChange():void{
+												data.selected = checkBox.selected;											
+												var e:CheckBoxChangeEvent = new CheckBoxChangeEvent(CheckBoxChangeEvent.CHANGE, data, true); 
+												dispatchEvent(e);
+											}											
+										]]>
+									</mx:Script>
+								</mx:CheckBox>
+							</mx:HBox>
+						</mx:Component>
+					</mx:itemRenderer>
+				</mx:DataGridColumn>
+				<mx:DataGridColumn dataField="label" width="115" textAlign="left"/>
+			</mx:columns>
+		</mx:DataGrid>
+		<mx:HBox verticalGap="0" horizontalGap="0" borderStyle="solid" borderThickness="1" width="135" 
+			horizontalAlign="center" borderSides="left right bottom">
+			<mx:Button id="okBtn" click="okBtnClick()" label="{resourceManager.getString('Language', 'button.ok')}"
+				cornerRadius="0" width="100%"/>
+			<mx:Button id="cancelBtn" click="PopUpManager.removePopUp(this);" cornerRadius="0" width="100%"
+				label="{resourceManager.getString('Language', 'button.cancel')}"/>
+		</mx:HBox>
+	</mx:VBox>
+</mx:Canvas>

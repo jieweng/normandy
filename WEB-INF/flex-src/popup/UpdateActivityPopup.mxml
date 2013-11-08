@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:widget="widget.*" 
+	title="{resourceManager.getString('Language','title.update_activity')}"
+	borderAlpha="1"
+	paddingLeft="10" paddingRight="10"
+	width="800" height="100%"
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);">
+		
+	<mx:Script>
+		<![CDATA[		
+			import mx.managers.PopUpManager;	
+			import com.pearl.normandy.vo.UserVO;
+
+		    //==============================
+		    //Control Attributes
+		    //==============================	
+		    [Bindable]														
+ 			public var taskId:int;			
+ 			
+ 			[Bindable]
+ 			public var user:UserVO; 
+ 			
+ 			private function save():void{
+ 				if(editActivity.save()){
+ 					PopUpManager.removePopUp(this);
+ 				}
+ 			}			 				        		        
+		]]>
+	</mx:Script>
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	<widget:EditActivity id="editActivity" taskId="{taskId}" user="{user}"/>
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}"
+        	click="save()"/><!--enabled="{activity!=null || (changedActivities!=null &amp;&amp; changedActivities.length > 0)}"-->
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>	  
+</mx:TitleWindow>

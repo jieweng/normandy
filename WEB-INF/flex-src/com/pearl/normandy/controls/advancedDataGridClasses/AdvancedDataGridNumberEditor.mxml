@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" verticalScrollPolicy="off"
+	horizontalScrollPolicy="off" creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.Constants;
+			[Bindable]
+			public var text:String;
+			
+			public var field:String;
+			
+			private function init():void{
+				input.setFocus();
+				input.setSelection(0, text.length);
+			}
+			
+			private var _data:Object;
+           	
+           	[Bindable]                               	
+         	public override function set data(data:Object):void{	         		
+         		this._data = data;
+         		switch(field){
+         			case Constants.SALARY:	text = data.salary; break;
+         			case Constants.SOCIAL_BENEFIT_TYPE_1: text = data.socialBenefitType1; break;
+         			case Constants.SOCIAL_BENEFIT_TYPE_2: text = data.socialBenefitType2; break;
+         			case Constants.HOUSE_FOUND: text = data.houseFound; break;
+         			case Constants.INSURANCE: text = data.insurance; break;  
+         			case Constants.LUNCH_BENEFIT: text = data.lunchBenefit; break;
+         			default: break;
+         		}
+         	}   
+         	
+         	public override function get data():Object{
+         		return this._data;
+         	}                   
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="input.text" destination="text"/>
+	
+	<mx:NumberValidator source="{input}" property="text" trigger="{input}" triggerEvent="change" required="true"/>
+        	
+	<mx:TextInput id="input" text="{text}" width="100%" height="100%"/>
+</mx:HBox>

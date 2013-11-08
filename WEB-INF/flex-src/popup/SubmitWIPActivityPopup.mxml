@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.confirmation')}"
+	width="800" height="600" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	 
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;		
+			import mx.rpc.events.ResultEvent;
+			
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.ProjectVO;			
+			
+			private var _activity:ActivityVO;
+			public function set activity(value:ActivityVO):void{
+				this._activity = value;
+				projectRo.getProjectById(activity.projectId);
+			}
+			public function get activity():ActivityVO{
+				return this._activity;
+			}
+			
+			[Bindable]
+			private var project:ProjectVO;
+			
+			
+		    //==============================
+		    //Method
+		    //==============================			
+			private function init():void{
+				this.setFocus();				
+			}				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		    
+		    
+		    private function getProjectByIdHandler(event:ResultEvent):void{
+		    	project = event.result as ProjectVO;
+		    }
+
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services  
+	===========================--> 		  	
+	<mx:RemoteObject id="projectRo" destination="ro.project">
+		<mx:method name="getProjectById" result="getProjectByIdHandler(event)"/>
+	</mx:RemoteObject>		
+	
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:HDividedBox width="100%" height="100%">
+		<mx:TextArea htmlText="{project.checkList}" width="50%" height="100%" editable="false"/>			
+		<mx:VBox width="50%" height="100%" paddingLeft="5" paddingTop="5">
+			<mx:Text id="alertInformation" text="{resourceManager.getString('Language','alert.activity.submit_wip')}"/>
+			<mx:Spacer height="5"/>
+			<mx:TextArea id="comment" width="100%" height="100%"
+				text="{resourceManager.getString('Language','label.comment.lead_check')}"/>
+		</mx:VBox>
+	</mx:HDividedBox>		
+	
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}"/>
+        <mx:Button id="close" label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

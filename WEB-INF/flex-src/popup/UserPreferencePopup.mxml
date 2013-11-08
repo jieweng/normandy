@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml" width="400" height="300"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*"
+	borderAlpha="1"
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#e2e2e2, #e2e2e2]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	>
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.messaging.messages.ErrorMessage;
+			import mx.rpc.events.FaultEvent;
+			import mx.managers.SystemManager;
+			import mx.controls.PopUpButton;
+			import mx.validators.Validator;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			
+			private const EXTENDEDDATA:String = "extendedData";
+			private var _userName:String;
+			public function set userName(val:String):void{
+				_userName = val;
+			}
+			
+			public function get userName():String{
+				return _userName;
+			}
+
+			private function onOkBut():void{
+				
+				if(newPass.text == null || newPass.text == ""){
+					message.text = resourceManager.getString("Language", "alert.null_password");
+					return;
+				}else if(newPass.text != configmPass.text){
+					message.text = resourceManager.getString("Language", "alert.repeat_password");
+					return;
+				}
+				var validateResult:Array = Validator.validateAll(validateArr);
+				if(validateResult && validateResult.length > 0){
+					return;
+				}
+				userRo.modifyPassword(userName, oldPass.text, newPass.text);
+			}
+			private function modifyPasswordResultHandler(evt:ResultEvent):void{
+				PopUpManager.removePopUp(this);		
+			}
+			
+			private function modifyPasswordFoultHandler(evt:FaultEvent):void{
+				var errorMsg:ErrorMessage = evt.message as ErrorMessage;
+				if(errorMsg.hasOwnProperty(EXTENDEDDATA) && errorMsg.extendedData){
+					var error:String = errorMsg.extendedData["message"];
+				}
+				message.text = error;
+			}
+			
+			private function removeFun():void{
+				PopUpManager.removePopUp(this);
+			}
+		]]>
+	</mx:Script>
+	
+	  <!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+		<mx:method name="modifyPassword" result="modifyPasswordResultHandler(event)" fault="modifyPasswordFoultHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:TabNavigator width="100%" height="100%">
+		<mx:VBox label="{resourceManager.getString('Language', 'label.preference.modify_password')}" width="100%" height="100%">
+			<mx:Form width="100%" height="100%" verticalGap="15">
+				<mx:FormItem label="{resourceManager.getString('Language', 'label.old_password')}" required="true">
+					<mx:TextInput id="oldPass" displayAsPassword="true"/>
+				</mx:FormItem>   
+				<mx:FormItem label="{resourceManager.getString('Language', 'label.new_password')}" required="true">
+					<mx:TextInput id="newPass"  displayAsPassword="true"/>
+				</mx:FormItem>
+				<mx:FormItem label="{resourceManager.getString('Language', 'label.confirm_password')}" required="true">
+					<mx:TextInput id="configmPass" displayAsPassword="true"/>
+				</mx:FormItem>
+			</mx:Form>
+			<mx:Label id="message" width="100%" color="0xFF0000"
+				paddingLeft="10" paddingRight="10"/>
+			<mx:HBox width="100%" horizontalAlign="center" paddingBottom="10">
+				<mx:Button label="{resourceManager.getString('Language', 'button.ok')}" click="onOkBut()"/>
+				<mx:Spacer width="50" height="10"/>
+				<mx:Button label="{resourceManager.getString('Language', 'button.cancel')}" click="removeFun()"/>
+			</mx:HBox>
+		</mx:VBox>
+	</mx:TabNavigator>
+	<mx:Array id="validateArr">
+		<mx:StringValidator id="oldPassValidate" source="{oldPass}" property="text" triggerEvent="valueCommit"/>
+		<mx:StringValidator id="newPassValidate" source="{newPass}" property="text" triggerEvent="valueCommit"/>
+		<mx:StringValidator id="configmPassValidate" source="{configmPass}" property="text" triggerEvent="valueCommit"/>
+ 	</mx:Array>
+</advancedPanel:AdvancedPanel>

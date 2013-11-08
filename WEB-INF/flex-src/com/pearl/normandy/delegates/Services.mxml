@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<cairngorm:ServiceLocator xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:cairngorm="com.adobe.cairngorm.business.*">
+
+
+	<!--===================== Customer/UserGroup/User ==============-->
+	<mx:RemoteObject id="customerService" destination="ro.customer" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+	
+	
+	<!--=================== Project/Milestone/Process ===============-->
+	<mx:RemoteObject id="projectService" destination="ro.project" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+	
+	<mx:RemoteObject id="processService" destination="ro.productionProcess" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+	
+	<mx:RemoteObject id="processStepService" destination="ro.processStep" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>
+	
+	
+	
+	<!--=================== Project User/Project Group/Project Member =====================-->	
+	<mx:RemoteObject id="projectUserService" destination="ro.projectuser" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+				
+	
+	<!--====================== Task/Detail/Activity/Comment =========================-->	
+		
+	<mx:RemoteObject id="taskService" destination="ro.task" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+	
+	<mx:RemoteObject id="taskDetailService" destination="ro.taskDetail" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="activityService" destination="ro.activity" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>		
+	
+	<mx:RemoteObject id="commentService" destination="ro.comment" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>	
+	
+	
+    <!--====================== Feedback/FeedbackThread/FeedbackReference =========================-->
+	<mx:RemoteObject id="feedbackService" destination="ro.feedback" 
+		showBusyCursor="false"
+		result="event.token.resultHandler( event );"
+        fault="event.token.faultHandler( event );">
+	</mx:RemoteObject>		
+	
+	
+</cairngorm:ServiceLocator>

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" xmlns:validator="com.pearl.normandy.validator.*" 
+	creationComplete="initPhoto()" xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import popup.EditPhotoTitleWindow;
+			import mx.events.CloseEvent;
+			import mx.events.AdvancedDataGridEvent;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.UserContractVO;
+			import com.pearl.normandy.controls.NormandyDateField;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridNumberEditor;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.controls.Alert;
+			import mx.containers.Box;
+			import mx.events.ResizeEvent;
+			import mx.utils.StringUtil;
+			import mx.validators.Validator;
+			import com.pearl.normandy.vo.UserGroupVO;
+			import mx.collections.ArrayCollection;
+			import com.pearl.normandy.enum.ImageEnum;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.UserVO;
+			import mx.core.UIComponent;
+			import flash.net.FileReference;
+			import flash.display.Loader;
+			import mx.graphics.codec.PNGEncoder;
+			
+			[Bindable]
+			private var  userGroups:ArrayCollection;
+			
+			private var _user:UserVO;
+			
+			public function get user():UserVO{
+				return this._user;
+			}
+			[Bindable]
+			public function set user(u:UserVO):void{
+				this._user = u;
+				if(u.userType == "Permanent"){
+					categoryCB.selectedIndex = 0;
+				}else{
+					categoryCB.selectedIndex = 1;
+				}
+				userContractRo.getUserContractsByUserId(user.id);
+				if(user.id == 0){
+					addContractBtn.enabled = false;
+					deleteContractBtn.enabled = false;
+				}else{
+					addContractBtn.enabled = true;
+					deleteContractBtn.enabled = true;
+					groupCB.selectedIndex = u.userGroupId;
+				}	
+			}
+			[Bindable]
+			private var contracts:ArrayCollection;
+			
+			private function initPhoto():void{
+				if(_user.photo==null){
+					photo.source=ImageEnum.IMAGECLASS_DEFAULT_PIC;
+				}else{
+					photo.load(_user.photo);
+				}
+			}
+			
+			private var _users:ArrayCollection;
+			
+			public function get users():ArrayCollection{
+				return this._users;
+			}
+			[Bindable]
+			public function set users(us:ArrayCollection):void{
+				this._users = us;
+			}
+			
+			private var newContract:UserContractVO;
+			private var selectedContract:UserContractVO;
+			
+            private var epWindow:EditPhotoTitleWindow;
+			
+            private function editPhoto():void{
+            	    epWindow=EditPhotoTitleWindow(PopUpManager.createPopUp(DisplayObject(this.parentApplication), EditPhotoTitleWindow, true));
+            	    epWindow.okButton.addEventListener("click", submitPhoto); 
+			        PopUpManager.centerPopUp(epWindow);
+            }
+            
+            private function submitPhoto(e:Event):void{
+            	if(epWindow.myPhoto==null){
+            		Alert.show(resourceManager.getString("Language","lable.sure_resize"));
+            		return ;
+            	}else{
+            		photo.source=epWindow.myPhoto.source  ;
+            		PopUpManager.removePopUp(epWindow);
+            	}
+		 	}
+		 	
+		 	private function cancelhander():void{
+            	if(photo.source==ImageEnum.IMAGECLASS_DEFAULT_PIC)return ;
+            	Alert.show(resourceManager.getString("Language","label.image_delete"),resourceManager.getString("Language","label.notice"),Alert.OK|Alert.CANCEL,this,cancel);
+            }
+            
+            private function cancel(e:CloseEvent):void{
+				if(e.detail==Alert.OK){
+					photo.source=ImageEnum.IMAGECLASS_DEFAULT_PIC;
+				}
+			}
+
+            private function onAddContract():void{
+            	newContract = new UserContractVO();
+            	newContract.userId = user.id;
+            	newContract.creatorId = model.currUser.id;
+            	userContractRo.createUserContract(newContract);
+            }
+            
+            private function onDeleteContract():void{
+            	selectedContract = contractAdg.selectedItem as UserContractVO;
+            	if(selectedContract){
+            		userContractRo.deleteUserContract(selectedContract);
+            	}
+            }
+            
+            private function getUserContractsByUserIdHandler(e:ResultEvent):void{
+            	if(contracts){
+            		contracts.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            	}
+            	contracts = e.result as ArrayCollection;
+            	contracts.addEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            }
+            
+            private function onContractsChange(e:CollectionEvent):void{
+            	if(e.kind == CollectionEventKind.UPDATE){
+					for each(var pce:PropertyChangeEvent in e.items){
+						var uc:UserContractVO = pce.source as UserContractVO;
+						if(pce.newValue != pce.oldValue){
+							userContractRo.updateUserContract(uc);
+						}
+					}
+				}
+            }
+            
+            private function createUserContractHandler(e:ResultEvent):void{
+            	var id:int = e.result as int;
+            	newContract.id = id;
+            	
+            	contracts.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            	contracts.addItem(newContract);
+            	contracts.addEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            	
+            	contractAdg.selectedItem = newContract;
+            	selectedContract = newContract;
+            }
+            
+            private function deleteUserContractHandler(e:ResultEvent):void{
+            	var index:int = contracts.getItemIndex(selectedContract);
+            	contracts.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            	contracts.removeItemAt(index);
+            	contracts.addEventListener(CollectionEvent.COLLECTION_CHANGE, onContractsChange);
+            	selectedContract = null;
+            }
+            
+            private function onItemEditEnd(e:AdvancedDataGridEvent):void{
+            	if(e.dataField == Constants.DURATION){
+					var value:Number = Number(AdvancedDataGridNumberEditor(AdvancedDataGrid(e.target).itemEditorInstance).text);
+					if(isNaN(value)){
+						e.preventDefault();
+					}		
+				}
+				
+				if(e.dataField == Constants.START_TIME){
+					e.preventDefault();
+					contractAdg.editedItemRenderer.data.startTime = NormandyDateField(AdvancedDataGrid(e.target).itemEditorInstance).selectedDate;
+					contractAdg.destroyItemEditor();
+					contractAdg.dataProvider.itemUpdated(e.itemRenderer.data);
+				}
+            }
+		]]>
+	</mx:Script>
+	<mx:Binding source="model.metaData.userGroups" destination="this.userGroups"/>
+	<mx:RemoteObject id="userContractRo" destination="ro.userContract" showBusyCursor="true">
+		<mx:method name="getUserContractsByUserId" result="getUserContractsByUserIdHandler(event)"/>
+		<mx:method name="createUserContract" result="createUserContractHandler(event)"/>
+		<mx:method name="updateUserContract"/>
+		<mx:method name="deleteUserContract" result="deleteUserContractHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:HBox width="100%" horizontalAlign="center">
+		<mx:VBox  verticalGap="0" borderStyle="solid">
+			<mx:Box  width="160" height="160" borderThickness="0" borderSides="bottom" borderStyle="solid">
+				<mx:Image id="photo"  />
+			</mx:Box>
+			<mx:HBox width="160" height="30" fontSize="12" horizontalGap="0">
+				<mx:Box borderSides="top" borderStyle="solid" width="100%" height="100%" click="editPhoto()" horizontalAlign="center" id="b1" verticalAlign="middle"
+					mouseDown="b1.styleName='boxDown'" mouseOver="b1.styleName='boxOver';" mouseOut="b1.styleName='boxUp';" mouseUp="b1.styleName='boxOver';">
+					<mx:Label text="{resourceManager.getString('Language','label.edit')}"/>
+				</mx:Box>
+				<mx:Box borderSides="top left" borderStyle="solid" width="100%" height="100%" click="cancelhander()" horizontalAlign="center" id="b2" verticalAlign="middle"
+					mouseDown="b2.styleName='boxDown'" mouseOver="b2.styleName='boxOver';" mouseOut="b2.styleName='boxUp';" mouseUp="b2.styleName='boxOver';">
+					<mx:Label text="{resourceManager.getString('Language','label.delete')}"/>
+				</mx:Box>
+			</mx:HBox>
+		</mx:VBox>		
+		<mx:Form>
+			<mx:FormItem label="{resourceManager.getString('Language','label.name')}:" required="true">
+				<mx:TextInput id="userNameTI" text="{user.userName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.gender')}:" required="true">
+				<mx:RadioButtonGroup id="rbg"/>
+				<mx:HBox>
+					<mx:RadioButton id="maleRB" groupName="rbg" label="{resourceManager.getString('Language','label.male')}" 
+						value="{Constants.USER_GENDER_MALE}" selected="{user.gender == Constants.USER_GENDER_MALE}"/>
+					<mx:RadioButton id="femaleRB" groupName="rbg" label="{resourceManager.getString('Language','label.female')}" 
+						value="{Constants.USER_GENDER_FEMALE}" selected="{user.gender == Constants.USER_GENDER_FEMALE}"/>
+				</mx:HBox>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.first_name')}:" required="true">
+				<mx:TextInput id="cnFirstNameTI" text="{user.firstName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.last_name')}:" required="true">
+				<mx:TextInput id="cnLastNameTI" text="{user.lastName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.english_first_name')}:" required="true">
+				<mx:TextInput id="enFirstNameTI" text="{user.englishFirstName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.english_last_name')}:" required="true">
+				<mx:TextInput id="enLastNameTI" text="{user.englishLastName}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.birthday')}:">
+				<mx:DateField id="birthdayDF" selectedDate="{user.birthday}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.personal_email')}:">
+				<mx:TextInput id="personalEmailTI" text="{user.personalEmail}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.mobile')}:">
+				<mx:TextInput id="mobileTI" text="{user.mobile}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.home')}:">
+				<mx:TextInput id="homeTI" text="{user.home}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.ID_No')}:">
+				<mx:TextInput id="idNoTI" text="{user.idNo}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.ID_address')}:">
+				<mx:TextArea id="idAddressTA" text="{user.idAddress}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.hukou_address')}:">
+				<mx:TextArea id="hukouAddressTA" text="{user.hukouAddress}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.shanghai_address')}:">
+				<mx:TextArea id="shAddressTA" text="{user.shangHaiAddress}"/>
+			</mx:FormItem>
+		</mx:Form>
+		<mx:Form>
+			<mx:FormItem label="{resourceManager.getString('Language','label.employee_no')}:" required="true">
+				<mx:TextInput id="employeeNoTI" text="{user.employeeNo}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.category')}:" required="true">
+				<mx:ComboBox id="categoryCB" dataProvider="{Constants.USER_CATEGORY}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.company_email')}:" required="true">
+				<mx:TextInput id="companyEmailTI" text="{user.email}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.group')}:" required="true">
+				<mx:ComboBox id="groupCB" dataProvider="{userGroups}" labelField="groupName"/>
+			</mx:FormItem>
+			<mx:FormItem label="Art Production Manager">
+				<mx:CheckBox id="managerCB" selected="{user.manager == Constants.BOOLEAN_YES ? true : false}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.department')}:">
+				<mx:TextInput id="departmentTI" text="{user.department}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.position')}:">
+				<mx:TextInput id="positionTI" text="{user.position}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.level')}:">
+				<mx:TextInput id="levelTI" text="{user.levelId}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.paid_leave')}:">
+				<mx:TextInput id="paidLeaveTI" text="{user.paidLeave}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.employee_date')}:">
+				<mx:DateField id="employeeDateDF" selectedDate="{user.employeeDate}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.entry_date')}:" required="true">
+				<mx:DateField id="entryDateDF" selectedDate="{user.entryDate}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.leave_date')}:">
+				<mx:DateField id="leaveDateDF" selectedDate="{user.leaveDate}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.contract_info')}:">
+				<mx:VBox>
+					<mx:AdvancedDataGrid id="contractAdg" dataProvider="{contracts}" editable="true" itemEditEnd="onItemEditEnd(event)">
+						<mx:columns>
+							<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.contract_time')}"
+								 dataField="startTime" width="100" itemEditor="com.pearl.normandy.controls.NormandyDateField" 
+								 labelFunction="formatDateShort"/>
+							<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language', 'label.contract_duration')}"
+								 dataField="duration" width="60">
+								<mx:itemEditor>
+									<mx:Component>
+										<advancedDataGridClasses:AdvancedDataGridNumberEditor field="duration"/>
+									</mx:Component>
+								</mx:itemEditor>
+							</mx:AdvancedDataGridColumn>
+						</mx:columns>
+					</mx:AdvancedDataGrid>
+					<mx:HBox horizontalAlign="left" verticalGap="0" paddingBottom="0">
+						<mx:Button id="addContractBtn" icon="{ImageEnum.IMAGECLASS_ADD_USER}" enabled="false" click="onAddContract()"
+							toolTip="{resourceManager.getString('Language', 'tooltip.add_user_contract_info')}"/>
+						<mx:Button id="deleteContractBtn" icon="{ImageEnum.IMAGECLASS_SUB_USER}" enabled="false" click="onDeleteContract()" 
+							toolTip="{resourceManager.getString('Language', 'tooltip.delete_user_contract_info')}"/>
+					</mx:HBox>
+				</mx:VBox>
+			</mx:FormItem>
+		</mx:Form>
+	</mx:HBox>
+</mx:VBox>

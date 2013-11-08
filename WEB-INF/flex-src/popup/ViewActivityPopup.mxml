@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.view_activity')}"
+	borderAlpha="1"
+	paddingLeft="10" paddingRight="10"
+	minWidth="600"
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			//====================================================
+			//Ready to delete this class, Frank, 2009/11/26
+			//====================================================
+		
+			import com.pearl.normandy.event.ActivityOptEvent;
+			import mx.managers.PopUpManager;						
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.events.FaultEvent;	
+			
+			import com.pearl.normandy.vo.SubtaskVO;
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.enum.ActivityEnum;
+			import com.pearl.normandy.utils.Constants;												
+													
+			
+			private var _subtaskId:String;			
+			[Bindable]
+			public function set subtaskId(value:String):void{
+				this._subtaskId = value;	
+				subtaskRo.getSubtaskById(subtaskId);			
+			}			
+			
+			public function get subtaskId():String{
+				return this._subtaskId;
+			}
+			
+			[Bindable]
+			private var subtask:SubtaskVO;			
+			
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================	
+		    private function getSubtaskByIdHandler(event:ResultEvent):void{
+		    	subtask = event.result as SubtaskVO;
+		    	
+		    	if(subtask){
+					activityRo.getActivitiesBySubtaskId(subtask.id);
+					activityRo.getDeletedActivitiesBySubtaskId(subtask.id);		    		
+		    	}
+		    }
+		    
+			private function getActivitiesBySubtaskIdHandler(event:ResultEvent):void{
+				assignedActivities = event.result as ArrayCollection;
+			}
+			
+			private function getDeletedActivitiesBySubtaskIdHandler(event:ResultEvent):void{
+				deletedActivities = event.result as ArrayCollection;	
+				
+				if(deletedActivities.length > 0){
+					deletedActivityVBox.visible = true;
+					deletedActivityVBox.includeInLayout = true;
+				}			
+			}				        
+	        
+		]]>
+	</mx:Script>
+	
+	
+    <!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="subtaskRo" destination="ro.subtask" fault="faultHandler(event)">
+		<mx:method name="getSubtaskById" result="getSubtaskByIdHandler(event)"/>
+	</mx:RemoteObject>		  
+	  	
+	<mx:RemoteObject id="activityRo" destination="ro.activity" fault="faultHandler(event)" showBusyCursor="true">
+		<mx:method name="getActivitiesBySubtaskId" result="getActivitiesBySubtaskIdHandler(event)"/>
+		<mx:method name="getDeletedActivitiesBySubtaskId" result="getDeletedActivitiesBySubtaskIdHandler(event)"/>
+	</mx:RemoteObject>		
+	
+	
+	  <!--==========================
+	    Variables
+	  ===========================-->	
+	<mx:ArrayCollection id="assignedActivities"/>
+	<mx:ArrayCollection id="deletedActivities"/>
+	<mx:ArrayCollection id="changedActivities"/>
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	<mx:Label text="{subtask.taskName + ' (' + subtask.subtaskName + ')'}" fontWeight="bold"/>
+	
+	<mx:VBox id="deletedActivityVBox" width="100%" height="100%" visible="false" includeInLayout="false">			
+		<mx:Label text="Deleted Activities" fontWeight="bold" top="10"/>
+	    <mx:AdvancedDataGrid dataProvider="{deletedActivities}"
+	    	width="100%" height="100%">
+	    	<mx:columns>
+	    		<mx:AdvancedDataGridColumn dataField="resourceName" sortable="false"
+	    			headerText="{resourceManager.getString('Language','label.name')}"/>
+	    		<mx:AdvancedDataGridColumn dataField="startTime" 
+	    			headerText="{resourceManager.getString('Language','label.start_date')}"
+	    			labelFunction="formatDateSimple">
+	    		</mx:AdvancedDataGridColumn>    		
+	    		<mx:AdvancedDataGridColumn dataField="endTime"
+	    			headerText="{resourceManager.getString('Language','label.end_date')}"
+	    			labelFunction="formatDateSimple">
+	    		</mx:AdvancedDataGridColumn>
+	    		<mx:AdvancedDataGridColumn dataField="assignedEffort" 
+	    			headerText="{resourceManager.getString('Language','label.planned_staff_days')}"/>
+	    			
+			  	<mx:AdvancedDataGridColumn width="30" editable="false"
+			  		headerText="{resourceManager.getString('Language','label.feedback')}"
+			  		itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridFeedbackImageRenderer"/> 	    			
+	    	</mx:columns>    	
+	    </mx:AdvancedDataGrid>
+	</mx:VBox>	    
+	<mx:HBox width="100%" >
+    	<mx:Label text="{resourceManager.getString('Language','label.planned_staff_days') + ': ' + subtask.plannedStaffDays}" 
+			fontWeight="bold"/>		
+		<mx:Label color="0xFF0000" id="errString" />
+    </mx:HBox>
+	<mx:HBox width="100%" >
+    	<mx:Label text="{resourceManager.getString('Language','label.planned_feedback_days') + ': ' + subtask.plannedFeedbackDays}" 
+			fontWeight="bold"/>		
+    </mx:HBox>	    	
+    <mx:AdvancedDataGrid id="assignedActivityADG" dataProvider="{assignedActivities}"
+    	enabled="true" editable="false"
+    	width="100%" height="100%">
+    	<mx:columns>
+    		<mx:AdvancedDataGridColumn dataField="resourceName" editable="false" sortable="false" width="60"
+    			headerText="{resourceManager.getString('Language','label.name')}"/>
+    		<mx:AdvancedDataGridColumn dataField="startTime" width="80" labelFunction="formatDateSimple"
+    			headerText="{resourceManager.getString('Language','label.start_date')}"/>   			    	
+    		<mx:AdvancedDataGridColumn dataField="endTime" width="80" labelFunction="formatDateSimple"
+    			headerText="{resourceManager.getString('Language','label.end_date')}"/>
+    		<mx:AdvancedDataGridColumn dataField="assignedEffort" width="50"
+    			headerText="{resourceManager.getString('Language','label.planned_staff_days')}"/>    		
+    		<mx:AdvancedDataGridColumn dataField="progress" width="50"
+    			headerText="{resourceManager.getString('Language','label.progress')}"/>    		    			
+		  	<mx:AdvancedDataGridColumn dataField="activityType" width="30" editable="true"
+		  		headerText="{resourceManager.getString('Language','label.feedback')}"
+			  	editorDataField="activityType">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="center">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{data.activityType==ActivityEnum.FEEDBACK?ImageEnum.IMAGECLASS_FEEDBACK:''}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              						import com.pearl.normandy.enum.ActivityEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>  		  		
+		  	</mx:AdvancedDataGridColumn>   
+    			 			
+    	</mx:columns>    	
+    </mx:AdvancedDataGrid>
+    
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button label="{resourceManager.getString('Language','button.close')}"
+        	click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>	  
+</mx:TitleWindow>

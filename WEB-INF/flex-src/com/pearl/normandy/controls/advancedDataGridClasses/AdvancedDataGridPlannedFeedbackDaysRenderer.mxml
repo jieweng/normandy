@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	height="20" width="20" 
+	horizontalAlign="center"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off"
+	creationComplete="init()">
+	
+	<mx:Script>
+		<![CDATA[		        
+		    private function init():void{		    	
+         		plannedFeedbackDaysTI.setFocus();		    	
+         		plannedFeedbackDaysTI.setSelection(0, text.length);	         	
+		    }
+		          				
+           	private var _data:Object;
+           	
+           	[Bindable]                               	
+         	public override function set data(data:Object):void{	         		
+         									
+         		this._data = data;
+         		text = data.plannedFeedbackDays;
+         		
+         		if(data && data.children != null){
+         			plannedFeedbackDaysTI.enabled = false;
+         		}		
+         		  		
+         	}   
+         	
+         	public override function get data():Object{
+         		return this._data;
+         	}                      	 
+         	
+         	[Bindable]
+         	public var text:String;        		                                                  			
+		]]>
+	</mx:Script>	
+	
+	<mx:Binding source="this.plannedFeedbackDaysTI.text" destination="this.text"/>
+	
+	<mx:TextInput id="plannedFeedbackDaysTI" text="{text}"
+		width="100%" height="100%"/>  
+		
+    <mx:NumberValidator 
+        source="{plannedFeedbackDaysTI}" 
+        property="text" 
+        trigger="{plannedFeedbackDaysTI}" 
+        triggerEvent="change" 
+        required="true"/>		
+</mx:HBox>

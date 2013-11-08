@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:code="http://code.google.com/p/flexlib/"
+	xmlns:pm="pm.*" 
+	xmlns:vo="com.pearl.normandy.vo.*"	
+	xmlns:validator="com.pearl.normandy.validator.*"	 
+	xmlns:pentacle="com.pearl.normandy.component.pentacle.*"	
+	title="{resourceManager.getString('Language','title.add_project')}"
+	width="100%" height="100%" borderAlpha="1" 
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);"
+	initialize="init()"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+
+			import mx.utils.StringUtil;
+			import mx.validators.Validator;
+			import mx.validators.ValidationResult;
+			import mx.events.ValidationResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.collections.ArrayCollection;
+
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.CustomerVO;
+			import com.pearl.normandy.utils.Constants;
+
+			
+			import com.pearl.normandy.event.CustomerEvent;
+			import com.pearl.normandy.event.ProjectEvent;						
+
+
+			
+		    //==============================
+		    //Method
+			//=============================
+			private function init():void{
+				this.setFocus();
+				CairngormEventDispatcher.getInstance().dispatchEvent(CustomerEvent.getAllCustomerEvent());
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.getAllProjectEvent());
+			}
+			
+			private function createProject():void{
+				
+				if(!projectName.text || projectName.text == "" || !projectKey.text || projectKey.text == ""){
+					return;
+				}
+				
+				var newProject:ProjectVO = new ProjectVO();
+				var customer:String = null;
+				
+				if(customerName.selectedIndex == -1){
+					customer = StringUtil.trim(customerName.text);
+				}
+				else{
+ 					newProject.customerId 	=  (customerName.selectedItem as CustomerVO).id;
+ 				}
+ 				
+				newProject.projectName 	= projectName.text;
+ 				newProject.projectKey 	= projectKey.text;
+ 				newProject.type	 		= projectType.selectedItem.type;
+ 				newProject.status		= Constants.PROJECT_STATUS_OPEN;
+				newProject.needQa 		= (needQACB.selectedIndex==0?Constants.BOOLEAN_YES:Constants.BOOLEAN_NO);
+				newProject.createdDate = new Date();
+				newProject.createdBy = model.currUser.userName;
+				newProject.difficulty      = difficulty.value;
+
+				
+				if(validateProjectFun(newProject)){
+					var projectRoleId:int=Constants.PROJECT_ROLE[Constants.PROJECT_ROLE_PM];
+					CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.createProjectEvent(newProject, customer, projectRoleId, model.currUser));
+					PopUpManager.removePopUp(this);
+				} 
+			}			
+			
+			private function validateProjectFun(p:ProjectVO):Boolean{
+				
+				for each(var val:Validator in validatorArr){
+					if(val.validate().type == ValidationResultEvent.INVALID){				
+						return false;
+					}
+				}				
+				
+				return true;
+			}	
+					
+		
+		
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }		
+		]]>
+	</mx:Script>
+	
+	
+	<!--==========================
+	    Binding
+	  ===========================-->		
+	<mx:Binding source="model.GLOBAL_ALL_PROJECTS.source" destination="this.projectNameV.results"/>
+	<mx:Binding source="model.GLOBAL_ALL_PROJECTS.source" destination="this.projectKeyV.results"/>	  
+
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->		    
+	<mx:HBox width="100%" height="100%">
+		<mx:VBox width="50%" height="100%">
+			<mx:Form width="100%">
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.project_name')}" width="100%">
+		            <code:PromptingTextInput id="projectName" width="150" tabIndex="1" prompt="{resourceManager.getString('Language','prompt.project.name')}"/>
+		        </mx:FormItem>
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.customer_name')}" width="100%">
+		            <mx:ComboBox id="customerName" editable="true" width="150" dataProvider="{model.GLOBAL_ALL_CUSTOMERS}" labelField="customerName" prompt="Internal"/>
+		        </mx:FormItem>
+		        <mx:FormItem required="true" label="Need QA">
+		            <mx:ComboBox id="needQACB" width="150">
+		            	<mx:ArrayCollection>
+		            		<mx:String>Yes</mx:String>
+		            		<mx:String>No</mx:String>
+		            	</mx:ArrayCollection>
+		            </mx:ComboBox>
+		        </mx:FormItem>
+		        <mx:FormItem label="{resourceManager.getString('Language','label.project_difficulty')}" paddingBottom="0" >
+			     <pentacle:Pentacle id="difficulty" max="5"  width="150">
+			      </pentacle:Pentacle>
+		        </mx:FormItem>		        
+			</mx:Form>
+		</mx:VBox>
+		
+		<mx:VBox width="50%" height="100%">
+			<mx:Form width="100%">
+		        <mx:FormItem width="100%" required="true" label="{resourceManager.getString('Language','label.project_key')}">
+					<code:PromptingTextInput id="projectKey" width="150" tabIndex="2" prompt="{resourceManager.getString('Language','prompt.project.key')}"/>
+				</mx:FormItem>
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.project_type')}">
+		            <mx:ComboBox id="projectType" width="150" labelField="type" dataProvider="{model.TYPE}"/>
+		        </mx:FormItem>        
+			</mx:Form>			
+		</mx:VBox>		
+	</mx:HBox>
+
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <!--mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" click="createProject()"
+        	enabled="{model.currUser.manager == Constants.BOOLEAN_YES || model.currUser.userGroupId == Constants.GROUP_PM_NUM}"/-->
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" click="createProject()"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>	
+    <mx:Array id="validatorArr" >
+		<validator:DuplicateValidator id="projectNameV" required="true" source="{projectName}" property="text" validatorObject="projectName"
+    		trigger="{okButton}" triggerEvent="click"  validatorType="Project Name Duplicate" errorMessage="Duplicate Project Name!"/>
+    	<validator:DuplicateValidator id="projectKeyV" required="true"  source="{projectKey}" property="text" validatorObject="projectKey"
+			trigger="{okButton}" triggerEvent="click"  validatorType="Project Key Duplicate" errorMessage="Duplicate Project Key!"/>
+    </mx:Array>
+</mx:TitleWindow>

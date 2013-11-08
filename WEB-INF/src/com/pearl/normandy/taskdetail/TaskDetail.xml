@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="TaskDetail">
+
+	<typeAlias alias="TaskDetail" type="com.pearl.normandy.taskdetail.TaskDetailTo" />
+
+	<resultMap id="TaskDetailResult" class="TaskDetail">
+		<result property="id" column="ID" />
+		<result property="taskId" column="TASK_ID" />
+		<result property="type" column="TYPE" />
+		<result property="level" column="LEVEL" />
+		<result property="value" column="value" />
+		<result property="version" column="VERSION" />
+		<result property="createdDate" column="CREATED_DATE" />
+		<result property="createdBy" column="CREATED_BY" />
+		<result property="updatedDate" column="UPDATED_DATE" />
+		<result property="updatedBy" column="UPDATED_BY" />
+	</resultMap>
+	
+	
+	<!--========================= Select ========================-->		
+	<select id="selectTaskDetailByTaskId" parameterClass="java.lang.String" resultMap="TaskDetailResult">
+		SELECT * 
+		FROM task_detail 
+		WHERE task_id=#value#
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insert" parameterClass="TaskDetail">
+		insert into TASK_DETAIL
+			(TASK_ID,
+			TYPE,
+			LEVEL,
+			VALUE,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		values
+			(#taskId#,
+			#type#,
+			#level#,
+			#value#,
+			#version#,
+			#createdDate#,
+			#createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>				
+	</insert>
+	
+	<insert id="copyTaskDetail" parameterClass="java.util.Map">
+		insert into TASK_DETAIL
+			(TASK_ID,
+			TYPE,
+			LEVEL,
+			VALUE,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		select 
+			#newTaskId#,
+			TYPE,
+			LEVEL,
+			VALUE,
+			VERSION,
+			now(),
+			#createdBy#
+		from TASK_DETAIL td
+		where td.TASK_ID = #oldTaskId#
+	</insert>
+	
+	<update id="update" parameterClass="TaskDetail">
+		update TASK_DETAIL 
+		set TASK_ID 	= #taskId#,
+			TYPE		= #type#,
+			LEVEL		= #level#,
+			VALUE		= #value#,			
+			VERSION		= #version#,
+			UPDATED_DATE= #updatedDate#, 
+			UPDATED_BY  = #updatedBy#
+		where ID=#id#
+	</update>	
+	
+	<delete id="delete" parameterClass="java.lang.Integer">
+		delete from TASK_DETAIL
+		where ID = #value#
+	</delete>
+</sqlMap>

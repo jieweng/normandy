@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	xmlns:validator="com.pearl.normandy.validator.*" 
+	title="{resourceManager.getString('Language','title.delete_activity')}"
+	borderAlpha="1">
+	
+	<mx:Metadata>
+		[Event(name="deleteActivity", type="com.pearl.normandy.event.ActivityOptEvent")]
+		[Event(name="cancelActivity", type="com.pearl.normandy.event.ActivityOptEvent")] 
+	</mx:Metadata>		
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ValidationResultEvent;
+			import mx.validators.Validator;
+			import com.pearl.normandy.event.ActivityOptEvent;
+			import com.pearl.normandy.vo.ActivityVO;
+			
+			import mx.managers.PopUpManager;			
+			
+			
+			private var _activity:ActivityVO;			
+			[Bindable]
+			public function set activity(activity:ActivityVO):void{
+				this._activity = activity;
+				initComponents();
+			}
+			
+			public function get activity():ActivityVO{
+				return this._activity;
+			}
+			
+			private function initComponents():void{
+				if(deleteRadioButton.selected){
+					clearBox.visible = false;
+					clearBox.includeInLayout = false;	
+				}
+				else if(cancelRadioButton.selected){
+					clearBox.visible = true;
+					clearBox.includeInLayout = true;
+				}				
+			}
+			
+			private function onActivityRadioGroupChange():void{
+				initComponents();
+			}
+			
+ 			private function onCancelDeleteActivity():void{
+				var event:ActivityOptEvent;
+				
+		    	if(deleteRadioButton.selected){
+		    		event = new ActivityOptEvent(ActivityOptEvent.DELETE);
+		    		event.activity = updatedActivity;
+					dispatchEvent(event);					
+					PopUpManager.removePopUp(this);			    	
+		    	}
+		    	else if(cancelRadioButton.selected){
+	 				clearedEffortValidator.results = [assignedEffort.text];	
+	 				if(validateProjectFun()){
+			    		event = new ActivityOptEvent(ActivityOptEvent.CANCEL);
+			    		event.activity = updatedActivity;
+						dispatchEvent(event);	 					
+	 					PopUpManager.removePopUp(this);			    	
+	 				}
+		    	}			
+			}
+			
+			private function validateProjectFun():Boolean{				
+				for each(var v:Validator in validatorArr){
+					if(v.validate().type == ValidationResultEvent.INVALID){					
+						return false;
+					}
+				}
+				return true;
+			}
+			 
+		]]>
+	</mx:Script>
+	
+	<vo:ActivityVO id="updatedActivity" 
+		assignedEffort="{Number(clearEffort.text)}"
+		description="{description.text}"
+	/> 
+	
+	<mx:VBox width="100%" height="100%" horizontalAlign="center" verticalAlign="middle">
+		<mx:Text text="{resourceManager.getString('Language','alert.cancel_activity')}" fontWeight="bold" fontSize="13"/>
+		<mx:Text text="{resourceManager.getString('Language','alert.cancel_activity2')}" width="400"/>
+		<mx:RadioButtonGroup id="activityRadioGroup" change="onActivityRadioGroupChange()"/>
+		<mx:RadioButton id="deleteRadioButton" groupName="activityRadioGroup" 
+			label="{resourceManager.getString('Language','label.delete')}"/>
+		<mx:RadioButton id="cancelRadioButton" groupName="activityRadioGroup" 
+			label="{resourceManager.getString('Language','label.cancel')}"/>
+	</mx:VBox>
+	<mx:VBox id="clearBox" width="100%" visible="false" includeInLayout="false">
+		<mx:Label text="{resourceManager.getString('Language','label.activity.clear')}" fontWeight="bold"/>
+	 	<mx:HRule width="100%"/>
+		<mx:HBox width="100%">
+			<mx:Label text="{resourceManager.getString('Language','label.data.tip.assigned_effort')}" width="95" fontWeight="bold"/>
+			<mx:Label id="assignedEffort" text="{activity.assignedEffort}" width="90" fontWeight="bold"/>
+			<mx:Label text="{resourceManager.getString('Language','label.data.tip.cleared_effort')}" width="90"/>
+			<mx:TextInput id="clearEffort" width="40"/>
+		</mx:HBox>
+		<mx:HBox>
+			<mx:Label text="{resourceManager.getString('Language','label.qa.description')}" width="95"/>
+			<mx:TextArea id="description" width="250"/>
+		</mx:HBox>
+	</mx:VBox>
+	<mx:ControlBar horizontalAlign="center">
+		<mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" 
+			click="onCancelDeleteActivity()"/>
+		<mx:Button label="{resourceManager.getString('Language','button.cancel')}" click="PopUpManager.removePopUp(this);"/>			
+	</mx:ControlBar>
+	<mx:Array id="validatorArr" >
+		<mx:NumberValidator source="{clearEffort}" property="text" required="true" minValue="0" negativeError="Cleared Effort can not be negative."/>
+ 		<validator:LeastValidator id="clearedEffortValidator" required="true" 
+			source="{clearEffort}" property="text"
+			trigger="{okButton}" triggerEvent="click" 
+			validatorTpye="Size validator" errorMessage="{resourceManager.getString('Language','alert.activity.clear_effort_lt_assigned_effort')}"
+			/>
+			
+	</mx:Array>
+</mx:TitleWindow>

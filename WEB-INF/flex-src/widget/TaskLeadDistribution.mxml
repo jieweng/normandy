@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	width="100%" height="50%">
+	
+	
+	<mx:Metadata>
+		[Event(name="leadChange", type="com.pearl.normandy.event.ChangeEvent")] 
+	</mx:Metadata>
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[			
+			import com.pearl.normandy.event.ChangeEvent;
+			import com.pearl.normandy.utils.Constants;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProjectUserVO;			
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			private var _project:ProjectVO;
+			
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				projectUserRo.getLeadByProjectId(project.id);
+			}
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			private function getLeadByProjectIdHandler(event:ResultEvent):void{
+				leads = event.result as ArrayCollection;
+			}
+			
+			private function onLeadChange():void {
+				var selectedLead:ProjectUserVO = leadDataGrid.selectedItem as ProjectUserVO;
+				dispatchEvent(new ChangeEvent(ChangeEvent.LEAD_CHANGE, selectedLead));
+			}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->				
+	<mx:RemoteObject id="projectUserRo" destination="ro.projectuser">
+		<mx:method name="getLeadByProjectId" result="getLeadByProjectIdHandler(event)"/>
+	</mx:RemoteObject>	
+	
+	<!--==========================
+	    Variables
+	===========================-->
+	<mx:ArrayCollection id="leads"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox width="100%" height="100%">
+      <mx:AdvancedDataGrid id="leadDataGrid" dataProvider="{leads}"
+      		change="onLeadChange()"
+      		width="100%" height="100%">
+      	<mx:columns>
+      		<mx:AdvancedDataGridColumn dataField="name"
+      			headerText="{resourceManager.getString('Language','label.name')}"/>
+      	</mx:columns>
+      </mx:AdvancedDataGrid>
+	</mx:VBox>							    	
+</mx:VBox>

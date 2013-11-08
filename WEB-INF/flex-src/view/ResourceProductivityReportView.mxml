@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%">
+	
+	<mx:Script source="../../data/DummyData.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.DragEvent;
+			import mx.collections.ArrayCollection;
+			
+			[Bindable]
+			private var teamArray:ArrayCollection = new ArrayCollection();
+			
+			private function resourceProductivityDragDropHandler(event: DragEvent):void{				
+				switch(teamArray.length){
+					case 0: teamProductivityLineChart.dataProvider = teamProductivity1; break;
+					case 1: teamProductivityLineChart.dataProvider = teamProductivity2; break;
+					case 2: teamProductivityLineChart.dataProvider = teamProductivity3; break;
+				}
+			}
+			
+			private function clearTeam():void{
+				teamArray = new ArrayCollection();
+				teamProductivityLineChart.dataProvider = null;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:SeriesInterpolate id="interpolate" duration="1000" elementOffset="10"/>
+	<mx:ApplicationControlBar width="100%" height="50%">
+		<mx:Panel title="Resource List" width="20%" height="100%">					
+			<mx:AdvancedDataGrid dataProvider="{resourceArray}" 
+				width="100%" height="100%"
+				dragEnabled="true">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="name" headerText="Name"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+		</mx:Panel>
+			
+		<mx:Panel title="Resource Productivity Over Months" width="80%" height="100%">
+			<mx:LineChart id="resourceProductivityLineChart" dataProvider="{resourceProductivitySimple}"
+				width="100%" height="100%"
+				showDataTips="true">
+				
+				<mx:horizontalAxis>
+					<mx:CategoryAxis categoryField="date"/>
+				</mx:horizontalAxis>
+				
+				<mx:verticalAxis>
+					<mx:LinearAxis minimum="15"/>				
+				</mx:verticalAxis>
+				
+				<mx:series>
+					<mx:LineSeries yField="planned" form="curve" displayName="Working Days In Month">
+					</mx:LineSeries>
+					<mx:LineSeries yField="done" form="curve" displayName="Finished Workload (in Person Days)"/>
+				</mx:series>
+				
+				<mx:backgroundElements>
+	                <mx:Array>
+	                    <mx:GridLines direction="both">
+	                        <mx:verticalStroke>
+	                            <mx:Stroke weight="1" color="#CCCCCC"/>
+	                        </mx:verticalStroke>
+	                    </mx:GridLines>
+	                </mx:Array>
+	            </mx:backgroundElements>			
+			</mx:LineChart>
+			
+			<mx:Legend dataProvider="{resourceProductivityLineChart}" direction="horizontal"/>
+		</mx:Panel>			
+	</mx:ApplicationControlBar>
+	
+	<mx:ApplicationControlBar width="100%" height="50%">
+		<mx:Panel title="Team" width="20%" height="100%">					
+			<mx:AdvancedDataGrid dataProvider="{teamArray}" 
+				width="100%" height="100%"
+				dropEnabled="true"
+				dragDrop="resourceProductivityDragDropHandler(event)">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn dataField="name" headerText="Name"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<mx:HBox width="100%" horizontalAlign="right">
+				<mx:Button label="{resourceManager.getString('Language','label.clear')}" click="clearTeam()"/>
+			</mx:HBox>
+		</mx:Panel>
+			
+		<mx:Panel title="Team Productivity Over Months" width="80%" height="100%">
+			<mx:LineChart id="teamProductivityLineChart"
+				width="100%" height="100%"
+				showDataTips="true">
+				
+				<mx:horizontalAxis>
+					<mx:CategoryAxis categoryField="date"/>
+				</mx:horizontalAxis>
+				
+				<mx:verticalAxis>
+					<mx:LinearAxis minimum="15"/>				
+				</mx:verticalAxis>
+				
+				<mx:series>					
+					<mx:LineSeries yField="done" form="curve" displayName="Finished Workload (in Person Days)"
+						showDataEffect="{interpolate}"/>
+				</mx:series>
+				
+				<mx:backgroundElements>
+	                <mx:Array>
+	                    <mx:GridLines direction="both">
+	                        <mx:verticalStroke>
+	                            <mx:Stroke weight="1" color="#CCCCCC"/>
+	                        </mx:verticalStroke>
+	                    </mx:GridLines>
+	                </mx:Array>
+	            </mx:backgroundElements>			
+			</mx:LineChart>
+			
+			<mx:Legend dataProvider="{teamProductivityLineChart}"/>
+		</mx:Panel>				
+	</mx:ApplicationControlBar>
+</mx:VBox>

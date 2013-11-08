@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" horizontalAlign="center" verticalAlign="middle" backgroundColor="white"  creationComplete="init()"
+	xmlns:code="http://code.google.com/p/flexlib/" xmlns:renderer="renderer.*" xmlns:utils="com.pearl.normandy.utils.*"
+	enabled="{model.privilegeReport == Constants.REPORT_LEVEL3}">
+<mx:Script source="../script/CommonScript.as"/>
+	
+<mx:Script>
+	<![CDATA[
+		import com.pearl.normandy.utils.Constants;
+		    import com.pearl.normandy.vo.ProjectVO;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			import mx.controls.Alert;
+			import mx.utils.StringUtil;
+			import renderer.CheckBoxRenderer;
+			import mx.validators.Validator;
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			
+			[Bindable]
+			private var currDate:Date=new Date();
+			private var username:String=model.currUser.fullName;
+			
+			private function init():void{
+				if(month.value == 0){
+					year.value -= 1;
+					month.value = 12;
+				}else if(month.value == 13){
+					year.value += 1;
+					month.value = 1;
+				}
+				reportRo.getProjectByMonth(year.value,month.value);
+			}
+			
+			private function getProjectByMonthHandler(e:ResultEvent):void{
+				projectCB.dataProvider=ArrayCollection(e.result);
+			}
+			
+			private function export():void{
+				if(StringUtil.trim(moduluTA.text).length==0){
+					moduluTA.setStyle("borderColor","red");
+				}else{
+					moduluTA.clearStyle("borderColor");
+				}
+				if(StringUtil.trim(exponentTA.text).length==0){
+					exponentTA.setStyle("borderColor","red");
+				}else{
+					exponentTA.clearStyle("borderColor");
+				}
+				var result:Array = Validator.validateAll([moduluValidation,exponentValidation]);
+				if(result.length>0)return;
+				var selectGroup:Array=projectCB.selectedItems;
+		    	if(selectGroup.length<1){
+		    		Alert.show(resourceManager.getString("Language","label.choose_pro"));
+		    		return ;
+		    	}
+		    	reportRo.getResourceCost(selectGroup,year.value,month.value,StringUtil.trim(moduluTA.text),StringUtil.trim(exponentTA.text),username);
+		    	downBtn.enabled=true;
+		    		
+			}
+			private var fileName:String;
+			
+			private function getResourceCostHandler(e:ResultEvent):void{
+				fileName=String(e.result);
+			}
+			
+			private function download():void{
+				fileDownload.DOWNLOAD_URL=model.metaData.reportUrl+fileName+ ".xlsx";
+				fileDownload.startDownload();
+				fileDownload.fr.addEventListener(Event.COMPLETE,deleteHandler);
+			}
+			
+			private function deleteHandler(e:Event):void{
+				reportRo.deleteProjectResourceReport(fileName);
+				downBtn.enabled=false;
+			}
+			
+			private function decryptFaultHandler(e:FaultEvent):void{
+				Alert.show(resourceManager.getString('Language', 'alert.param_error'));
+			}
+	]]>
+</mx:Script>
+
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getProjectByMonth" result="getProjectByMonthHandler(event)"/>
+		<mx:method name="getResourceCost" result="getResourceCostHandler(event)" fault="decryptFaultHandler(event)"/>
+		<mx:method name="deleteProjectResourceReport" />
+	</mx:RemoteObject>
+	
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init( ProgressBarWindow,null, this);"/>
+	
+		<mx:HBox width="25%" paddingBottom="10" horizontalAlign="center">
+			<mx:NumericStepper id="year" minimum="2000" maximum="9999" value="{currDate.fullYear}" change="init()"/>
+			<mx:Label text="{resourceManager.getString('Language','label.year')}"/>
+			<mx:NumericStepper id="month" minimum="0" maximum="13" value="{currDate.month+1}" change="init()"/>
+			<mx:Label text="{resourceManager.getString('Language','label.month')}"/>
+		</mx:HBox>
+		<mx:HBox width="25%" paddingBottom="10">
+			<renderer:CheckBoxList id="projectCB" itemRenderer="renderer.CheckBoxRenderer" labelField="projectName" 
+				width="100%" rowCount="15" allowMultipleSelection="true"/>
+		</mx:HBox>
+		<mx:VBox id="paramBox" width="25%" horizontalAlign="center">
+			<code:PromptingTextInput id="moduluTA" prompt="Modulus" text="{model.SALARY_MODULU}" width="100%"/>
+			<code:PromptingTextInput id="exponentTA" prompt="Exponent" text="{model.SALARY_EXPONENT}" width="100%"/>
+	    </mx:VBox>
+		<mx:HBox horizontalAlign="center">
+			<mx:Button label="{resourceManager.getString('Language', 'button.report.export')}" click="export()"/>
+			<mx:Button id="downBtn" label="{resourceManager.getString('Language', 'button.report.download')}" click="download()" enabled="false"/>
+		</mx:HBox>
+		<mx:StringValidator id="moduluValidation" source="{moduluTA}" property="text" required="true"/>
+		<mx:StringValidator id="exponentValidation" source="{exponentTA}" property="text" required="true"/>
+</mx:VBox>

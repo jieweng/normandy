@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	label="{resourceManager.getString('Language','label.detail_information')}"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	width="100%"
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.event.TaskDetailEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import ilog.maps.Map;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+
+		    //==============================
+		    //Attributes
+		    //============================== 	
+			[Bindable]
+			public var model:NormandyModel = NormandyModel.getInstance();
+			
+			private var _task:TaskVO;
+			
+			[Bindable]
+			public function set task(value:TaskVO):void{
+				this._task = value;
+				if(task){
+					CairngormEventDispatcher.getInstance().dispatchEvent(TaskDetailEvent.getTaskDetailEvent(task));
+				}				
+			}
+			
+			public function get task():TaskVO{
+				return this.task;
+			}
+			
+			private function init():void{
+//				CairngormEventDispatcher.getInstance().dispatchEvent(TaskDetailEvent.getTaskDetailEvent(model.GLOBAL_SELECTED_TASK));				
+			}
+			
+		    //==============================
+		    //Handler
+		    //============================== 	
+		    private var _taskDetail:Object;
+		    [Bindable]
+			public function set taskDetail(value:Object):void{
+				this._taskDetail = value;
+				var currDate:Date = new Date();
+				var userName:String = model.currUser.userName;
+				lod0				= taskDetail[Constants.TASK_DETAIL_LOD0];
+				lod1				= taskDetail[Constants.TASK_DETAIL_LOD1];
+				lod2				= taskDetail[Constants.TASK_DETAIL_LOD2];
+				lod3				= taskDetail[Constants.TASK_DETAIL_LOD3];
+				uv1					= taskDetail[Constants.TASK_DETAIL_UV1];
+				uv2					= taskDetail[Constants.TASK_DETAIL_UV2];
+				uv3					= taskDetail[Constants.TASK_DETAIL_UV3];
+				uv4 				= taskDetail[Constants.TASK_DETAIL_UV4];
+				material			= taskDetail[Constants.TASK_DETAIL_TYPE_MATERIAL];
+				diffuse				= taskDetail[Constants.TASK_DETAIL_TYPE_DIFFUSE];
+				specular			= taskDetail[Constants.TASK_DETAIL_TYPE_SPECULAR];
+				normal				= taskDetail[Constants.TASK_DETAIL_TYPE_NORMAL];
+				lighting			= taskDetail[Constants.TASK_DETAIL_TYPE_LIGHTING];
+				
+				//在修改某一条DETAIL时,如果这条DETAIL没有创建,那么就得重新NEW一个TASKDETAILVO,否则为空指针异常;
+				if(lod0 == null){
+					lod0 = new TaskDetailVO();
+					lod0.level = 0;
+					lod0.type = Constants.TASK_DETAIL_TYPE_LOD;
+				}
+				if(lod1 == null){
+					lod1 = new TaskDetailVO();
+					lod1.level = 1;
+					lod1.type = Constants.TASK_DETAIL_TYPE_LOD;
+				}
+				if(lod2 == null){
+					lod2 = new TaskDetailVO();
+					lod2.level = 2;
+					lod2.type = Constants.TASK_DETAIL_TYPE_LOD;
+				}
+				if(lod3 == null){
+					lod3 = new TaskDetailVO();
+					lod3.level = 3;
+					lod3.type = Constants.TASK_DETAIL_TYPE_LOD;
+				}
+				if(uv1 == null){
+					uv1 = new TaskDetailVO();
+					uv1.level = 1;
+					uv1.type = Constants.TASK_DETAIL_TYPE_UV;
+				}
+				if(uv2 == null){
+					uv2 = new TaskDetailVO();
+					uv2.level = 2;
+					uv2.type = Constants.TASK_DETAIL_TYPE_UV;
+				}
+				if(uv3 == null){
+					uv3 = new TaskDetailVO();
+					uv3.level = 3;
+					uv3.type = Constants.TASK_DETAIL_TYPE_UV;
+				}
+				if(uv4 == null){
+					uv4 = new TaskDetailVO();
+					uv4.level = 4;
+					uv4.type = Constants.TASK_DETAIL_TYPE_UV;
+				}
+				if(material == null){
+					material = new TaskDetailVO();
+					material.type = Constants.TASK_DETAIL_TYPE_MATERIAL;
+				}
+				if(diffuse == null){
+					diffuse = new TaskDetailVO();
+					diffuse.type = Constants.TASK_DETAIL_TYPE_DIFFUSE;
+				}
+				if(specular == null){
+					specular = new TaskDetailVO();
+					specular.type = Constants.TASK_DETAIL_TYPE_SPECULAR;
+				}
+				if(normal == null){
+					normal = new TaskDetailVO();
+					normal.type = Constants.TASK_DETAIL_TYPE_NORMAL
+				}
+				if(lighting == null){
+					lighting = new TaskDetailVO();
+					lighting.type = Constants.TASK_DETAIL_TYPE_LIGHTING;
+				}				
+			}
+			
+			public function get taskDetail():Object{
+				return this._taskDetail;
+			}
+			
+			public function getTaskDetail():Object{
+				var details:Object = new Object();
+				
+				var currDate:Date = new Date();
+				var userName:String = model.currUser.userName;
+				
+				details[Constants.TASK_DETAIL_LOD0] 			= lod0;
+				details[Constants.TASK_DETAIL_LOD1] 			= lod1;
+				details[Constants.TASK_DETAIL_LOD2] 			= lod2;
+				details[Constants.TASK_DETAIL_LOD3]			    = lod3;
+				details[Constants.TASK_DETAIL_UV1]				= uv1;
+				details[Constants.TASK_DETAIL_UV2]				= uv2;
+				details[Constants.TASK_DETAIL_UV3]				= uv3;
+				details[Constants.TASK_DETAIL_UV4]				= uv4;
+				details[Constants.TASK_DETAIL_TYPE_MATERIAL] 	= material;
+				details[Constants.TASK_DETAIL_TYPE_DIFFUSE] 	= diffuse;
+				details[Constants.TASK_DETAIL_TYPE_SPECULAR] 	= specular;
+				details[Constants.TASK_DETAIL_TYPE_NORMAL] 		= normal;
+				details[Constants.TASK_DETAIL_TYPE_LIGHTING] 	= lighting;
+				
+				return details;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="model.LOCAL_TASK_DETAIL" destination="this.taskDetail"/>
+	
+	<!--==========================
+	    Attributes
+    ===========================-->		
+	<vo:TaskDetailVO id="lod0" type="{Constants.TASK_DETAIL_TYPE_LOD}" level="0" value="{lod0TI.text}"/>
+	<vo:TaskDetailVO id="lod1" type="{Constants.TASK_DETAIL_TYPE_LOD}" level="1" value="{lod1TI.text}"/>
+	<vo:TaskDetailVO id="lod2" type="{Constants.TASK_DETAIL_TYPE_LOD}" level="2" value="{lod2TI.text}"/>
+	<vo:TaskDetailVO id="lod3" type="{Constants.TASK_DETAIL_TYPE_LOD}" level="3" value="{lod3TI.text}"/>
+	<vo:TaskDetailVO id="uv1" type="{Constants.TASK_DETAIL_TYPE_UV}" level="1" value="{uv1TI.text}"/>
+	<vo:TaskDetailVO id="uv2" type="{Constants.TASK_DETAIL_TYPE_UV}" level="2" value="{uv2TI.text}"/>
+	<vo:TaskDetailVO id="uv3" type="{Constants.TASK_DETAIL_TYPE_UV}" level="3" value="{uv3TI.text}"/>
+	<vo:TaskDetailVO id="uv4" type="{Constants.TASK_DETAIL_TYPE_UV}" level="4" value="{uv4TI.text}"/>
+	<vo:TaskDetailVO id="material" type="{Constants.TASK_DETAIL_TYPE_MATERIAL}" value="{materialTI.text}"/>
+	<vo:TaskDetailVO id="diffuse" type="{Constants.TASK_DETAIL_TYPE_DIFFUSE}" value="{diffuseTI.text}"/>
+	<vo:TaskDetailVO id="specular" type="{Constants.TASK_DETAIL_TYPE_SPECULAR}" value="{specularTI.text}"/>
+	<vo:TaskDetailVO id="normal" type="{Constants.TASK_DETAIL_TYPE_NORMAL}" value="{normalTI.text}"/>
+	<vo:TaskDetailVO id="lighting" type="{Constants.TASK_DETAIL_TYPE_LIGHTING}" value="{lightingTI.text}"/>
+	
+    <!--==========================
+	    Page Layout
+	===========================-->    
+	<mx:VBox id="v2" label="{resourceManager.getString('Language','label.detail_information')}" 
+		width="100%" height="100%">
+	    <mx:HBox width="100%" paddingLeft="30" paddingRight="30">
+	        <mx:Grid borderStyle="none" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5">
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem colSpan="3" horizontalAlign="center"
+	                	width="100%" height="100%">
+	                	<mx:Label text="{resourceManager.getString('Language','label.task.polycount')} (+/- 10%)" fontWeight="bold"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center" width="40" fontStyle="italic">
+	                    <mx:Label text="{resourceManager.getString('Language','label.task.lod')}"/>
+	                </mx:GridItem>
+	                <mx:GridItem horizontalAlign="right" width="100" fontStyle="italic">
+	                    <mx:Label text="{resourceManager.getString('Language','label.task.triangle')}"/>
+	                </mx:GridItem>
+	                <mx:GridItem width="100">
+	                    <mx:Label text=""/>
+	                </mx:GridItem>                
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="LOD0"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="lod0TI" width="100%" text="{lod0.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="LOD1"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="lod1TI" width="100%" text="{lod1.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="LOD2"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="lod2TI" width="100%" text="{lod2.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="LOD3"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="lod3TI" width="100%" text="{lod3.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>            
+	        </mx:Grid>
+	        
+	        <mx:Spacer width="50"/>
+	        
+	        <mx:Grid borderStyle="none" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5">
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem colSpan="3" horizontalAlign="center" 
+	                	width="100%" height="100%">
+	                    <mx:Label text="{resourceManager.getString('Language','label.task.uv')}" fontWeight="bold"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center" width="40">
+	                    <mx:Label text="UV" fontStyle="italic"/>
+	                </mx:GridItem>
+	                <mx:GridItem horizontalAlign="right" width="150">
+	                    <mx:Label text="{resourceManager.getString('Language','label.task.usage')}" fontStyle="italic"/>
+	                </mx:GridItem>
+	                <mx:GridItem width="100">
+	                    <mx:Label text=""/>
+	                </mx:GridItem>                
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="UV1"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="uv1TI" width="100%" text="{uv1.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="UV2"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="uv2TI" width="100%" text="{uv2.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="UV3"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="uv3TI" width="100%" text="{uv3.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>
+	            <mx:GridRow width="100%" height="100%">
+	                <mx:GridItem horizontalAlign="center">
+	                    <mx:Label text="UV4"/>
+	                </mx:GridItem>
+	                <mx:GridItem colSpan="2">
+	                    <mx:TextInput id="uv4TI" width="100%" text="{uv4.value}"/>
+	                </mx:GridItem>
+	            </mx:GridRow>            
+	        </mx:Grid>
+	    </mx:HBox>
+	    
+	    <mx:Spacer height="20"/>
+	    
+		<mx:HBox width="100%" paddingLeft="30" paddingRight="30">
+			<mx:Grid width="100%">
+				<mx:GridRow width="100%">
+					<mx:GridItem colSpan="2" horizontalAlign="center">
+						<mx:Label text="{resourceManager.getString('Language','label.task.material')}" fontWeight="bold"/>
+					</mx:GridItem>
+				</mx:GridRow>
+				<mx:GridRow width="100%">
+					<mx:GridItem colSpan="2" horizontalAlign="center" width="680">
+						<mx:TextArea id="materialTI" width="100%" text="{material.value}"/>
+					</mx:GridItem>
+				</mx:GridRow>
+			</mx:Grid>	
+		</mx:HBox>
+				
+		<mx:Spacer height="20"/>
+				
+		<mx:HBox width="100%" paddingLeft="30" paddingRight="30">
+			<mx:Grid width="100%">			
+				<mx:GridRow width="100%">
+					<mx:GridItem colSpan="2" horizontalAlign="center">
+						<mx:Label text="{resourceManager.getString('Language','label.task.texture')}" fontWeight="bold"/>
+					</mx:GridItem>
+				</mx:GridRow>			
+				<mx:GridRow width="100%">
+					<mx:GridItem horizontalAlign="center" width="90">
+						<mx:Label text="{resourceManager.getString('Language','label.task.diffuse')}" fontWeight="bold"/>
+					</mx:GridItem>
+					<mx:GridItem width="590">
+						<mx:TextArea id="diffuseTI" width="100%" text="{diffuse.value}"/>
+					</mx:GridItem>
+				</mx:GridRow>		
+				<mx:GridRow width="100%">
+					<mx:GridItem horizontalAlign="center">
+						<mx:Label text="{resourceManager.getString('Language','label.task.specular')}" fontWeight="bold"/>
+					</mx:GridItem>
+					<mx:GridItem>
+						<mx:TextArea id="specularTI" width="100%" text="{specular.value}"/>
+					</mx:GridItem>
+				</mx:GridRow>	
+				<mx:GridRow width="100%">
+					<mx:GridItem horizontalAlign="center">
+						<mx:Label text="{resourceManager.getString('Language','label.task.normal')}" fontWeight="bold"/>
+					</mx:GridItem>
+					<mx:GridItem>
+						<mx:TextArea id="normalTI" width="100%" text="{normal.value}"/>
+					</mx:GridItem>
+				</mx:GridRow>		
+				<mx:GridRow width="100%">
+					<mx:GridItem horizontalAlign="center">
+						<mx:Label text="{resourceManager.getString('Language','label.task.lighting')}" fontWeight="bold"/>
+					</mx:GridItem>
+					<mx:GridItem>
+						<mx:TextArea id="lightingTI" width="100%" text="{lighting.value}"/>
+					</mx:GridItem>
+				</mx:GridRow>		
+			</mx:Grid>
+		</mx:HBox>
+	</mx:VBox>
+</mx:HBox>

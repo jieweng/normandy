@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Calendar">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="Calendar"
+		type="com.pearl.normandy.calendar.CalendarTo" />
+
+
+
+	<!--========================= Select ========================-->
+	<select id="selectCalendarByType" parameterClass="java.lang.String" resultClass="java.util.Date">
+		select c.DATE
+		from calendar c
+		where c.TYPE=#value#
+	</select>
+	
+	<select id="selectAllHolidays" resultClass="Calendar">
+		select 
+			c.ID			as id,
+			c.TYPE			as type,
+			c.DATE			as date
+		from calendar c
+		where c.TYPE='HOLIDAY'
+	</select>	
+	
+	<!--===========================Insert/Update/Delete======================-->
+	<insert id="insert" parameterClass="Calendar">
+		insert into calendar
+			(ID,
+			 TYPE,
+			 DATE)
+		values
+			(#id#,
+			 #type#,
+			 #date#)
+	</insert>
+	
+	<delete id="delete" parameterClass="java.lang.Integer">
+		delete from calendar
+		where ID=#id#
+	</delete>
+</sqlMap>

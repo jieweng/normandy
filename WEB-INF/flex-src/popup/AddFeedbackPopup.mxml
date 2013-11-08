@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','label.feedback')}"
+	width="1000" height="100%"
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);" >
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			
+			import com.pearl.normandy.vo.CheckItemVO;
+			import com.pearl.normandy.utils.Constants;						
+			
+		    //==============================
+		    //Control Attributes
+		    //==============================			
+			[Bindable]
+			public var checkItem:CheckItemVO;
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================			
+			[Bindable]
+			private var feedbacks:ArrayCollection;
+            
+			private function saveFeedback():void{
+				feedbackRo.saveFeedback(editFeedbackWidget.feedbacks);
+				PopUpManager.removePopUp(this);
+			}            
+		]]>
+	</mx:Script>
+	
+	
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="feedbackRo" destination="ro.feedback">
+		<mx:method name="saveFeedback"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+
+	<widget:EditFeedback id="editFeedbackWidget" width="100%" height="100%" CATEGORY="{Constants.FEEDBACK_CATEGORY_INTERNAL}" checkItem="{checkItem}"/>
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}"
+        	click="saveFeedback()"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

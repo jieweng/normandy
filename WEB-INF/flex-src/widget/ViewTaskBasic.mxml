@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	label="{resourceManager.getString('Language','label.basic_information')}"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	xmlns:widget="widget.*"
+	width="100%" height="100%"
+    paddingTop="20" paddingBottom="20" paddingLeft="10" paddingRight="10">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[			
+			import com.pearl.normandy.enum.ImageEnum;
+			import mx.events.FlexEvent;
+            import mx.collections.ArrayCollection;
+            import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+            
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.TaskDetailVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.DateUtil;
+
+		    //==============================
+		    //Data Attributes
+		    //============================== 				
+			[Bindable]
+			private var taskDetails:ArrayCollection;
+			
+			
+			private var _task:TaskVO;
+			[Bindable]
+			public function set task(value:TaskVO):void{
+				this._task = value;
+				
+				if(task.referenceUrl != null && task.referenceUrl != ""){
+	  				referenceUrl = model.metaData.referenceUrl + task.projectId + "/" + task.referenceUrl;
+	  			} 					
+			}
+			
+			public function get task():TaskVO{
+				return this._task;
+			}
+			
+			[Bindable]
+			public var referenceUrl:String;
+			
+		]]>
+	</mx:Script>
+    
+    <!--==========================
+	    Page Layout
+	===========================-->			
+    <mx:Form width="50%" height="100%" borderColor="#FFFFFF">
+        <mx:FormItem label="{resourceManager.getString('Language','label.project_name')} :" fontWeight="bold">
+            <mx:Label id="projectName" text="{task.projectName}" fontWeight="bold" width="100%"/>
+        </mx:FormItem> 
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_id')}">
+            <mx:Label id="taskId" width="100%" text="{task.id}"/>
+        </mx:FormItem> 	        
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_name')} :">
+            <mx:Label id="taskName" width="100%" text="{task.name}"/>
+        </mx:FormItem>    
+        <mx:FormItem label="{resourceManager.getString('Language','label.start_date')} :">
+            <mx:Label id="startTime" width="100%" text="{DateUtil.format(task.startTime, DateUtil.SHORT)}"/>
+        </mx:FormItem> 
+        <mx:FormItem label="{resourceManager.getString('Language','label.end_date')} :">
+            <mx:Label id="endTime" width="100%" text="{DateUtil.format(task.endTime, DateUtil.SHORT)}"/>
+        </mx:FormItem>        
+        <mx:FormItem label="{resourceManager.getString('Language','label.planned_staff_days')} :" fontWeight="bold">
+            <mx:Label id="plannedStaffDays" width="100%" text="{task.plannedStaffDays}"/>
+        </mx:FormItem>   
+        <mx:FormItem label="{resourceManager.getString('Language','label.planned_feedback_days')} :" fontWeight="bold">
+            <mx:Label id="plannedFeedbackDays" width="100%" text="{task.plannedFeedbackDays}"/>
+        </mx:FormItem>          
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_type')}">
+            <mx:Label id="taskType" width="100%" text="{task.type}"/>
+        </mx:FormItem>		   
+        <mx:FormItem label="{resourceManager.getString('Language','label.priority')} :">
+            <mx:Label id="priority" width="100%" text="{task.priority}"/>
+        </mx:FormItem>             
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_category')} :">
+            <mx:Label id="taskCategory" width="100%" text="{task.taskCategory}"/>
+        </mx:FormItem>                
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_production')} :">
+            <mx:Label id="taskProduction" width="100%" text="{task.productionProcess}"/>
+        </mx:FormItem> 	            
+        <mx:FormItem label="{resourceManager.getString('Language','label.milestone')} :">
+            <mx:Label id="milestone" width="100%" text="{task.milestone}"/>
+        </mx:FormItem>
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_group')} :">
+            <mx:Label id="taskGroup" width="100%" text="{task.taskGroup}"/>
+        </mx:FormItem>	           	       
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_description')} :">
+            <mx:TextArea id="description" width="300" height="150" editable="false" 
+            	text="{task.description}"/>
+        </mx:FormItem>
+    </mx:Form>
+
+    <mx:VBox width="50%" height="100%">	    		    
+<!--		<mx:Canvas width="100%" height="100%"  id="canvas"
+		horizontalScrollPolicy="auto"  mouseWheel="onMouseWheel(event)"
+		verticalScrollPolicy="auto"  
+		borderStyle="none"  
+		shadowDistance="0" 
+		shadowDirection="center"
+		left="0" right="0" top="0" bottom="0">
+		<mx:Image 
+			id="viewImage"  source = '{referenceUrl}'
+			mouseDown="onMouseDown(event)" mouseMove="onMouseMove(event)" mouseUp="onMouseUp(event)" 
+			complete="initImage()"
+		/>
+		</mx:Canvas>-->
+		<mx:ApplicationControlBar width="100%" height="30" horizontalAlign="center" dock="true">
+		</mx:ApplicationControlBar>
+		<widget:BrowserCanvas id="browserCanvas" width="100%" height="380" 
+			horizontalScrollPolicy="auto" 
+			verticalScrollPolicy="auto"  
+			borderStyle="none"
+			shadowDistance="0"
+			shadowDirection="center"
+			left="0" right="0" top="0" bottom="0"
+			url="{referenceUrl}"
+		/>
+		<mx:ApplicationControlBar width="100%" height="30" horizontalAlign="center" dock="true" styleName="ApplicationControlBarReverse">
+			<mx:HBox width="100%" horizontalAlign="center">	   
+				<mx:Button  mouseDown="browserCanvas.onFit(event)" toolTip="{resourceManager.getString('Language','label.fit.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_FIT}"
+					/>
+				<mx:Button  mouseDown="browserCanvas.onFact(event)" toolTip="{resourceManager.getString('Language','label.actual.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_ACTUAL}"
+					/>
+				<mx:VRule height="20"/>
+				<mx:Button  mouseDown="browserCanvas.onZoomOut(event)" toolTip="{resourceManager.getString('Language','label.zoom_out')}" icon="{ImageEnum.IMAGECLASS_ZOOM_IN}"
+					/>
+				<mx:Button  mouseDown="browserCanvas.onZoomIn(event)" toolTip="{resourceManager.getString('Language','label.zoom_in')}" icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}"
+					/>  
+			</mx:HBox>
+		</mx:ApplicationControlBar>	
+	</mx:VBox>	   
+</mx:HBox>

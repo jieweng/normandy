@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumnGroup;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProcessStepVO;
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPriorityImageRenderer;
+			
+			//==============================
+		    //Attributes
+		    //==============================						
+			[Bindable]
+			public var taskCategory:String;
+			
+			public var taskCategoryId:int;
+			
+			[Bindable]
+			public var project:ProjectVO;			
+			
+			private var _processSteps:ArrayCollection;
+			public function set processSteps(value:ArrayCollection):void{
+				this._processSteps = value;
+				
+				initDataGrid(statusAdvancedDataGrid);
+
+				if(processSteps != null){
+					var processStep:ProcessStepVO = processSteps.getItemAt(0) as ProcessStepVO;
+					taskRo.getTaskStatusDetail(processStep.productionProcessId,project.id,taskCategory);
+				}else{
+					projectStatusReportTasks = null;
+				}
+			}
+			
+			public function get processSteps():ArrayCollection{
+				return this._processSteps;
+			}
+						
+		    //==============================
+		    //Init Method
+		    //==============================
+			private function initDataGrid(dataGrid: AdvancedDataGrid):void{
+				var columns: Array = new Array();
+				var groupedColumns:Array = new Array();								
+				var processStepColumn:AdvancedDataGridColumn = new AdvancedDataGridColumn();
+				var columnGroup:AdvancedDataGridColumnGroup = new AdvancedDataGridColumnGroup();
+				columnGroup.headerText = resourceManager.getString('Language','label.subtask_status');
+				columnGroup.dataField = "status";
+								
+				processStepColumn.headerText = resourceManager.getString('Language','label.task_id');
+				processStepColumn.dataField = "id";
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.asset_name');
+				processStepColumn.dataField = "name";
+				processStepColumn.width = 100;
+				processStepColumn.setStyle("fontWeight", "bold");
+				processStepColumn.setStyle("textAlign", "left");
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.priority');
+				processStepColumn.dataField = "priority";
+				processStepColumn.itemRenderer = 
+				new ClassFactory(AdvancedDataGridPriorityImageRenderer);
+				processStepColumn.width = 10;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = "Milestone";
+				processStepColumn.dataField = "milestone";
+				processStepColumn.width = 60;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.progress');
+				processStepColumn.dataField = "taskProgress";
+				processStepColumn.width = 40;
+				columns.push(processStepColumn);
+				
+				if(processSteps != null){
+					for(var i:int=0;i<processSteps.length;i++){
+						processStepColumn = new AdvancedDataGridColumn();
+						processStepColumn.headerText = (processSteps.getItemAt(i) as ProcessStepVO).step;
+						processStepColumn.width = 50;
+						processStepColumn.styleFunction = progressStyleFunction;
+						columnGroup.children.push(processStepColumn);
+					}
+				}
+				columns.push(columnGroup);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.project.scheduled_start');
+				processStepColumn.dataField = "startTime";
+				processStepColumn.labelFunction = formatDateShort;
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.project.scheduled_finish');
+				processStepColumn.dataField = "endTime";
+				processStepColumn.labelFunction = formatDateShort;
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);
+
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.next_delivery_due');
+				processStepColumn.dataField = "nextDeliveryDue";
+				processStepColumn.labelFunction = formatDateShort;
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.planned_staff_days');
+				processStepColumn.dataField = "plannedStaffDays";
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.actual_staff_days');
+				processStepColumn.dataField = "actualStaffDays";
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);				
+				
+				processStepColumn = new AdvancedDataGridColumn();
+				processStepColumn.headerText = resourceManager.getString('Language','label.staff_days_difference');
+				processStepColumn.dataField = "staffDaysDifference";
+				processStepColumn.width = 50;
+				columns.push(processStepColumn);				
+				
+				if(dataGrid != null)
+					dataGrid.groupedColumns = columns;
+			}
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+			private function getTaskStatusDetailHandler(event:ResultEvent):void{
+				projectStatusReportTasks = event.result as ArrayCollection;
+				
+				if(projectStatusReportTasks != null && projectStatusReportTasks.length>0){
+//					var subtasks:ArrayCollection = (projectStatusReportTasks.getItemAt(0) as TaskVO).status;
+					
+/* 					var array:Array = (statusAdvancedDataGrid.groupedColumns[5] as AdvancedDataGridColumnGroup).children;
+					for(var subtask:String in subtasks){
+						var adv:AdvancedDataGridColumn = array[subtask] as AdvancedDataGridColumn;
+						if(adv != null)
+							adv.dataField = subtask;
+					} */
+				}
+			}
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task" showBusyCursor="true">
+		<mx:method name="getTaskStatusDetail" result="getTaskStatusDetailHandler(event)"/>
+	</mx:RemoteObject>
+
+	<!--==========================
+	    Variables
+	===========================-->
+	<mx:ArrayCollection id="projectStatusReportTasks"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox label="{resourceManager.getString('Language','label.vehicles')}" width="100%" height="100%">
+		<mx:AdvancedDataGrid id="statusAdvancedDataGrid" textAlign="center"
+			dataProvider="{projectStatusReportTasks}"
+			doubleClickEnabled="true" itemDoubleClick="showViewTaskWindow(event.itemRenderer.data)"
+			width="100%" height="100%" headerWordWrap="true"/>
+	</mx:VBox>
+</mx:VBox>

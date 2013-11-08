@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.confirmation')}"
+	width="800" height="600" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	 
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.utils.Constants;
+			
+			private var _activity:ActivityVO;
+			public function set activity(value:ActivityVO):void{
+				this._activity = value;
+				projectRo.getProjectById(activity.projectId);
+			}
+			public function get activity():ActivityVO{
+				return this._activity;
+			}
+			
+			[Bindable]
+			public var selectedExpiredActivities:ArrayCollection;
+			
+			[Bindable]
+			private var project:ProjectVO;
+			
+						
+		    //==============================
+		    //Method
+		    //==============================			
+			private function init():void{
+				this.setFocus();				
+			}				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+
+
+		    private function getProjectByIdHandler(event:ResultEvent):void{
+		    	project = event.result as ProjectVO;
+		    }
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services  
+	===========================--> 		  	
+	<mx:RemoteObject id="projectRo" destination="ro.project">
+		<mx:method name="getProjectById" result="getProjectByIdHandler(event)"/>
+	</mx:RemoteObject>		
+	
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:HDividedBox width="100%" height="100%">	
+		<mx:TextArea htmlText="{project.checkList}" width="50%" height="100%" editable="false"/>
+		<mx:VBox width="50%" height="100%" paddingLeft="5" paddingTop="5">
+			<mx:Text id="alertInformation" text="{resourceManager.getString('Language','alert.activity.complete')}"/>
+			<mx:HBox width="100%" includeInLayout="{selectedExpiredActivities.length>0?true:false}" visible="{selectedExpiredActivities.length>0?true:false}">
+				<mx:Text text="{resourceManager.getString('Language','label.complete.activity')}"/>
+				<mx:RadioButtonGroup id="rbGroup"/>
+				<mx:RadioButton id="yesRB" label="{resourceManager.getString('Language','label.yes')}" value="Y" groupName="rbGroup"/>
+				<mx:RadioButton id="noRB" label="{resourceManager.getString('Language','label.no')}" value="N" groupName="rbGroup"/>
+			</mx:HBox>
+			<mx:Spacer height="5"/>
+			<mx:TextArea id="comment" width="100%" height="100%"
+				text="{resourceManager.getString('Language','label.comment.lead_check')}"/>		
+		</mx:VBox>
+	</mx:HDividedBox>		
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}"/>
+        <mx:Button id="close" label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

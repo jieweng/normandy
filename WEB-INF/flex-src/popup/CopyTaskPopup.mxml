@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+	width="850" height="700" borderAlpha="1" 
+	showCloseButton="true"
+	title="{resourceManager.getString('Language','title.copy_task')}"
+	creationComplete="init()"
+	close="PopUpManager.removePopUp(this);"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+            import mx.collections.ArrayCollection;
+			import mx.events.CollectionEvent;
+            import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.validators.Validator;
+
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.vo.ListOfValue;
+			import com.pearl.normandy.vo.TaskDetailVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.event.TaskEvent;
+            
+
+		    //==============================
+		    //Attributes
+		    //============================== 	            
+            private var _taskVO:TaskVO;
+            [Bindable]
+            public function set taskVO(value:TaskVO):void{
+            	this._taskVO = value;
+            	if(taskVO){
+            		taskRo.getTaskGroupByTaskId(taskVO.projectId, taskVO.id);
+            		taskRo.getTaskCategory(taskVO.projectId, false);
+            	}
+            }
+            
+            public function get taskVO():TaskVO{
+            	return this._taskVO;
+            }
+            
+			private var _project:ProjectVO;
+			
+            [Bindable]
+			public function set project(value:ProjectVO):void{
+				this._project = value;				
+				priorityType 	 = model.metaData.priorities;            	
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+			
+			[Bindable]
+			private var _projectTaskCategories:ArrayCollection;			
+			public function set projectTaskCategories(value:ArrayCollection):void{
+				this._projectTaskCategories = value;				
+				
+				if(projectTaskCategories && projectTaskCategories.length > 0){					
+									
+					var category:String;									
+					if(taskVO == null){
+						taskCategory.selectedIndex = 0;				 	
+					}								
+					else{
+						category = taskVO.taskCategory;
+						
+						var match:Boolean = false;				
+		   				for(var i:int=0;i<projectTaskCategories.length;i++){
+				   			var item:String = projectTaskCategories.getItemAt(i) as String;
+			   				if(item == category){
+			   					taskCategory.selectedIndex = i;
+			   					match = true;
+			   					break;
+			   				}
+		   				}
+
+		   				if(!match){
+		   					taskCategory.selectedIndex = 0;
+		   				}
+		   			}
+				}					
+			}
+			
+			public function get projectTaskCategories():ArrayCollection{
+				return this._projectTaskCategories;
+			}		
+			
+			//==============================
+		    //Method
+		    //============================== 	
+			private function init():void{
+				this.setFocus();				
+			}		    
+		    
+			private function validationCopyTask():Boolean{
+				var validateResult:Array = Validator.validateAll(
+					[taskNameValidation]);
+				if(validateResult.length > 0){
+ 		   			 return false;
+		   		}else{
+		   			onCopyTaskClick();
+		   			PopUpManager.removePopUp(this);
+		   		}
+		   		return true;
+			}
+			
+			private function onCopyTaskClick():void{
+				var task:TaskVO = new TaskVO();
+				task.id = taskVO.id;
+				task.projectId = taskVO.projectId;
+				task.projectKey = taskVO.projectKey;
+				task.name = taskName.text;				
+				task.type = taskType.text;					
+				task.taskPriorityId = priority.selectedItem.id;
+				task.taskCategory = taskCategory.text;
+				task.milestone = milestone.text;					
+				task.taskGroup = taskGroup.text;					
+				task.description = taskDescription.text;
+					
+				if(referenceGroup.selectedValue == Constants.BOOLEAN_YES){
+					task.referenceUrl = taskVO.referenceUrl;
+				}	
+							
+				var isCopyDetail:Boolean = taskDetailGroup.selectedValue == Constants.BOOLEAN_YES?true:false;				
+				task.productionProcessId = taskVO.productionProcessId;
+				task.plannedStaffDays = taskVO.plannedStaffDays;
+				task.plannedFeedbackDays = taskVO.plannedFeedbackDays;
+				task.startTime = taskVO.startTime;
+				task.endTime = taskVO.endTime;
+				task.createdDate = new Date();
+				task.createdBy = model.currUser.userName;
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.copyTaskEvent(task, copyNumStep.value, isCopyDetail, model.currUser));
+			}
+
+			//==============================
+		    //Remote Object Handlers
+		    //============================== 							
+			private function getTaskCategoryHandler(event:ResultEvent):void{
+				projectTaskCategories = event.result as ArrayCollection; 	
+			}				
+			
+			private function getTaskGroupByTaskIdHandler(event:ResultEvent):void{
+				taskGroups = event.result as ArrayCollection;
+			}			
+
+		    
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    } 			    		    					
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task" fault="faultHandler(event)" showBusyCursor="true">
+		<mx:method name="getTaskCategory" result="getTaskCategoryHandler(event)"/>	
+		<mx:method name="getTaskGroupByTaskId" result="getTaskGroupByTaskIdHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Variables
+	===========================-->
+	<mx:ArrayCollection id="priorityType"/>
+	<mx:ArrayCollection id="taskGroups"/>
+        
+    <!--==========================
+	    Page Layout
+	===========================-->
+	<mx:RadioButtonGroup id="referenceGroup"/>
+	<mx:RadioButtonGroup id="taskDetailGroup"/>
+	
+	<mx:Form width="100%" height="100%" borderColor="#FFFFFF">
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.project_name')}" fontWeight="bold" direction="horizontal">
+            <mx:HBox width="60%">
+            	<mx:Label id="projectName" text="{project.projectName}" fontWeight="bold" width="100%"/>
+            </mx:HBox>
+            <mx:HBox width="40%">
+            	<mx:Label text="{resourceManager.getString('Language','label.copytask.copy')}"/>
+            </mx:HBox>
+        </mx:FormItem> 
+        <mx:FormItem required="true" width="100%" label="{resourceManager.getString('Language','label.task_name')}" direction="horizontal">
+            <mx:HBox width="60%">
+	            <mx:TextInput id="taskName" text="{taskVO.name}" width="300"/>
+            </mx:HBox>
+        </mx:FormItem>     
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.start_date')}">
+        	<mx:Label text="{DateUtil.format(taskVO.startTime, DateUtil.SHORT)}"/>
+        </mx:FormItem> 
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.end_date')}">
+        	<mx:Label text="{DateUtil.format(taskVO.endTime, DateUtil.SHORT)}"/>
+        </mx:FormItem>   
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.planned_staff_days')}">
+        	<mx:Label text="{taskVO.plannedStaffDays}"/>
+        </mx:FormItem>             
+        <mx:FormItem required="true" width="100%" label="{resourceManager.getString('Language','label.task_type')}" direction="horizontal">
+            <mx:HBox width="60%">
+	            <mx:ComboBox id="taskType" labelField="type" dataProvider="{model.TYPE}" width="200"
+	            	selectedIndex="{taskVO.type==Constants.PROJECT_TYPE_TRAINING?1:0}"/>
+	        </mx:HBox>
+        </mx:FormItem>		
+        <mx:FormItem required="true" width="100%" label="{resourceManager.getString('Language','label.priority')}" direction="horizontal">
+            <mx:HBox width="60%">
+            	<mx:ComboBox id="priority" selectedIndex="{taskVO.taskPriorityId-(priorityType.getItemAt(0) as ListOfValue).id}" width="200"
+            		 dataProvider="{priorityType}" labelField="listValue"/>
+            </mx:HBox>
+        </mx:FormItem>        	           
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.task_category')}" direction="horizontal">
+            <mx:HBox width="60%">
+	            <mx:ComboBox id="taskCategory" dataProvider="{_projectTaskCategories}" editable="true" width="200"
+	            	labelField="listValue"
+	            	text="{taskVO.taskCategory}"/>	            	
+           	</mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.task_production')}" direction="horizontal">
+            <mx:HBox width="60%">
+	            <mx:ComboBox id="taskProduction" width="200" enabled="false"
+	            	labelField="processName"
+	            	text="{taskVO.productionProcess}"/>
+	        </mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.milestone')}" direction="horizontal">
+            <mx:HBox width="60%">
+            	<mx:TextInput id="milestone" text="{taskVO.milestone}" width="300" />
+            </mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.task_group')}" direction="horizontal">
+            <mx:HBox width="60%">
+	            <ext:AutoComplete id="taskGroup" dataProvider="{taskGroups}" text="{taskVO.taskGroup}" width="300"/>
+            </mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.task_description')}" direction="horizontal">
+        	<mx:HBox width="60%">
+	            <mx:TextArea id="taskDescription" text="{taskVO.description}" width="300" height="100"/>
+        	</mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.copytask.reference_image')}" direction="horizontal">
+        	<mx:HBox width="60%">
+	        	<mx:Label id="reference" width="70%"/>
+        	</mx:HBox>
+        	<mx:HBox width="40%" horizontalAlign="left">
+	            <mx:RadioButton label="{resourceManager.getString('Language','label.yes')}" value="Y" groupName="referenceGroup"/>
+	   			<mx:RadioButton label="{resourceManager.getString('Language','label.no')}" value="N" groupName="referenceGroup" selected="true"/>
+   			</mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem width="100%" label="{resourceManager.getString('Language','label.copytask.task_detail')}" direction="horizontal">
+			<mx:HBox width="60%">
+	        	<mx:Label id="description" width="70%"/>
+			</mx:HBox>
+        	<mx:HBox width="40%" horizontalAlign="left">
+	            <mx:RadioButton label="{resourceManager.getString('Language','label.yes')}" value="Y" groupName="taskDetailGroup"/>
+	   			<mx:RadioButton label="{resourceManager.getString('Language','label.no')}" value="N" groupName="taskDetailGroup" selected="true"/>
+   			</mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem label="{resourceManager.getString('Language','label.copytask.copy_num')}">
+        	<mx:NumericStepper id="copyNumStep" minimum="1" maximum="20"/> 
+        </mx:FormItem>
+    </mx:Form>
+    <mx:StringValidator id="taskNameValidation"
+		source="{taskName}" property="text"/>
+		
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" 
+        	click="validationCopyTask()"  enabled="{model.taskEditable}"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

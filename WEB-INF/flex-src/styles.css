@@ -1,0 +1,309 @@
+Application {
+	font-family: "_sans";
+	font-size: 12;
+}
+
+ApplicationControlBar {	
+	backgroundColor: #FFFFFF;
+	fillColors: #BCC2CD, #FFFFFF;
+	fillAlphas: 1.0, 1.0;
+}
+
+.ApplicationControlBarReverse {	
+	backgroundColor: #FFFFFF;
+	fillColors: #FFFFFF, #BCC2CD;
+	fillAlphas: 1.0, 1.0;
+}
+
+.DockingBar{
+	backgroundColor: #d1d5dd;	
+}
+
+ToolTip {
+	font-size: 12;
+	borderSkin: ClassReference("com.pearl.normandy.controls.NToolTip");	
+}
+
+LinkBar {
+	color: #89CDF8;
+}
+
+MenuBar {	
+	backgroundColor: #FFFFFF;
+	fillColors: #BCC2CD, #FFFFFF;
+	fillAlphas: 1.0, 1.0;
+}
+
+.AdvancedDataGridHeaderStatusReport{
+	backgroundColor: #57d068;
+}
+
+/**************Task Chart Completion and Baseline Bar*******/
+.summaryTask {
+  bar-bottom-margin: 0.5;
+}
+.leafTask {
+  bar-bottom-margin: 0.5;
+}
+/*****************************End**************************/
+
+/* Button {
+   highlightAlphas: 1, 0.33;
+   fillAlphas: 1, 0.16, 0.18, 1;
+   fillColors: #5f89b9, #697182, #ffffff, #eeeeee;
+} */
+/* Panel {
+	headerHeight: 26;
+	roundedBottomCorners: true;
+	borderThicknessTop: 0;
+	borderThicknessBottom: 3;
+	borderThicknessLeft: 3;
+	borderThicknessRight: 3;
+	borderAlpha: 1.0;
+	titleStyleName: "mypanelTitle";
+} */
+.mypanelTitle {
+	fontFamily: Arial;
+	fontSize: 10;
+	fontWeight: bold;
+}
+.closeBtn {
+	upSkin:        Embed('/resource/closeButton.png');
+	overSkin:      Embed('/resource/closeButton.png');
+	downSkin:      Embed('/resource/closeButton.png');
+	disabledSkin:  Embed('/resource/closeButton.png');
+}
+.increaseBtn {
+	upSkin:        Embed('/resource/increaseButton.png');
+	overSkin:      Embed('/resource/increaseButton.png');
+	downSkin:      Embed('/resource/increaseButton.png');
+	disabledSkin:  Embed('/resource/increaseButton.png');
+}
+.decreaseBtn {
+	upSkin:        Embed('/resource/decreaseButton.png');
+	overSkin:      Embed('/resource/decreaseButton.png');
+	downSkin:      Embed('/resource/decreaseButton.png');
+	disabledSkin:  Embed('/resource/decreaseButton.png');
+}
+.minimizeBtn {
+ 	upSkin:        Embed('/resource/minimizeButton.png');
+	overSkin:      Embed('/resource/minimizeButton.png');
+	downSkin:      Embed('/resource/minimizeButton.png');
+	disabledSkin:  Embed('/resource/minimizeButton.png'); 
+}
+.resizeHndlr {
+	upSkin:        Embed('/resource/resizeHandler.png');
+	overSkin:      Embed('/resource/resizeHandler.png');
+	downSkin:      Embed('/resource/resizeHandler.png');
+	disabledSkin:  Embed('/resource/resizeHandler.png');
+}
+.lockBtn {
+	upSkin:			Embed('/resource/lock_20.png');
+	overSkin:		Embed('/resource/lock_20.png');
+	downSkin:		Embed('/resource/lock_20.png');
+	disableSkin:	Embed('/resource/lock_20.png');	
+}
+.unlockBtn {
+	upSkin:			Embed('/resource/unlock_20.png');
+	overSkin:		Embed('/resource/unlock_20.png');
+	downSkin:		Embed('/resource/unlock_20.png');
+	disableSkin:	Embed('/resource/unlock_20.png');
+}
+
+/**************Check Box Styles*******/
+.checkBoxLink {	
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/link.png");
+    overIcon: Embed(source="/resource/link.png");
+    downIcon: Embed(source="/resource/link.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/link.png");
+    selectedOverIcon: Embed(source="/resource/link.png");
+    selectedDownIcon: Embed(source="/resource/link.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxLock {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/lock_open.png");
+    overIcon: Embed(source="/resource/lock_open.png");
+    downIcon: Embed(source="/resource/lock_open.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/lock_open.png");
+    selectedOverIcon: Embed(source="/resource/lock_open.png");
+    selectedDownIcon: Embed(source="/resource/lock_open.png");
+    	  
+	skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxThumb {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/images.png");
+    overIcon: Embed(source="/resource/images.png");
+    downIcon: Embed(source="/resource/images.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/images.png");
+    selectedOverIcon: Embed(source="/resource/images.png");
+    selectedDownIcon: Embed(source="/resource/images.png");
+    	
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxView {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/calendar.png");
+    overIcon: Embed(source="/resource/calendar.png");
+    downIcon: Embed(source="/resource/calendar.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/calendar.png");
+    selectedOverIcon: Embed(source="/resource/calendar.png");
+    selectedDownIcon: Embed(source="/resource/calendar.png");
+    	
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxCurProjAct {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/resource_chart_2.png");
+    overIcon: Embed(source="/resource/resource_chart_2.png");
+    downIcon: Embed(source="/resource/resource_chart_2.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/resource_chart_2.png");
+    selectedOverIcon: Embed(source="/resource/resource_chart_2.png");
+    selectedDownIcon: Embed(source="/resource/resource_chart_2.png");	
+	
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxCurProjUser {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/user_green.png");
+    overIcon: Embed(source="/resource/user_green.png");
+    downIcon: Embed(source="/resource/user_green.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/user_green.png");
+    selectedOverIcon: Embed(source="/resource/user_green.png");
+    selectedDownIcon: Embed(source="/resource/user_green.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxSun {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/sun_16.png");
+    overIcon: Embed(source="/resource/sun_16.png");
+    downIcon: Embed(source="/resource/sun_16.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/sun_16.png");
+    selectedOverIcon: Embed(source="/resource/sun_16.png");
+    selectedDownIcon: Embed(source="/resource/sun_16.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxLuna {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/luna_16.png");
+    overIcon: Embed(source="/resource/luna_16.png");
+    downIcon: Embed(source="/resource/luna_16.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/luna_16.png");
+    selectedOverIcon: Embed(source="/resource/luna_16.png");
+    selectedDownIcon: Embed(source="/resource/luna_16.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxStar {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/star_16.png");
+    overIcon: Embed(source="/resource/star_16.png");
+    downIcon: Embed(source="/resource/star_16.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/star_16.png");
+    selectedOverIcon: Embed(source="/resource/star_16.png");
+    selectedDownIcon: Embed(source="/resource/star_16.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxLevin {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/levin_16.png");
+    overIcon: Embed(source="/resource/levin_16.png");
+    downIcon: Embed(source="/resource/levin_16.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/levin_16.png");
+    selectedOverIcon: Embed(source="/resource/levin_16.png");
+    selectedDownIcon: Embed(source="/resource/levin_16.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxRain {
+	/* Unselected icons */
+    upIcon: Embed(source="/resource/rain_16.png");
+    overIcon: Embed(source="/resource/rain_16.png");
+    downIcon: Embed(source="/resource/rain_16.png");
+    
+    /* Selected icons */
+    selectedUpIcon: Embed(source="/resource/rain_16.png");
+    selectedOverIcon: Embed(source="/resource/rain_16.png");
+    selectedDownIcon: Embed(source="/resource/rain_16.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}	
+
+.checkBoxLeave {
+	upIcon: 		  Embed(source="/resource/leave.png");
+    overIcon: 		  Embed(source="/resource/leave.png");
+    downIcon: 		  Embed(source="/resource/leave.png");
+    
+    selectedUpIcon:   Embed(source="/resource/leave.png");
+    selectedOverIcon: Embed(source="/resource/leave.png");
+    selectedDownIcon: Embed(source="/resource/leave.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+
+.checkBoxColum {
+	upIcon: 		  Embed(source="/resource/3DBarChartl.png");
+    overIcon: 		  Embed(source="/resource/3DBarChartl.png");
+    downIcon: 		  Embed(source="/resource/3DBarChartl.png");
+    
+    selectedUpIcon:   Embed(source="/resource/3DBarChartl.png");
+    selectedOverIcon: Embed(source="/resource/3DBarChartl.png");
+    selectedDownIcon: Embed(source="/resource/3DBarChartl.png");	
+    
+    skin: ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+}
+/*****************************End**************************/
+.iconButton{
+	upSkin:        ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+	overSkin:      ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+	downSkin:      ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+	
+	selectedUpSkin:        ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+	selectedOverSkin:      ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");
+	selectedDownSkin:      ClassReference("com.pearl.normandy.skins.IconCheckBoxSkin");		
+}
+.boxDown{
+	backgroundColor : #009dff;
+}
+.boxOver{
+	backgroundColor : #9bd6fc;
+} 
+.boxUp{
+	backgroundColor : #ffffff;
+}    

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.new_description')}"
+	width="400" height="250" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import com.pearl.normandy.utils.Constants;
+
+		    //==============================
+		    //Method
+		    //==============================			
+			private function init():void{
+				this.setFocus();				
+			}				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }				
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+		Page Layout
+  	===========================-->	
+	<mx:HBox width="100%" paddingTop="20" horizontalAlign="center">
+		<mx:TextArea id="description" height="124" width="90%"/>
+	</mx:HBox>
+	 <mx:ControlBar width="100%" horizontalAlign="center">
+		<mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}" click="PopUpManager.removePopUp(this);"/>
+        <mx:Button id="cancel" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

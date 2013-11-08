@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"	
+	xmlns:view="view.*" creationComplete="init()"
+	 height="100%" width="100%"
+	 xmlns:vo="vo.*" xmlns:component="component.*" horizontalAlign="center" backgroundColor="white" >
+<mx:Script>
+	<![CDATA[
+		import com.pearl.normandy.vo.SysConfigVO;
+		import mx.managers.PopUpManager;
+		import mx.controls.TextInput;
+		import mx.containers.HBox;
+		import mx.events.*;
+		import mx.collections.ArrayCollection;
+		import mx.controls.Alert;
+		import mx.rpc.events.FaultEvent;
+		import mx.rpc.events.ResultEvent;
+		[Bindable]
+		private var sysConfigList:ArrayCollection=new ArrayCollection();
+		private function init():void{
+			sysConfigRo.getSysConfigList();
+		}
+		private function getSysConfigListHandler(e:ResultEvent):void{
+			sysConfigList=e.result as ArrayCollection;
+		}
+		private function defaultFaultHandler(e:FaultEvent):void{
+			Alert.show(e.message.toString());
+		}
+		[Bindable]
+		private var sysConfig:SysConfigVO=new SysConfigVO();
+		private function saveButtonClick(e:MouseEvent):void{
+			sysConfigRo.updateSysConfig(sysConfigList);
+		}
+		private function updateSysConfigHandler(e:ResultEvent):void{
+			sysConfigRo.getSysConfigList();
+		}
+		
+		private function labFunc(item:Object, column:AdvancedDataGridColumn):String{
+		    	var sc:SysConfigVO = item as SysConfigVO;
+		    	var field:String = column.dataField;
+		    	var keyLable:String;
+		    	switch(sc.key){
+		    		case "mail.smtp":			keyLable = "邮件服务IP"; 			break;
+					case "mail.port":			keyLable = "邮件服务端口"; 			break;
+					case "mail.username":		keyLable = "邮件服务用户名"; 			break;
+					case "mail.password":		keyLable = "邮件服务密码"; 			break;	
+					case "mail.from.addr": 		keyLable = "邮箱帐号";				break;
+					case "mail.from.name": 		keyLable = "邮箱名字";				break;
+					case "error.mail.to.addr":	keyLable = "error邮箱帐号";			break;
+					case "error.mail.to.name":	keyLable = "error邮箱名字";			break;
+					case "activity.locked.time":keyLable = "activity锁定时间(天)";	break;
+		    	}
+		    	return keyLable;
+		}
+		
+	]]>
+</mx:Script>
+	<mx:RemoteObject id="sysConfigRo" destination="ro.sysConfig">
+		<mx:method name="getSysConfigList" result="getSysConfigListHandler(event)" fault="defaultFaultHandler(event)"/>
+		<mx:method name="updateSysConfig" result="updateSysConfigHandler(event)" fault="defaultFaultHandler(event)"/>
+	</mx:RemoteObject>
+
+	<mx:VBox>
+		<mx:VBox  horizontalAlign="center">
+			<mx:AdvancedDataGrid id="scADG" dataProvider="{sysConfigList}" width="300" height="260" editable="true">
+				<mx:groupedColumns>
+					<mx:AdvancedDataGridColumn dataField="key" headerText="参数名称" editable="false" labelFunction="labFunc"/>
+					<mx:AdvancedDataGridColumn dataField="value" headerText="值" editable="true"/>
+					</mx:groupedColumns>
+			</mx:AdvancedDataGrid>
+			<mx:Button label="保存" id="save" click="saveButtonClick(event)"/>
+		</mx:VBox>
+	</mx:VBox>
+</mx:VBox>

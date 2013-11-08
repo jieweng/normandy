@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:utils="com.pearl.normandy.utils.*"
+	width="100%" height="100%"
+	creationComplete="init()"
+	enabled="{model.privilegeReport == Constants.REPORT_LEVEL2 || model.privilegeReport == Constants.REPORT_LEVEL3}">
+	<mx:Script>
+		<![CDATA[
+			import mx.events.DragEvent;
+			import mx.managers.DragManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.NumericStepperEvent;
+			import mx.controls.AdvancedDataGrid;
+			import mx.collections.ArrayCollection;
+
+			import com.pearl.normandy.vo.ReportVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ReportLogVO;
+			import com.pearl.normandy.utils.DateUtil;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			
+			[Bindable]
+			private var model:NormandyModel = NormandyModel.getInstance();
+			
+			private var reportLog:ReportLogVO;
+			private var sapReportLog:ReportLogVO;
+			
+			[Bindable]
+			private var currDate:Date;
+
+			//==============================
+		    //Method
+		    //==============================
+			private function init():void{
+				currDate = new Date();
+				var year:int = yearNumStep.value;
+				var month:int = monthNumStep.value;
+				
+				reportRo.getProjectByMonth(year,month);
+				reportLogRo.getReportLog(Constants.REPORT_UT_CHART, year, month);
+				reportLogRo.getReportLog(Constants.REPORT_SAP_UT, year, month);
+			}
+			
+			private function onYearChange(event:NumericStepperEvent):void{
+				reportRo.getProjectByMonth(event.value, monthNumStep.value);
+				reportLogRo.getReportLog(Constants.REPORT_UT_CHART, event.value, monthNumStep.value);
+				reportLogRo.getReportLog(Constants.REPORT_SAP_UT, event.value, monthNumStep.value);
+			}
+
+			private function onMonthChange(event:NumericStepperEvent):void{
+				if(event.value == 0){
+					yearNumStep.value -= 1;
+					monthNumStep.value = 12;
+				}else if(event.value == 13){
+					yearNumStep.value += 1;
+					monthNumStep.value = 1;
+				}
+				reportRo.getProjectByMonth(yearNumStep.value, monthNumStep.value);
+				reportLogRo.getReportLog(Constants.REPORT_UT_CHART, yearNumStep.value, monthNumStep.value);
+				reportLogRo.getReportLog(Constants.REPORT_SAP_UT, yearNumStep.value, monthNumStep.value);
+			}
+			
+			private function onExportClick():void{
+				var year:int = yearNumStep.value;
+				var month:int = monthNumStep.value; 
+				
+				reportRo.createResourceUtilizationReport(productionProjects,testProjects,year,month);
+				exportBtn.enabled 		= false;
+				exportSapBtn.enabled	= false;
+				yearNumStep.enabled		= false;
+				monthNumStep.enabled	= false;
+				startDownload.enabled 	= false;
+				sapStartDownload.enabled= false;
+				cancelDownload.enabled 	= false;
+			}
+			
+			private function exportForSAP():void{
+				var year:int = yearNumStep.value;
+				var month:int = monthNumStep.value; 
+				
+				reportRo.createSAPUtilizationReport(productionProjects,testProjects,year,month);
+				exportBtn.enabled 		= false;
+				exportSapBtn.enabled	= false;
+				yearNumStep.enabled		= false;
+				monthNumStep.enabled	= false;
+				startDownload.enabled 	= false;
+				sapStartDownload.enabled= false;
+				cancelDownload.enabled 	= false;
+			}
+			
+			private function onDownloadClick():void{
+				if(reportLog){
+					fileDownload.DOWNLOAD_URL=model.metaData.reportUrl+reportLog.url;
+					fileDownload.startDownload();
+				}				
+			}
+						
+			private function onSapDownloadClick():void{
+				if(sapReportLog){
+					fileDownload.DOWNLOAD_URL=model.metaData.reportUrl+sapReportLog.url;
+					fileDownload.startDownload();
+				}
+			}
+			
+			//==============================
+		    //Remote Object Handlers
+		    //==============================
+			private function getReportLogHandler(event:ResultEvent):void{
+				var log:ReportLogVO = event.result as ReportLogVO;
+				
+				if(log != null){
+					if(log.reportType == Constants.REPORT_UT_CHART){
+						dateLabel.text = DateUtil.format(log.createdDate, DateUtil.SIMPLE);
+						reportLog = log;
+					}else if(log.reportType == Constants.REPORT_SAP_UT){
+						sapDateLabel.text = DateUtil.format(log.createdDate, DateUtil.SIMPLE);
+						sapReportLog = log;
+					}
+				}else{
+					dateLabel.text = '';
+					sapDateLabel.text = '';
+				}
+				
+				exportBtn.enabled 		= true;
+				exportSapBtn.enabled	= true;
+				yearNumStep.enabled		= true;
+				monthNumStep.enabled	= true;
+				startDownload.enabled 	= true;
+				sapStartDownload.enabled= true;
+				cancelDownload.enabled 	= false;				
+			}
+			
+			private function getProjectByMonthHandler(event:ResultEvent):void{
+				productionProjects = event.result as ArrayCollection;
+				
+				testProjects = new ArrayCollection();
+			}
+			
+			//==============================
+		    //Drag Drop
+		    //==============================
+			private function onDragDropProductionEvent(event:DragEvent):void{
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				if((event.dragInitiator as AdvancedDataGrid).name == 'productionAdg'){
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}
+				var projects:Array = event.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				
+				for each(var project:ProjectVO in projects){
+					productionProjects.addItem(project);
+				}
+			}
+			
+			private function onDragDropTestEvent(event:DragEvent):void{
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+
+				if((event.dragInitiator as AdvancedDataGrid).name == 'testAdg'){
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}
+				
+				var projects:Array = event.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				
+				for each(var project:ProjectVO in projects){
+					testProjects.addItem(project);
+				}
+			}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+		<mx:method name="getProjectByMonth" result="getProjectByMonthHandler(event)"/>
+		<mx:method name="createResourceUtilizationReport" result="getReportLogHandler(event)"/>
+		<mx:method name="createSAPUtilizationReport" result="getReportLogHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="reportLogRo" destination="ro.reportLog" showBusyCursor="true">
+		<mx:method name="getReportLog" result="getReportLogHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+		Attributes
+	===========================-->
+	<mx:ArrayCollection id="productionProjects"/>
+	<mx:ArrayCollection id="testProjects"/>
+	
+	<utils:FileDownload id="fileDownload" creationComplete="fileDownload.init( ProgressBarWindow,cancelDownload, this);"/>
+		
+	<!--==========================
+	   Page Layout
+	===========================-->
+	<mx:Panel width="100%" height="100%">
+		<mx:HBox width="100%" height="10%" verticalAlign="middle" horizontalAlign="center">
+			<mx:NumericStepper id="yearNumStep" minimum="2000" maximum="9999" value="{currDate.fullYear}" change="onYearChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.year')}"/>
+			<mx:NumericStepper id="monthNumStep" minimum="0" maximum="13" value="{currDate.month+1}" change="onMonthChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.month')}"/>
+			<mx:Button id="exportBtn" label="{resourceManager.getString('Language','button.report.export')}" click="onExportClick()"/>	
+			<mx:Button id="exportSapBtn" label="SAP" click="exportForSAP()"/>		
+		</mx:HBox>
+		<mx:HBox width="100%" height="60%" horizontalAlign="center">
+			<mx:AdvancedDataGrid id="productionAdg" width="300" height="100%" dataProvider="{productionProjects}"
+				dragEnabled="true" dropEnabled="true" dragMoveEnabled="true" dragDrop="onDragDropProductionEvent(event)">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.report.production_project')}" 
+						dataField="projectName"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<mx:AdvancedDataGrid id="testAdg" width="300" height="100%" dataProvider="{testProjects}"
+				dragEnabled="true" dropEnabled="true" dragMoveEnabled="true" dragDrop="onDragDropTestEvent(event)">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.report.test_others_project')}"
+						dataField="projectName"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+		</mx:HBox>
+		<mx:HBox width="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Label text="{resourceManager.getString('Language','label.report.last_export')}"/>
+			<mx:Label id="dateLabel" width="120"/>
+			<mx:Button id="startDownload" label="{resourceManager.getString('Language','button.report.download')}" click="onDownloadClick()" />
+		</mx:HBox>	
+		<mx:HBox width="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Label text="{resourceManager.getString('Language','label.report.sap_last_export')}"/>
+			<mx:Label id="sapDateLabel" width="120"/>
+			<mx:Button id="sapStartDownload" label="{resourceManager.getString('Language','button.report.download')}" click="onSapDownloadClick()" />
+		</mx:HBox>	
+		<mx:HBox width="100%" horizontalAlign="center" verticalAlign="middle">
+			<mx:Button id="cancelDownload" label="{resourceManager.getString('Language','button.cancel')}" 
+				click="fileDownload.cancelDownload();" enabled="false" />
+		</mx:HBox>
+	</mx:Panel> 
+</mx:VBox>

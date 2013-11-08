@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml">
+
+  <mx:Script>
+    <![CDATA[
+      import mx.effects.Tween;
+    
+    import ilog.orgchart.OrgChart;
+    
+       
+    public var percentPan:Number = 0.3; //should be a style property
+    
+    public static const UP:int = 0;
+    public static const DOWN:int = 1;
+    public static const LEFT:int = 2;
+    public static const RIGHT:int = 3;
+    
+    private var _chart:OrgChart;
+    
+    public function set chart(value:OrgChart):void {
+      _chart = value;
+    }
+    
+    public function get chart():OrgChart {
+      return _chart;
+    }
+    
+    public function pan(direction:int):void {
+      
+      if (chart == null) {
+        return;
+      }
+      
+      var vb:Rectangle = chart.visibleBounds;
+      
+      switch (direction){
+        case UP:
+          vb.y -= vb.height * percentPan;     
+          break;
+        case DOWN:
+          vb.y += vb.height * percentPan;
+          break;
+        case RIGHT:
+          vb.x += vb.width * percentPan;
+          break;
+        case LEFT:
+          vb.x -= vb.width * percentPan;
+          break;   
+      }
+      
+      //chart.visibleBounds = vb;
+      OrgChartAnimator.instance.animateViewTo(chart, vb);
+    }
+    
+    private function zoomIn():void {
+      if (chart != null) {           
+        chart.zoomBy(2, true);
+      }          
+    }
+    
+    private function zoomOut():void {
+      if (chart != null) {
+        chart.zoomBy(0.5, true);
+      }   
+    }  
+    
+    private function fitToContents():void {
+      if (chart != null) {
+        chart.fitToContents(true);
+      }  
+    }    
+    
+      
+    ]]>
+  </mx:Script>
+
+  <mx:VBox width="100%">    
+    <mx:Button id="zoomInButton" click="zoomIn()" icon="@Embed(source='resource/zoom in5.png')" />
+    <mx:Button id="panLeftButton" click="pan(LEFT)" icon="@Embed(source='resource/left.gif')"  />    
+  </mx:VBox>
+  
+  <mx:VBox width="100%">
+    <mx:Button id="panUpButton" click="pan(UP)" icon="@Embed(source='resource/top.gif')" />
+    <mx:Button id="fitButton" click="fitToContents()" icon="@Embed(source='resource/zoom fit6.png')" />
+    <mx:Button id="panDownButton" click="pan(DOWN)" icon="@Embed(source='resource/bottom.gif')"  />
+  </mx:VBox>
+
+  <mx:VBox width="100%">
+    <mx:Button id="zoomOutButton" click="zoomOut()" icon="@Embed(source='resource/zoom out7.png')" />
+    <mx:Button id="panRightButton" click="pan(RIGHT)" icon="@Embed(source='resource/right.gif')" />
+  </mx:VBox>
+  
+</mx:HBox>

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	creationComplete="init()" xmlns:ilog="http://www.ilog.com/2007/ilog/flex" xmlns:local="*">
+	
+	<mx:Script source="/script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.IHierarchicalCollectionView;
+			import mx.collections.HierarchicalCollectionView;
+			import mx.collections.IHierarchicalData;
+			import mx.collections.HierarchicalData;
+			import mx.collections.ArrayCollection;
+			import ilog.orgchart.OrgChartEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.DragManager;
+			import mx.controls.Alert;
+			import mx.events.ListEvent;
+			import mx.events.DragEvent;
+
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import com.pearl.normandy.collections.HierarchicalCollectionViewFixed;
+			
+			[Bindable]
+			public var hCol:IHierarchicalCollectionView;
+			
+			[Bindable]
+			private var projectMember:ProjectMemberVO;
+			
+			[Bindable]
+			public var selectedItem:ProjectMemberVO;
+			
+			[Bindable]
+			private var treeMenuItem:ContextMenu;
+        	
+			private function init():void{
+				projectMemberRo.getAllProject();
+				
+				userRo.getNotProjectUser();
+			}
+						
+			private function getAllProjectHandler(event:ResultEvent):void{
+				projectMember = event.result as ProjectMemberVO;
+				projectMember.layout = Constants.ORG_CHART_STANDARD;
+
+				hCol = new HierarchicalCollectionView(new HierarchicalData(projectMember));
+
+				chart.dataProvider = hCol;
+				tree.expandItem(projectMember,true,false);
+				
+				chart.addEventListener(OrgChartEvent.CHANGE,onSelectionChangedHandler);
+				chart.addEventListener(EditingEvent.MOVE_ITEM,onMoveItemHandler);
+				
+				chart.addEventListener(KeyboardEvent.KEY_DOWN,onKeyDownHandler);
+				chart.addEventListener(KeyboardEvent.KEY_UP,onKeyUpHandler);
+				
+				chart.addEventListener(OrgChartEvent.ITEM_DOUBLE_CLICK, chart_itemDoubleClickHandler);
+        		chart.addEventListener(MouseEvent.DOUBLE_CLICK, chart_doubleClickHandler);
+        		
+				tree.addEventListener(ListEvent.CHANGE, treeChangeHandler);
+			}
+			
+			private function getNotProjectUserHandler(event:ResultEvent):void{
+				dataPool = event.result as ArrayCollection;
+			}
+			
+			private function onSelectionChangedHandler(event:OrgChartEvent):void{
+				chartSelectionChanged();
+			}
+			
+			private function treeChangeHandler(event:ListEvent):void {
+       			chart.selectedItems = [tree.selectedItem];
+      		}
+			
+			private function chartSelectionChanged():void{
+		        var sel:Array = chart.selectedItems;
+		        selectedItem = sel.length > 0 ? sel[0] : null;
+				
+		       	tree.selectedItem = selectedItem;                  
+			}
+			
+			private function onMoveItemHandler(event:EditingEvent):void{
+				moveItem(event.item,event.parent);
+			}
+			
+			private function moveItem(item:Object, newParent:Object):void {
+		        var parent:Object = hCol.getParentItem(item);
+		        
+		        hCol.removeChild(parent, item);
+		        hCol.addChild(newParent, item);                             
+		    }
+		    
+	        private function onKeyDownHandler(event:KeyboardEvent):void {
+	       		if (event.ctrlKey || event.shiftKey) {
+	          		chart.allowNavigation = chart.allowSelection = false;
+	          		chartSelectionChanged();     
+	        	}
+	      	}
+	      
+	        private function onKeyUpHandler(event:KeyboardEvent):void {        
+	        	chart.allowNavigation = chart.allowSelection = true;                  
+	        }
+	        
+	        private function chart_itemDoubleClickHandler(event:OrgChartEvent):void {
+		        chart.fitToSubTree(event.item, true);
+		    }
+		      
+		    private function chart_doubleClickHandler(event:MouseEvent):void {
+				if (event.target == chart) {
+		          chart.fitToContents(true);
+		        }
+		    }
+			
+			private function onDGChange(event:Event):void{
+				var userVO:UserVO = dg.selectedItem as UserVO;
+				
+				selectedItem = new ProjectMemberVO();
+				selectedItem.name = userVO.name;
+				selectedItem.employeeNo = userVO.employeeNo;
+				selectedItem.email = userVO.email;
+				selectedItem.memberType = Constants.USER_TYPE_EMPLOYEE;
+			}
+			
+			private function deleteProjectMemberHandler(event:ResultEvent):void{
+				if(!event.result)
+				Alert.show('此人目前还有未删除的项目角色!');
+			}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember">
+		<mx:method name="getAllProject" result="getAllProjectHandler(event)" />
+		<mx:method name="createProjectMember" />
+		<mx:method name="deleteProjectMember" result="deleteProjectMemberHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="userRo" destination="ro.user">
+		<mx:method name="getNotProjectUser" result="getNotProjectUserHandler(event)" />
+	</mx:RemoteObject>
+	
+	<mx:ArrayCollection id="dataPool"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:Panel width="100%" height="100%" layout="horizontal">
+		<mx:VBox width="25%" height="100%">
+			<mx:Panel title="{resourceManager.getString('Language','label.org_chart_tree')}" width="100%" height="80%">
+				<mx:Tree id="tree" width="100%" height="100%" dragEnabled="true"
+					dataProvider="{projectMember}" labelField="name"/>
+			</mx:Panel>
+			<mx:Panel title="{resourceManager.getString('Language','label.org_chart_unassigned_employee')}" width="100%" height="20%">
+				<mx:DataGrid id="dg" dataProvider="{dataPool}" change="onDGChange(event)"
+					width="100%" height="100%" dragEnabled="true">
+					<mx:columns>
+						<mx:DataGridColumn headerText="{resourceManager.getString('Language','label.name')}" dataField="name"/>
+					</mx:columns>
+				</mx:DataGrid>
+			</mx:Panel>
+		</mx:VBox>
+        <mx:Panel title="{resourceManager.getString('Language','label.org_chart')}" width="75%" height="100%">
+			<mx:HBox height="10%">
+				<local:OrgChartBasicOverview top="5" left="5" chart="{chart}" width="150" height="100" />
+	            <local:PanTool top="125" left="5" width="150" chart="{chart}" />
+			</mx:HBox>
+
+			<ilog:OrgChart id="chart" width="100%" height="65%"
+				linkColor="#CCCCCC" doubleClickEnabled="true"
+				minZoomLevel="0.01" maxZoomLevel="10"
+                initialPosition="fitToContents" linkRadius="10" >
+				<ilog:itemRenderer>
+					<mx:Component>
+						<local:CustomItemRenderer borderSkin="GradientBorder" fontSize="15"/>
+					</mx:Component>
+				</ilog:itemRenderer>
+			</ilog:OrgChart>
+        </mx:Panel>
+	</mx:Panel>
+</mx:HBox>

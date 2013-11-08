@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Form xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:validator="com.pearl.normandy.validator.*"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	width="100%" height="100%"
+	creationComplete="init()">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ValidationResultEvent;
+			import flash.events.MouseEvent;
+			import mx.collections.ArrayCollection;
+			import mx.validators.Validator;
+			import mx.validators.ValidationResult;
+			import mx.rpc.events.ResultEvent;						
+			
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.CustomerVO;			
+			import com.pearl.normandy.vo.UserGroupVO;
+			
+												
+		    //==============================
+		    //Control Attributes
+		    //==============================						
+		    [Bindable]
+		    public function set user(user:UserVO):void{
+		    	this._user = user;
+		    	
+		    	if(user == null){
+		    		employeeRadioButton.selected = true;
+		    	}
+		    	else{
+			    	if(user.userType == null || user.userType == Constants.USER_TYPE_EMPLOYEE){
+			    		typeRadioGroup.selection = employeeRadioButton; 
+			    	}
+			    	else if(user.userType == Constants.USER_TYPE_CUSTOMER){
+			    		typeRadioGroup.selection = customerRadioButton;
+			    	}
+			    	
+			    	//set value of customer combobox
+			    	if(user.customerId != 0){
+			    		var customers:ArrayCollection = customer.dataProvider as ArrayCollection;
+			    		var customerVo:CustomerVO;
+			    		var i:int=0;
+			    		
+			    		
+			    		for each(customerVo in customers){
+			    			if(customerVo.id == user.customerId){
+			    				break;
+			    			}
+			    			i++;
+			    		}
+			    		
+			    		customer.selectedIndex = i;
+			    	}
+		    	}
+		    	
+		    	initFields();			    			    		    
+		    }
+		    
+		    public function get user():UserVO{
+		    	return this._user;
+		    }
+			
+			private var _allUser:Array;
+			public function set allUser(val:Array):void{
+				
+				_allUser = val;
+				employeeNoDuplicateValidator.results = val;
+				userNameDuplicateValidator.results = val;
+				emailDuplicateValidator.results = val;
+			}
+			
+			public function get allUser():Array{
+				return _allUser;
+			}
+			
+			[Bindable]			
+			private var customers:ArrayCollection;
+			
+		    //==============================
+		    //Methods
+		    //==============================	
+		    private function init():void{
+		    	customerRo.getAllCustomer();
+		    }
+		    	    	    				
+		    private function initFields():void{		
+		    	enableFields(user!=null);	 
+		    	initManagerCheckBox();  				    		    		
+			    
+		    	if(employeeRadioButton.selected){
+		    		customerItem.visible = false;
+		    		customerItem.includeInLayout = false;
+		    		
+		    		employeeNoItem.visible = true;
+		    		employeeNoItem.includeInLayout = true;
+		    		
+		    		userGroupItem.visible = true;
+		    		userGroupItem.includeInLayout = true;
+		    	}
+		    	else if(customerRadioButton.selected){
+		    		customerItem.visible = true;
+		    		customerItem.includeInLayout = true;		    		
+		    		
+		    		employeeNoItem.visible = false;
+		    		employeeNoItem.includeInLayout = false;
+		    		
+		    		userGroupItem.visible = false;
+		    		userGroupItem.includeInLayout = false;		    				    		
+		    	}			    
+		    }
+		    
+		    private function enableFields(enabeld:Boolean):void{
+			    	employeeRadioButton.enabled = enabeld;
+			    	customerRadioButton.enabled = enabeld;
+			    	customer.enabled 			= enabeld; 
+			    	employeeNo.enabled 			= enabeld;
+			    	userName.enabled			= enabeld;
+			    	firstName.enabled			= enabeld;
+			    	lastName.enabled			= enabeld;
+			    	englishFirstName.enabled	= enabeld;
+			    	englishLastName.enabled		= enabeld;
+			    	entryDate.enabled			= enabeld;
+			    	leaveDate.enabled			= enabeld;
+			    	userGroup.enabled			= enabeld;
+			    	managerCheckBox.enabled		= enabeld;
+			    	email.enabled				= enabeld;		    	
+		    }			
+		    
+			private function initManagerCheckBox():void{
+				var selectedGroup:String = user.userGroupName;
+				
+				if(selectedGroup == null){
+					managerCheckBox.visible = true;
+					managerCheckBox.includeInLayout = true;					
+				}				
+				else if(selectedGroup == Constants.GROUP_QA){
+					managerCheckBox.label = resourceManager.getString('Language','label.qa_manager');
+					managerCheckBox.visible = true;
+					managerCheckBox.includeInLayout = true;
+				}
+				else if(user.productionGroup == Constants.BOOLEAN_YES){
+					managerCheckBox.label = resourceManager.getString('Language','label.apm');
+					managerCheckBox.visible = true;
+					managerCheckBox.includeInLayout = true;
+				}
+				else{				
+					managerCheckBox.visible = false;
+					managerCheckBox.includeInLayout = false;
+				}				
+			}		
+				    
+		    //==============================
+		    //Event Handlers
+		    //==============================			    		
+		    private function onTypeChange():void{
+				initFields();
+				
+				if(customerRadioButton.selected){
+					if(user.customerId == 0){ 
+						customer.selectedIndex = -1;
+					}
+				}
+		    }
+		    		
+			private function onGroupChange():void{
+				managerCheckBox.selected = false;						
+				initManagerCheckBox();
+			}		
+			
+		    //==============================
+		    //Remote Object Handler
+			//=============================			
+			private function getAllCustomerHandler(evt:ResultEvent):void{
+				customers = evt.result as ArrayCollection;
+			}										
+		]]>
+	</mx:Script>
+
+	  <!--==========================
+	    Variables
+	  ===========================-->	
+	<vo:UserVO id="_user" 
+		userType="{typeRadioGroup.selectedValue}"
+		customerId="{(customer.selectedItem as CustomerVO).id}"
+		employeeNo="{employeeNo.text}"
+		userName="{userName.text}"
+		firstName="{firstName.text}"
+		lastName="{lastName.text}"
+		englishFirstName="{englishFirstName.text}"
+		englishLastName="{englishLastName.text}"
+		entryDate="{entryDate.selectedDate}"
+		leaveDate="{leaveDate.selectedDate}"
+		userGroupId="{userGroup.selectedIndex}"
+		userGroupName="{(userGroup.selectedItem as UserGroupVO).groupName}"
+		productionGroup="{(userGroup.selectedItem as UserGroupVO).production}"
+		manager="{managerCheckBox.selected?Constants.BOOLEAN_YES:Constants.BOOLEAN_NO}"
+		email="{email.text}"/>
+	
+	
+	<!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="customerRo" destination="ro.customer" fault="faultHandler(event)">
+		<mx:method name="getAllCustomer" result="getAllCustomerHandler(event)"/>
+	</mx:RemoteObject>	
+		
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->			
+	<mx:FormItem required="true" label="{resourceManager.getString('Language','label.user_type')}">
+		<mx:RadioButtonGroup id="typeRadioGroup" change="onTypeChange()"/>
+		<mx:HBox>		
+			<mx:RadioButton id="employeeRadioButton" groupName="typeRadioGroup" label="Employee" value="{Constants.USER_TYPE_EMPLOYEE}"/>
+			<mx:RadioButton id="customerRadioButton" groupName="typeRadioGroup" label="Customer" value="{Constants.USER_TYPE_CUSTOMER}"/>
+		</mx:HBox>
+	</mx:FormItem>
+    <mx:FormItem id="customerItem" required="true" label="{resourceManager.getString('Language','label.customer_name')}">
+        <mx:ComboBox id="customer" dataProvider="{customers}" labelField="customerName" prompt="Select one ..." selectedIndex="-1" width="100%"/>
+    </mx:FormItem>   	
+    <mx:FormItem id="employeeNoItem" required="true" label="{resourceManager.getString('Language','label.employee_no')}">
+       <mx:HBox width="100%" id="employHbox">
+       		<mx:TextInput id="employeeNo" text="{user.employeeNo}" width="100%" editable="{user.id==0}"/>
+       </mx:HBox>
+    </mx:FormItem>        
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.user_name')}">
+    	<mx:HBox width="100%" id="userNameHbox">
+    		<mx:TextInput id="userName" text="{user.userName}"  width="100%" editable="{user.id==0}"/>
+    	</mx:HBox>
+    </mx:FormItem>         
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.first_name')}">
+        <mx:TextInput id="firstName" text="{user.firstName}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.last_name')}">
+        <mx:TextInput id="lastName" text="{user.lastName}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.english_first_name')}">
+        <mx:TextInput id="englishFirstName" text="{user.englishFirstName}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.english_last_name')}">
+        <mx:TextInput id="englishLastName" text="{user.englishLastName}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem required="true" label="{resourceManager.getString('Language','label.entry_date')}">
+    	<mx:DateField id="entryDate" selectedDate="{user.entryDate}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem label="{resourceManager.getString('Language','label.leave_date')}">
+        <mx:DateField id="leaveDate" selectedDate="{user.leaveDate}" width="100%"/>
+    </mx:FormItem>
+    <mx:FormItem id="userGroupItem" required="true" label="{resourceManager.getString('Language','label.group')}">
+        <mx:ComboBox id="userGroup" dataProvider="{model.metaData.userGroups}" labelField="groupName" width="100%"
+        	change="onGroupChange()" selectedIndex="{user.userGroupId}"/>         	
+        <mx:CheckBox id="managerCheckBox" selected="{user.manager==Constants.BOOLEAN_YES?true:false}" 
+        	label="Art Production Manager"/>            	
+    </mx:FormItem>
+    <mx:FormItem label="{resourceManager.getString('Language','label.email')}" required="true">
+    	<mx:HBox width="100%" id="emailHbox">
+    		 <mx:TextInput id="email" text="{user.email}"  width="100%"/>
+    	</mx:HBox>
+    </mx:FormItem>   
+    	<mx:NumberValidator	id="customerValidator" source="{customer}" property="selectedIndex" minValue="0"/>       
+<!--	    <mx:StringValidator id="employeeNoValidator" source="{employeeNo}" property="text"/>-->
+<!--	    <mx:StringValidator id="userNameValidator" source="{userName}" property="text"/>-->
+	    <mx:StringValidator id="firstNameValidator" source="{firstName}" property="text"/>
+	    <mx:StringValidator id="lastNameValidator" source="{lastName}" property="text"/>
+	    <mx:StringValidator id="englishFirstNameValidator" source="{englishFirstName}" property="text"/>
+	    <mx:StringValidator id="englishLastNameValidator" source="{englishLastName}" property="text"/>
+	    <mx:DateValidator id="entryDateValidator" source="{entryDate}" property="text" />
+<!--	    <mx:EmailValidator id="emailValidator" source="{email}" property="text" required="false"/>-->
+	    <validator:DuplicateValidator id="employeeNoDuplicateValidator" required="true"  source="{employeeNo}" property="text"
+			trigger="{employeeNo}" triggerEvent="valueCommit" validatorType="Employee No Duplicate" 
+			errorMessage="{resourceManager.getString('Language','error.employee_no')}"
+			validatorObject="employeeNo" validateParent="{employHbox}" doValidate="{user.id!=0}"/>
+		<validator:DuplicateValidator id="userNameDuplicateValidator" required="true"  source="{userName}" property="text"
+			validatorType="userName Duplicate" errorMessage="{resourceManager.getString('Language','error.user_name')}"
+			trigger="{userName}" triggerEvent="valueCommit" validatorObject="userName" validateParent="{userNameHbox}" doValidate="{user.id!=0}"/>
+		<validator:DuplicateValidator id="emailDuplicateValidator" required="true"  source="{email}" property="text"
+			validatorType="email Duplicate" errorMessage="{resourceManager.getString('Language','error.email')}"
+			validatorObject="email" trigger="{email}" triggerEvent="valueCommit" validateParent="{emailHbox}"
+			/>		
+</mx:Form>

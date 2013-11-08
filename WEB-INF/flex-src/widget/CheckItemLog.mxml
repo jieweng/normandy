@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	width="100%" height="100%"
+	creationComplete="init()">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ICollectionView;
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.ListEvent;
+			
+			import com.pearl.normandy.vo.CheckItemLogVO;
+			import com.pearl.normandy.enum.CheckItemEnum;			
+			
+			import popup.ViewFeedbackPopup;						
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================					    
+		    [Bindable]
+		    private var checkItemLogs:ArrayCollection;
+		    
+			private var _searchFilter:String = "";
+			[Bindable] 
+			public function set searchFilter(value:String):void{
+				_searchFilter=value;
+				updateCollectionFilter();
+			}
+			
+			public function get searchFilter():String{
+				return this._searchFilter;
+			}
+			
+			private var _submitedTimeFilter:Date = null;
+			[Bindable]
+			public function set submitedTimeFilter(value:Date):void{
+				this._submitedTimeFilter = value;
+				updateCollectionFilter();
+			}
+			
+			public function get submitedTimeFilter():Date{
+				return this._submitedTimeFilter;
+			}
+		    //==============================
+		    //Methods
+		    //==============================	
+		    private function init():void{
+		    	checkItemLogRo.getCheckItemLogByUserName(model.currUser);
+		    }
+		    	    
+		  	/**
+		   	* Refreshes the collection view. 
+		   	*/  
+		  	private function updateCollectionFilter():void {
+		  		if(checkItemLogs){
+			    	var collection:ICollectionView = checkItemLogs as ICollectionView;
+			    	if (collection.filterFunction == null) {
+			      		collection.filterFunction = collectionFilter;
+			    	}				    	
+			    	collection.refresh();
+			   	}
+		  	}		    
+		    
+		    
+		  	/**
+		   	* The collection view filter that displays only current project activites.
+		   	*/  
+		  	private function collectionFilter(item:Object):Boolean {
+		    	var checkItemLog:CheckItemLogVO = item as CheckItemLogVO;
+		    	if(timeCompare(checkItemLog.createdDate, submitedTimeFilter)){
+		    		if(StringUtil.trim(searchFilter)==""){
+		   				return true;
+		   			}
+		   			var searchArr:Array=StringUtil.trim(searchFilter).split(" ");
+		   			var searchStr:String=checkItemLog.projectName+checkItemLog.activityName+checkItemLog.resourceName+checkItemLog.status;
+		   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+		   				return true;
+		   			}		   			
+					else{
+						return false;
+					}
+		    	}else return false
+		  	} 			    
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+		    private function getCheckItemLogHandler(event:ResultEvent):void{
+		    	checkItemLogs = event.result as ArrayCollection;
+		    }		
+
+		    //==============================
+		    //Event Handlers
+		    //==============================		    
+		    private function onCheckItemADGDoubleClick(event:ListEvent):void{
+		    	var checkItemLog:CheckItemLogVO = event.itemRenderer.data as CheckItemLogVO;
+		    	var viewFeedbackPopup:ViewFeedbackPopup = ViewFeedbackPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), ViewFeedbackPopup, true));
+				PopUpManager.centerPopUp(viewFeedbackPopup);
+				viewFeedbackPopup.checkItemId = checkItemLog.checkItemId;		    	
+		    }	    
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Variables
+	===========================-->
+	<vo:CheckItemVO/>
+	
+	<!--==========================
+	    Services
+	===========================-->					
+	<mx:RemoteObject id="checkItemLogRo" destination="ro.checkitemlog">
+		<mx:method name="getCheckItemLogByUserName" result="getCheckItemLogHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox width="100%" height="100%">
+      <mx:AdvancedDataGrid id="checkItemADG" dataProvider="{checkItemLogs}" width="100%" height="100%"
+      	doubleClickEnabled="true"
+      	itemDoubleClick="onCheckItemADGDoubleClick(event)">                   
+      	<mx:columns>
+      		<mx:AdvancedDataGridColumn dataField="projectName" headerText="{resourceManager.getString('Language','label.project_name')}" width="80"/>
+      		<mx:AdvancedDataGridColumn dataField="activityName" headerText="{resourceManager.getString('Language','label.task_name')}" width="120"/>
+      		<mx:AdvancedDataGridColumn dataField="resourceName" headerText="{resourceManager.getString('Language','label.artist')}" width="100"/>            				
+      			      	
+      		<mx:AdvancedDataGridColumn dataField="createdDate" labelFunction="formatDateSimple" width="80"
+      			headerText="{resourceManager.getString('Language','label.checkitem.submitted_time')}"/>
+			<mx:AdvancedDataGridColumn dataField="status" headerText="{resourceManager.getString('Language','label.checkitem.status')}" width="50"/>      			
+      		<mx:AdvancedDataGridColumn width="30" headerText="" 
+      			dataField="comment" showDataTips="true" dataTipField="comment">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox width="100%" height="100%" horizontalAlign="center">    
+              			<mx:Image source="{data.comment!=null?ImageEnum.IMAGECLASS_COMMENT:''}"
+              				horizontalAlign="center" width="16" height="16" toolTip="{data.comment}"> 
+              				<mx:Script>
+              					<![CDATA[        						
+									import com.pearl.normandy.enum.ImageEnum;
+              					]]>
+              				</mx:Script>          				
+              			</mx:Image>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>          			
+      		</mx:AdvancedDataGridColumn>	
+      	</mx:columns>
+      </mx:AdvancedDataGrid>
+	</mx:VBox>							    	
+</mx:VBox>

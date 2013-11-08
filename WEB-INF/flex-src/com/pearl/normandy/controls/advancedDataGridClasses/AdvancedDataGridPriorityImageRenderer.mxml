@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" height="20" width="20" horizontalScrollPolicy="off">
+
+<mx:Script>
+	<![CDATA[
+		import com.pearl.normandy.enum.ImageEnum;
+		import com.pearl.normandy.utils.Constants;
+		public function getImage(value:String):Class{
+			var imageSource:Class;
+			
+			if(value==Constants.PRIORITY_HIGH){
+				imageSource=ImageEnum.IMAGECLASS_PRIORITY_HIGH;
+			}else if(value==Constants.PRIORITY_MEDIUM){
+				imageSource=ImageEnum.IMAGECLASS_PRIORITY_MEDIUM;
+			}else if(value==Constants.PRIORITY_LOW){
+				imageSource=ImageEnum.IMAGECLASS_PRIORITY_LOW;
+			}
+			return imageSource;
+		}
+	]]>
+</mx:Script>
+    <mx:Image source="{getImage(data.priority)}"/>
+    <mx:Label id="priority" text="{data.priority}"/>
+</mx:HBox>

@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	height="100%" width="100%" 
+	horizontalAlign="center"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off">
+	
+	<mx:Script source="../../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import ca.dpcp.components.DPCPTimeChooser;    
+			import mx.events.CalendarLayoutChangeEvent;			    
+			import com.pearl.normandy.utils.NormandyModel;
+
+			public var selectedDate:Date;
+			private var endTC:DPCPTimeChooser;
+			
+			private var _data:Object;
+			[Bindable]
+			public override function set data(value:Object):void{
+				this._data = value;
+				
+				endDC.selectedDate = data.endTime;
+				
+				if(endTC == null){
+					endTC = new DPCPTimeChooser();
+					endTC.id = "endTC";
+					endTimeHB.addChild(endTC);						
+				}
+				
+				endDC.enabled = data.startTime>=model.metaData.activityLockedTime;
+				endTC.enabled = data.startTime>=model.metaData.activityLockedTime;
+		        endTC.removeEventListener(DPCPTimeChooser.TIME_CHANGED, onTimechange);
+		        endTC.setTimeFromString(getTimeString(data.endTime));
+		        endTC.addEventListener(DPCPTimeChooser.TIME_CHANGED, onTimechange);				
+			}
+			
+			public override function get data():Object{
+				return this._data;
+			}
+			
+			
+  			private function onTimechange(event:Event):void{
+  				data.endTime = endDC.selectedDate;  
+		    	data.endTime.hours   = endTC.getHours();
+		        data.endTime.minutes = endTC.getMinutes();	
+		        selectedDate = data.endTime as Date;		       		   				
+  			} 		                                                  			
+		]]>
+	</mx:Script>	
+	
+	<mx:HBox id="endTimeHB">
+  		<mx:DateField id="endDC" yearNavigationEnabled="true" change="onTimechange(event)"/>  					
+	</mx:HBox>
+</mx:HBox>

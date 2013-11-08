@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProjectMember">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ProjectMember" type="com.pearl.normandy.projectmember.ProjectMemberTo" />
+
+	<!--========================= Select ========================-->
+	<select id="selectProjectMember" parameterClass="java.util.Map" resultClass="ProjectMember">
+		select 
+			pm.ID 					as id,
+			pm.PROJECT_ID   		as projectId,
+			p.PROJECT_NAME			as name,
+			pm.USER_ID  			as userId,
+			pm.USER_ID				as resourceId,
+			pm.STATUS				as status,
+			pm.VERSION 				as version,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)   as userName,
+			u.USER_NAME   			as englishName,
+			pm.CREATED_DATE			as createdDate,
+			pm.CREATED_BY			as createdBy,
+			CONCAT(u2.FIRST_NAME," ",u2.LAST_NAME)   as createdByName,			
+			pm.UPDATED_DATE			as updatedDate,
+			pm.UPDATED_BY			as updatedBy,
+			pm.RELEASE_DATE			as releaseDate,
+			pm.START_TIME           as startTime,
+			pm.END_TIME             as endTime,
+			pm.ISAD                 as isAD,
+			pm.ISQA                 as isQA,
+			pm.ISPM                 as isPM,
+			pm.PRIV_TASK_1			as privTask1,
+			pm.PRIV_TASK_2			as privTask2,
+			pm.PRIV_RESOURCE		as privResource,
+			pm.PRIV_PRIVILEGE		as privPrivilege,
+			pm.PRIV_PERFORMANCE		as privPerformance,
+			pm.PRIV_MAIL			as privMail
+		from PROJECT_MEMBER pm, USER u, USER u2, PROJECT p 
+		where pm.USER_ID = u.ID and pm.PROJECT_ID = p.ID
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				pm.PROJECT_ID=#projectId#
+			</isNotNull>
+			<isNotNull prepend="and" property="userId">
+				pm.USER_ID=#userId#
+			</isNotNull>
+			<isNotNull prepend="and" property="status">
+				pm.STATUS=#status#
+			</isNotNull>			
+		</dynamic>
+		and pm.CREATED_BY=u2.USER_NAME
+	</select>		
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="ProjectMember">
+		insert into PROJECT_MEMBER
+			(PROJECT_ID,
+			USER_ID,
+			STATUS,
+			VERSION,
+			CREATED_BY,
+			CREATED_DATE,
+			RELEASE_DATE,
+			START_TIME,
+			END_TIME,
+			ISAD,
+			ISQA,
+			ISPM,
+			PRIV_TASK_1,
+			PRIV_TASK_2,
+			PRIV_RESOURCE,
+			PRIV_PRIVILEGE,
+			PRIV_PERFORMANCE,
+			PRIV_MAIL)
+		values
+			(#projectId#,
+			#userId#,
+			#status#,
+			#version#,
+			#createdBy#,
+			#createdDate#,
+			#releaseDate#,
+			#startTime#,
+			#endTime#,
+			#isAD#,
+			#isQA#,
+			#isPM#,
+			#privTask1#,
+			#privTask2#,
+			#privResource#,
+			#privPrivilege#,
+			#privPerformance#,
+			#privMail#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="ProjectMember">
+		update PROJECT_MEMBER set 
+			USER_ID			=	#userId#,
+			PROJECT_ID		=	#projectId#,
+			STATUS			=	#status#,
+			VERSION			=	#version#,
+			UPDATED_DATE	=	#updatedDate#,
+			UPDATED_BY		=	#updatedBy#,
+			RELEASE_DATE	=	#releaseDate#,
+			PRIV_TASK_1		=	#privTask1#,
+			PRIV_TASK_2		=	#privTask2#,
+			PRIV_RESOURCE	=	#privResource#,
+			PRIV_PRIVILEGE	=	#privPrivilege#,
+			PRIV_PERFORMANCE=	#privPerformance#,
+			PRIV_MAIL		=	#privMail#
+		where ID=#id#
+	</update>
+	
+	<update id="updateStatus" parameterClass="ProjectMember">
+		update PROJECT_MEMBER set 
+			STATUS		=	#status#			
+			<dynamic>
+				<isNotNull prepend="," property="version">
+					VERSION		=	#version#
+				</isNotNull>
+				<isNotNull prepend="," property="updatedDate">
+					UPDATED_DATE=	#updatedDate#
+				</isNotNull>
+				<isNotNull prepend="," property="updatedBy">
+					UPDATED_BY	=	#updatedBy#
+				</isNotNull>
+				<isNotNull prepend="," property="releaseDate">
+					RELEASE_DATE=	#releaseDate#
+				</isNotNull>																			
+			</dynamic>
+		where USER_ID=#userId#
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				PROJECT_ID=#projectId#
+			</isNotNull>			
+		</dynamic>		
+	</update>	
+	
+	<delete id="delete" parameterClass="java.util.Map">
+		delete from PROJECT_MEMBER
+		<dynamic prepend="where">
+			<isNotEmpty prepend="and" property="id">
+				ID=#id#
+			</isNotEmpty>
+			<isNotEmpty prepend="and" property="userId">
+				USER_ID=#userId#
+			</isNotEmpty>
+			<isNotEmpty prepend="and" property="projectId">
+				PROJECT_ID=#projectId#
+			</isNotEmpty>
+		</dynamic>
+	</delete>	
+</sqlMap>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" creationComplete="init()"  >
+	<mx:Script>
+		<![CDATA[
+		import mx.events.IndexChangedEvent;
+		import mx.controls.Text;
+		import mx.binding.utils.BindingUtils;
+		import mx.controls.Image;
+		[Bindable]public var max:int;//number of pentacle
+		[Bindable]public var value:int=0;//value of pentacle
+		[Bindable]public var currentIndex:int=0;//current value of pentacle
+		
+		private var image_const:String = "image";
+		private var componetDiv_const:String = "componetDiv";
+		private var image:Image;
+		[Embed(source="/resource/pentacle_empty.gif")]
+        private static const empty:Class; 
+        [Embed(source="/resource/pentacle_fill.gif")]
+        private static const fill:Class;
+     
+		public function init():void{
+			value=currentIndex;
+			while(max==0){
+				max=5;}//defalut number of pentacle
+			var n:int=1
+			while(n!=(max+1)){
+				image=new Image();
+				image.id=image_const+n;
+				image.name=image_const+n;
+				if(n<currentIndex+1){
+					image.load(fill);
+				}else{
+					image.load(empty);
+				}
+				image.addEventListener(MouseEvent.MOUSE_OVER,MouseOver);
+				componetDiv.addEventListener(MouseEvent.MOUSE_OUT,MouseOut);
+				image.addEventListener(MouseEvent.CLICK,Click);
+				n++;
+				componetDiv.addChild(image);
+			}
+		}
+		
+		private function Click(evt:MouseEvent):void
+		{
+		var	index:int=getIndex(evt.currentTarget.id); 
+		currentIndex=index;
+		value=index;
+		ChangeState(index,true);
+		}
+		private function MouseOver(evt:MouseEvent):void{
+			var	index:int=getIndex(evt.currentTarget.id);
+			ChangeState(index,false);
+		}
+
+		private function MouseOut(evt:MouseEvent):void{
+			var s:String=evt.target.id;
+			if(s==componetDiv_const) {
+			ChangeState(0,true);
+			}
+		}
+		private function ChangeState(index:int,isfix:Boolean):void{
+         var i:int = 0;
+         var k:int = (isfix==true? currentIndex : index);
+         for(i=1; i<=max; i++){
+         	var image:Image = componetDiv.getChildByName(image_const+i) as Image;
+		 	image.source=(i<=k?fill:empty);
+         }
+		}
+		private function getIndex(index:String):int{
+			var a:int=index.indexOf(image_const);
+			var str:String=index.substr(a+5,1);
+			return (int)(str);
+		}
+		]]>
+	</mx:Script>
+	<mx:VBox>
+		<mx:Canvas  id="hboxDiv">
+		<mx:HBox id="componetDiv" paddingBottom="2" paddingTop="2" paddingLeft="2" paddingRight="2">
+		</mx:HBox>
+		</mx:Canvas>
+		<!--//for debug 
+		<mx:Label id="text2" text="" visible="false"/>
+		-->
+	</mx:VBox>
+</mx:Canvas >

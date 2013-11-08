@@ -1,0 +1,44 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	
+	<body style="font-size: 13">
+		<font style="font-size: 15;font-weight: bold;">
+			开始日期（Start Time）：$!{startTime}
+		</font>
+		<br>
+		<br>
+		<font style="font-size: 15;font-weight: bold;">
+			结束日期（End Time）：$!{endTime}
+		</font>
+		<br>
+		<br>
+		<font style="font-size: 15;font-weight: bold;">
+			工作天数（Working Days）：$!{workdays}天(Days)
+		</font>
+		<br>
+		<br>
+		<table border="0" cellpadding="2" cellspacing="2" frame="void" bgcolor="#000000" style="font-size: 13;" width="90%" height="25">
+			<tr bgcolor="#993300" bordercolor="#993300" align="center">
+				<th width="15%">姓名</th>
+				<th width="5%">工作天数</th>
+				<th width="25%">所在项目</th>
+				<th width="50%">项目负责人</th>
+			</tr>
+		#foreach($idleEmployee in $list)
+			<tr bgcolor="#FFFFFF" align="center">
+				<td>$!{idleEmployee.userName}</td>
+				<td>$!{idleEmployee.workdays}</td>
+				<td>$!{idleEmployee.projects}</td>
+				<td>$!{idleEmployee.recipients}</td>
+			</tr>
+		#end
+		</table>
+		<br>
+		<br>
+		<font style="font-size: 15;font-weight: bold;">
+			备注：工作天数小于$!{workdays}表示有空闲，工作天数大于$!{workdays}表示任务有重叠！
+		</font>
+	</body>
+</html>

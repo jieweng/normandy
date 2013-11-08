@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="BaselineProductionProcess">
+
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insertBaselineProductionProcess" parameterClass="java.util.Map">
+		insert into BASELINE_PRODUCTION_PROCESS
+		(ID,		
+		PROJECT_ID,
+		B_REVISION,
+		PROCESS_NAME,
+		TASK_CATEGORY_ID,	
+		DESCRIPTION,	
+		DELETED,	
+		VERSION,	
+		CREATED_DATE,
+		CREATED_BY,	
+		UPDATED_DATE,	
+		UPDATED_BY)
+		
+		select 
+			ID,
+			#id#,
+			#revision#,
+			PROCESS_NAME,
+			TASK_CATEGORY_ID,	
+			DESCRIPTION,	
+			DELETED,	
+			VERSION,	
+			CREATED_DATE,
+			CREATED_BY,	
+			UPDATED_DATE,	
+			UPDATED_BY
+		from PRODUCTION_PROCESS pp
+		where pp.PROJECT_ID = #id#
+	</insert>
+	
+	<delete id="deleteBaselineProductionProcess" parameterClass="java.lang.Integer">
+		delete from BASELINE_PRODUCTION_PROCESS
+		where PROJECT_ID = #value#
+	</delete>
+</sqlMap>

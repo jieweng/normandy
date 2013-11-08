@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	width="100%" height="100%"
+	paddingTop="10" paddingBottom="10" paddingLeft="30" paddingRight="30">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.FeedbackVO;
+			import com.pearl.normandy.vo.FeedbackReferenceVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+
+			import popup.PhotoViewerPopup;
+
+		    //==============================
+		    //Data Attributes
+		    //==============================
+		    private var photoViewerPopup:PhotoViewerPopup;
+			private var hasPhotoBrower:Boolean = false;		
+		    
+			[Bindable]
+			public var CATEGORY:String;		    
+		    
+			private var _task:TaskVO;
+			[Bindable]
+			public function set task(value:TaskVO):void{
+				this._task = value;
+				feedbackRo.getFeedbackByTaskId(task.id, CATEGORY);												
+			}
+			
+			public function get task():TaskVO{
+				return this._task;
+			}
+			
+			private var _checkItemId:int;
+			[Bindable]
+			public function set checkItemId(value:int):void{
+				this._checkItemId = value;
+				feedbackRo.getFeedbackByCheckItemId(checkItemId);
+			}
+			
+			public function get checkItemId():int{
+				return this._checkItemId;
+			}
+			
+			[Bindable]
+		    private var selectedFeedback:FeedbackVO;			
+	
+			private function onAdvancedDataGridChange():void{
+				selectedFeedback = feedbackAdg.selectedItem as FeedbackVO;
+				if(selectedFeedback == null)
+					return;
+				
+				if(references == null){
+					references = new ArrayCollection();
+				}
+				references = selectedFeedback.feedbackReference;
+			}
+            
+             private function onDoubleClickReferenceTileList(evt:ListEvent):void{
+            	
+				if(hasPhotoBrower){
+					return;
+				}
+             	photoViewerPopup = PhotoViewerPopup(PopUpManager.createPopUp(this, PhotoViewerPopup));
+             	PopUpManager.centerPopUp(photoViewerPopup);
+             	photoViewerPopup.selectedTarget = referenceTileList;
+             	photoViewerPopup.addEventListener(Event.REMOVED_FROM_STAGE, onPhotoBrowerRemove);
+             	hasPhotoBrower = true
+            }
+            
+            private function onPhotoBrowerRemove(evt:Event):void{
+            	photoViewerPopup.removeEventListener(Event.REMOVED_FROM_STAGE, onPhotoBrowerRemove);
+            	hasPhotoBrower = false;
+            }
+            
+				
+		    //==============================
+		    //Data Attributes
+		    //==============================			
+			[Bindable]
+			public var feedbacks:ArrayCollection;
+			
+			[Bindable]
+			private var references:ArrayCollection	
+			
+			            
+		    //==============================
+		    //Remote Object Handler
+			//=============================
+			private function getFeedbackByTaskIdHandler(event:ResultEvent):void{
+            	feedbacks = event.result as ArrayCollection;
+            	
+            	if(feedbacks && feedbacks.length>0){
+            		feedbackAdg.selectedIndex = 0;
+            		selectedFeedback = feedbacks.getItemAt(0) as FeedbackVO;
+            		references = (feedbacks.getItemAt(0) as FeedbackVO).feedbackReference;
+            	}
+            }
+            
+			private function getFeedbackByCheckItemIdHandler(event:ResultEvent):void{
+            	feedbacks = event.result as ArrayCollection;
+            	
+            	if(feedbacks && feedbacks.length>0){
+            		feedbackAdg.selectedIndex = 0;
+            		selectedFeedback = feedbacks.getItemAt(0) as FeedbackVO;
+            		references = (feedbacks.getItemAt(0) as FeedbackVO).feedbackReference;
+            	}
+            }            
+            
+            private function serialHandler(item:Object, col:int):String{
+				return (feedbacks.getItemIndex(item) + 1).toString();
+			}
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="feedbackRo" destination="ro.feedback">
+		<mx:method name="getFeedbackByTaskId" result="getFeedbackByTaskIdHandler(event)"/>
+		<mx:method name="getFeedbackByCheckItemId" result="getFeedbackByCheckItemIdHandler(event)"/>		
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:AdvancedDataGrid id="feedbackAdg" width="100%" height="60%" editable="false" 
+		dataProvider="{feedbacks}" rowHeight="30"
+		change="onAdvancedDataGridChange()">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn sortable="false" width="10" labelFunction="serialHandler"/>
+			<mx:AdvancedDataGridColumn dataField="createdDate" labelFunction="formatDateShort" width="40"
+				headerText="{resourceManager.getString('Language','label.feedback.date')}"/>
+			<mx:AdvancedDataGridColumn dataField="ownerName" headerText="{resourceManager.getString('Language','label.member.created_by')}" width="30" />
+			<mx:AdvancedDataGridColumn dataField="errorText" editable="false" width="120" 
+	        	headerText="{resourceManager.getString('Language','label.feedback.error.text')}"/>
+    		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.severity')}" width="40"  
+    			dataField="severityValue"/>    			
+       		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.root.cause')}" width="40"  
+       			dataField="typeValue"/>
+    		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.status')}" width="40" 
+    			dataField="statusValue"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>
+	<mx:TileList id="referenceTileList" width="100%" height="210"
+		dataProvider="{references}" 
+		rowHeight="205" columnWidth="205"
+		doubleClickEnabled="true"
+		itemRenderer="renderer.Thumbnail"
+		itemDoubleClick="onDoubleClickReferenceTileList(event)">
+	</mx:TileList>
+</mx:VBox>

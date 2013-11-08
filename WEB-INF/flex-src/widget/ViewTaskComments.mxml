@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:vo="com.pearl.normandy.vo.*" 
+	label="{resourceManager.getString('Language','label.comments')}"
+	width="100%" 
+	paddingTop="10" paddingBottom="10" paddingLeft="30" paddingRight="30">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.TaskVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+
+			import com.pearl.normandy.event.CommentEvent;			
+			import com.pearl.normandy.utils.DateUtil;
+			
+		    //==============================
+		    //Data Attributes
+		    //============================== 				
+			private var _task:TaskVO;
+			
+			[Bindable]
+			public function set task(value:TaskVO):void{
+				this._task = value;
+				
+				if(task){
+					CairngormEventDispatcher.getInstance().dispatchEvent(CommentEvent.getTaskCommentEvent(task));
+				}
+			}
+			
+			public function get task():TaskVO{
+				return this._task;
+			}
+			
+		    //==============================
+		    //Methods
+		    //==============================
+
+		]]>
+	</mx:Script>
+
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:VBox label="{resourceManager.getString('Language','label.comments')}" width="100%" height="100%" horizontalAlign="center">
+	<mx:HBox height="2"/>
+		<mx:Repeater width="100%" id="threads" dataProvider="{model.LOCAL_TASK_COMMENTS}">
+			<mx:Canvas width="99%" cornerRadius="10" borderStyle="solid">
+				<mx:HBox width="100%" paddingTop="5" paddingBottom="5" paddingLeft="5">
+					<mx:TextArea width="85%" height="100%" htmlText="{threads.currentItem.comment}" paddingRight="20" borderStyle="none"/>
+					<mx:VBox width="15%" paddingTop="2">
+						<mx:Label text="{threads.currentItem.createdBy}" fontWeight="bold"/>
+						<mx:Label text="{DateUtil.format(threads.currentItem.createdDate, DateUtil.SHORT)}"/>
+					</mx:VBox>
+				</mx:HBox>
+			</mx:Canvas>
+		</mx:Repeater>
+	</mx:VBox>
+</mx:HBox>

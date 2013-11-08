@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:pm="pm.*"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	title="{resourceManager.getString('Language','label.add_production_process')}" layout="vertical"
+	width="800" minHeight="300"	maxHeight="600"	
+	showCloseButton="true"  
+	borderAlpha="1" 
+	creationComplete="init()"
+	close="PopUpManager.removePopUp(this);"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>  
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;		
+
+			import mx.collections.SortField;
+			import mx.collections.Sort;			
+			import mx.controls.Alert;
+			import mx.containers.Canvas;
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;  
+			import mx.rpc.events.ResultEvent;
+			import mx.collections.ArrayCollection;			
+			import mx.managers.PopUpManager;
+
+			import com.pearl.normandy.event.ProcessEvent;		
+			import com.pearl.normandy.event.ProcessStepEvent;				
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.vo.ProcessStepVO;
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			
+			//==============================
+		    //Control Attributes
+		    //==============================			
+			private var currUser:UserVO = model.currUser;	  
+			
+			
+			[Bindable]
+			public var selectedProcess:ProductionProcessVO;
+			
+			//==============================
+		    //Data Attributes
+		    //==============================				
+			private var _projectProcesses:ArrayCollection;
+			[Bindable]
+			public function set projectProcesses(value:ArrayCollection):void{
+				this._projectProcesses = value;				
+				
+				if(projectProcesses.length == 0){
+					addProcess();
+				}
+				else{
+					selectedProcess = projectProcesses.getItemAt(0) as ProductionProcessVO;
+					processSteps = selectedProcess.processSteps as ArrayCollection;
+				}				
+			}			
+			
+			public function get projectProcesses():ArrayCollection{
+				return this._projectProcesses;
+			}
+				
+		    		 			
+			[Bindable]
+			private var processSteps:ArrayCollection;
+		
+			
+		    //==============================
+		    //Methods
+		    //==============================		
+			private function init():void{
+				this.setFocus();	
+				if(model.GLOBAL_SELECTED_PROJECT != null){
+					CairngormEventDispatcher.getInstance().dispatchEvent(ProcessEvent.getProjectProcessEvent(model.GLOBAL_SELECTED_PROJECT, false));				
+				}  							
+			}		    
+		    		
+			private function processSerialLabelFun(item:Object, col:int):String{			
+				return (projectProcesses.getItemIndex(item) + 1) + "";
+			}
+			
+			private function processStepSerialLabelFun(item:Object, col:int):String{			
+				return (processSteps.getItemIndex(item) + 1) + "";
+			}
+			
+			//添加process
+			private function addProcess():void{							  	
+			  	selectedProcess = new ProductionProcessVO();
+			  	processSteps = selectedProcess.processSteps = new ArrayCollection();
+				if(!projectProcesses){
+					projectProcesses = new ArrayCollection();
+				}			  	
+			  	
+				projectProcesses.addItem(selectedProcess);
+
+				processAdg.selectedIndex = projectProcesses.length - 1;
+ 				if(projectProcesses.length > 6){
+					processAdg.verticalScrollPosition = projectProcesses.length - 6;
+				} 
+				addProcessStep();						
+			}		
+			//删除process
+			private function deleteProcess():void{
+ 				if(selectedProcess==null){
+					return;
+				} 
+				confirm(resourceManager.getString("Language","alert.delete_process"),
+			   		resourceManager.getString("Language","title.confirmation"), confirmDeleteProcess);		
+			}
+			
+			private function confirmDeleteProcess(evt:CloseEvent):void{
+				if(evt.detail == Alert.YES){
+					deleteProcessFun();
+				}else{
+					return;
+				}	
+			}
+			
+			private function deleteProcessFun():void{
+				if(selectedProcess.id > 0){
+					CairngormEventDispatcher.getInstance().dispatchEvent(ProcessEvent.deleteProcessEvent(selectedProcess));
+				}	
+				selectedProcess.processSteps.removeAll();
+				processSteps = null;
+				projectProcesses.removeItemAt(projectProcesses.getItemIndex(selectedProcess));
+				selectedProcess = null;
+			}
+			
+			//添加processStep
+			private function addProcessStep():void{
+				var processStep:ProcessStepVO = new ProcessStepVO();
+				processStep.deliverable = Constants.DELIVERABLE_YES;
+				
+				if(!processSteps){
+					processSteps = new ArrayCollection();
+				}				
+				processSteps.addItem(processStep);
+
+				processStepAdg.selectedIndex = processSteps.length - 1;
+ 				if(processSteps.length > 6){
+					processStepAdg.verticalScrollPosition = processSteps.length - 6;
+				} 
+			}		
+			
+			//存储process
+			private function saveProcess():void{			
+				var len:uint = projectProcesses.length;
+				var process:ProductionProcessVO;
+				var nullProcess:Array = new Array()
+				
+				for each(var processVo:ProductionProcessVO in projectProcesses){
+					if(processVo.processName == null || processVo.processName == "" || 
+						!processVo.processSteps || processVo.processSteps.length == 0){
+						nullProcess.push(processVo);
+					}
+					if(processVo.processSteps && processVo.processSteps.length > 0){
+						var nullStep:Boolean = true;
+						for each(var processStep:ProcessStepVO in processVo.processSteps){
+							if(processStep.step != null && processStep.step != ""){
+								nullStep = false;
+							}
+						}
+						if(nullStep){
+							nullProcess.push(processVo);	
+						}
+					}
+				}
+				if(nullProcess.length > 0){
+					confirm(resourceManager.getString("Language","alert.null_process_step"),
+			   			resourceManager.getString("Language","title.confirmation"), confirmSaveProcess);
+				}else{
+					saveProcessDetail();
+				}
+			}						
+			
+			private function confirmSaveProcess(evt:CloseEvent):void{
+				if(evt.detail == Alert.YES){
+					saveProcessDetail();
+				}else{
+					return;
+				}
+			}
+			
+			private function saveProcessDetail():void{
+				var process:ProductionProcessVO;
+				projectProcesses.refresh();
+				for(var i:uint = 0; i < projectProcesses.length; i++){
+					process = projectProcesses.getItemAt(i) as ProductionProcessVO;
+					//写process
+					if(process.processName == null || process.processName == "" || !process.processSteps || 
+						process.processSteps.length == 0){
+						projectProcesses.removeItemAt(projectProcesses.getItemIndex(process));
+						i--;
+					}else if(process.processName && process.processSteps && process.processSteps.length > 0){
+						var nullSteps:Boolean = true;
+						for each(var processStep:ProcessStepVO in process.processSteps){
+							if(processStep.step != null && processStep.step != ""){
+								nullSteps = false;
+								break;
+							}
+						}
+						if(nullSteps){
+							projectProcesses.removeItemAt(projectProcesses.getItemIndex(process));
+							i--;
+						}else{
+							if(isNaN(process.id) ||process.id < 1){
+								process.projectId = model.GLOBAL_SELECTED_PROJECT.id;
+								process.createdBy = currUser.userName;
+								process.createdDate = new Date();
+							}
+							//写processStep
+							var processStepVO:ProcessStepVO;
+							if(process.processSteps && process.processSteps.length > 0){
+								for(var j:uint = 0; j < process.processSteps.length; j++){
+									processStepVO = process.processSteps.getItemAt(j) as ProcessStepVO;
+									if(processStepVO.step == null || processStepVO.step == ""){
+										process.processSteps.removeItemAt(process.processSteps.getItemIndex(processStepVO));
+										j--;
+									}else{
+										if(isNaN(processStepVO.id) || processStepVO.id < 1){
+											processStepVO.createdBy = currUser.userName;
+											processStepVO.createdDate = new Date();
+										}
+									}
+								}
+							}					
+						}
+					}
+				}
+				
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProcessEvent.saveProcessEvent(projectProcesses));
+				PopUpManager.removePopUp(this);
+			}
+			
+			//删除processStep
+			private function deletedProcessStep():void{	
+				if(!processStepAdg.selectedItem){
+					return;
+				}
+				if(((processStepAdg.dataProvider as ArrayCollection).length == 1) || ((processStepAdg.dataProvider as ArrayCollection).length == processStepAdg.selectedItems.length)){
+					Alert.show(resourceManager.getString("Language", "alert.delete_all_process_step"));
+					return;
+				}
+				confirm(resourceManager.getString("Language","alert.delete_process_step"),
+			   		resourceManager.getString("Language","title.confirmation"), confirmDeleteProcessStep);
+			}			
+			
+			private function confirmDeleteProcessStep(evt:CloseEvent):void{
+				if(evt.detail == Alert.YES){
+					deletedProcessStepFun();
+				}else{
+					return;
+				}
+			}
+			
+			private function deletedProcessStepFun():void{
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProcessStepEvent.deleteProcessStepEvent(new ArrayCollection(processStepAdg.selectedItems)));
+				for each(var deleteObj:ProcessStepVO in processStepAdg.selectedItems){						
+					processSteps.removeItemAt(processSteps.getItemIndex(deleteObj));
+				}
+			}
+			
+			
+	
+			
+		    //==============================
+		    //Event Handler
+		    //==============================		    		    		    										
+			//当单击processAdg时 的监听
+			private function onProcessAdgItemClick(evt:ListEvent):void{			
+				selectedProcess = processAdg.selectedItem as ProductionProcessVO;
+				
+				if(selectedProcess.processSteps == null){
+					selectedProcess.processSteps = new ArrayCollection();
+				}
+				processSteps = selectedProcess.processSteps;
+//				sortFun(processSteps);
+			}	
+
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }					
+		]]>
+	</mx:Script>
+
+	 <!--==========================
+	    Binding
+	  ===========================-->		  	
+	<mx:Binding source="model.LOCAL_PROJECT_PROCESSES" destination="this.projectProcesses"/>	  
+
+	
+	 <!--==========================
+	    Page Layout
+	  ===========================-->		    	
+	<mx:HDividedBox width="100%" height="100%" enabled="{model.taskEditable}">
+		<mx:VBox label="{resourceManager.getString('Language','label.project.process')}" 
+			width="50%" height="100%" horizontalAlign="center">
+			<mx:AdvancedDataGrid id="processAdg"  dataProvider="{projectProcesses}" width="100%" height="100%"
+				horizontalScrollPolicy="off" selectedIndex="0" 
+				itemClick="onProcessAdgItemClick(event)">    
+			<mx:columns>  
+				<mx:AdvancedDataGridColumn width="40" headerText="SN." labelFunction="processSerialLabelFun" 
+					sortable="false" editable="false"/>
+
+				<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.task_production')}"
+					dataField="processName"
+					rendererIsEditor="true" 
+					sortable="false">
+					<mx:itemRenderer>
+						<mx:Component>
+							<mx:TextInput width="100%" text="{data.processName}"  
+								valueCommit="onValueCommit(event)">
+								<mx:Script>
+									<![CDATA[
+										import mx.events.FlexEvent;	
+										private function onValueCommit(event:FlexEvent):void{
+											if(data != null){
+												data.processName = event.currentTarget.text;
+											}
+										}												
+									]]>
+								</mx:Script>
+							</mx:TextInput>																															
+						</mx:Component>
+					</mx:itemRenderer>
+				</mx:AdvancedDataGridColumn>
+			</mx:columns>  
+		</mx:AdvancedDataGrid>  
+		<mx:HBox width="100%" horizontalAlign="left">  
+			<mx:Button id="addProcessBtn" label="{resourceManager.getString('Language','label.add_process')}" click="addProcess()"/>  
+			<mx:Button id="delProcessBtn" label="{resourceManager.getString('Language','label.delete_process')}" click="deleteProcess()" 
+				enabled="{selectedProcess?true:false}"/>      
+		</mx:HBox>          
+		</mx:VBox>  
+		
+		<mx:VBox label="{resourceManager.getString('Language','label.process_step')}" width="50%" height="100%" horizontalAlign="center">
+			<mx:AdvancedDataGrid width="100%" height="100%" id="processStepAdg"
+				dataProvider="{processSteps}" 
+				horizontalScrollPolicy="off" allowMultipleSelection="true" >
+				<mx:columns>
+					<mx:AdvancedDataGridColumn width="40" headerText="SN."  
+						sortable="false" editable="false" 
+						labelFunction="processStepSerialLabelFun"/>
+					<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.process_step')}"
+						rendererIsEditor="true" sortable="false">
+						<mx:itemRenderer>
+							<mx:Component>
+								<mx:Form width="100%" horizontalScrollPolicy="off" verticalScrollPolicy="off" height="30"
+									paddingTop="0" top="0" paddingLeft="0">
+									<mx:FormItem  direction="horizontal" horizontalAlign="left"
+										verticalScrollPolicy="off" paddingTop="0" top="0"
+										horizontalScrollPolicy="off" paddingLeft="0"
+										width="100%">
+										<mx:TextInput  id="stepTI" text="{data.step}" width="200" valueCommit="onValueCommit()">
+											<mx:Script>
+											<![CDATA[
+												import mx.validators.Validator;
+												import mx.utils.ObjectUtil;
+												
+												private function onValueCommit():void{
+													if(data !=null){
+														data.step = stepTI.text;
+													}
+												}					
+											]]>
+											</mx:Script>
+										</mx:TextInput>
+										<mx:CheckBox id="stepDeliverableCB" label="{resourceManager.getString('Language','label.deliverable')}" 
+					            			change="onChangeCB(event)" selected="{(data.deliverable == Constants.DELIVERABLE_YES)? true:false}"
+					            			width="100">
+					            			<mx:Script>
+					            				<![CDATA[
+					            					import com.pearl.normandy.utils.Constants;
+					            					import mx.controls.CheckBox;
+					            					
+					            					private function onChangeCB(evt:Event):void{												
+														if(data != null){															
+															if((evt.currentTarget as CheckBox).selected){															
+																data.deliverable = Constants.DELIVERABLE_YES;
+															}else{															
+																data.deliverable = Constants.DELIVERABLE_NO;
+															}
+														}
+													} 
+					            				]]>
+					            			</mx:Script>
+					            		</mx:CheckBox>
+									</mx:FormItem>
+								</mx:Form>
+							</mx:Component>
+						</mx:itemRenderer>
+					</mx:AdvancedDataGridColumn>  
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			<mx:HBox width="100%" horizontalAlign="right" >
+				<mx:Button id="addProcessStepBtn" label="{resourceManager.getString('Language','label.add_process_step')}" 
+					click="addProcessStep()"/>
+				<mx:Button id="delProcessStepBtn" label="{resourceManager.getString('Language','label.delete_step')}" 
+					click="deletedProcessStep()" enabled="{processStepAdg.selectedItem? true:false}"/>
+				<mx:Spacer width="50" height="5"/>   
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HDividedBox>
+	<mx:HBox width="100%" horizontalAlign="center">     
+		<mx:Button id="okBtn" label="{resourceManager.getString('Language','button.ok')}" click="saveProcess()"/>
+		<mx:Button id="cancelBtn" label="{resourceManager.getString('Language','button.cancel')}" click="PopUpManager.removePopUp(this)"/>
+	</mx:HBox>
+</mx:TitleWindow>

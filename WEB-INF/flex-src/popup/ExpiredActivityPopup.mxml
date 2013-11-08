@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.confirmation')}"
+	width="580" height="470" borderAlpha="1"
+	close="PopUpManager.removePopUp(this);"
+	showCloseButton="true"
+	keyDown="onKeyDown(event)">
+	 
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			import mx.controls.ComboBox;
+
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.utils.Constants
+			import com.pearl.normandy.utils.DateUtil;
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+			 
+			[Bindable]
+			public var expiredActivities:ArrayCollection;
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		]]>
+	</mx:Script>
+
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:Label id="activitiesMessage" fontWeight="bold"/>
+	<mx:VBox width="100%" height="100%" paddingLeft="5" paddingTop="5">
+		<mx:Repeater id="activityRepeater" dataProvider="{expiredActivities}">
+			<mx:HRule width="100%"/>
+			<mx:HBox width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.asset_name')}:"/>				
+				<mx:Label text="{activityRepeater.currentItem.name}"/>
+			</mx:HBox>
+			
+			<mx:HBox width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.project.scheduled_finish')}:"/>				
+				<mx:Label text="{DateUtil.format(activityRepeater.currentItem.endTime,DateUtil.SIMPLE)}"/>
+			</mx:HBox>
+			
+			<mx:HBox width="100%" height="90">
+				<mx:TextArea id="comment" width="90%" height="100%"
+					text="{resourceManager.getString('Language','label.comment.lead_check')}"/>
+			</mx:HBox>
+			<mx:HBox width="100%">
+				<mx:Label text="{resourceManager.getString('Language','label.complete.activity.submit')}" />
+				<mx:RadioButton id="yesRB" label="{resourceManager.getString('Language','label.yes')}" 
+					value="Y" groupName="rbGroup{activityRepeater.currentIndex}" change="onYesChange(event)">
+					<mx:Script>
+						<![CDATA[
+							import mx.controls.RadioButton; 
+								
+							private function onYesChange(event:Event):void{
+								var index:int = event.target.repeaterIndices;
+								var activityVO:ActivityVO = expiredActivities.getItemAt(index) as ActivityVO;									
+								
+								if((event.target as RadioButton).selected)
+									activityVO.selected = true;
+							}
+						]]>
+					</mx:Script>
+				</mx:RadioButton>
+				<mx:RadioButton id="noRB" label="{resourceManager.getString('Language','label.no')}" value="N" 
+					groupName="rbGroup{activityRepeater.currentIndex}" change="onNoChange(event)">
+					<mx:Script>
+						<![CDATA[
+							import mx.controls.RadioButton; 
+								
+							private function onNoChange(event:Event):void{
+								var index:int = event.target.repeaterIndices;
+								var activityVO:ActivityVO = expiredActivities.getItemAt(index) as ActivityVO;									
+								
+								if((event.target as RadioButton).selected)
+									activityVO.selected = false;
+							}
+						]]>
+					</mx:Script>
+				</mx:RadioButton>
+			</mx:HBox>
+		</mx:Repeater>
+	</mx:VBox>
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}"/>
+        <mx:Button id="close" label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

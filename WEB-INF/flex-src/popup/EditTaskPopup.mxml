@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*"
+	xmlns:common="common.*" 
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','title.edit_task')}"
+	width="900" height="650"
+	borderAlpha="1" 
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#e2e2e2, #e2e2e2]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.event.FeedbackEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+            import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+            import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.collections.HierarchicalCollectionViewFixed;
+			import com.pearl.normandy.event.CommentEvent;
+			import com.pearl.normandy.event.TaskDetailEvent;			
+			import com.pearl.normandy.vo.CommentVO;			
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.utils.Constants;            
+
+		    //==============================
+		    //Attributes
+		    //==============================		     	
+			[Bindable]
+			public var task:TaskVO;
+			
+		    //==============================
+		    //Method
+		    //============================== 	
+			private function init():void{
+				this.setFocus();				
+			}		    
+			
+            private function addComment():void{
+            	var addCommentPopUp:AddCommentPopUp = AddCommentPopUp(PopUpManager.createPopUp(this, AddCommentPopUp, true));
+            	addCommentPopUp.task = task;
+		        PopUpManager.centerPopUp(addCommentPopUp);		        
+            }		
+		    
+			private function validationEditTask():Boolean{
+ 				var validateResult:Array = editTaskBasic.validate();
+					
+				if(validateResult.length > 0){
+ 		   			 return false;
+		   		}else{
+		   			if(editActivity.save()){
+		   				updateTask();
+		   				PopUpManager.removePopUp(this);
+		   			}
+		   		}
+		   		return true;
+			}
+			
+			private function updateTask():void{
+				var task:TaskVO = editTaskBasic.getTask(); 
+//				model.GLOBAL_USER_TASKS_HC.itemUpdated(task);
+				task.details = editTaskDetail.getTaskDetail();
+				CairngormEventDispatcher.getInstance().dispatchEvent(TaskDetailEvent.updateTaskDetailEvent(task, model.currUser));
+				CairngormEventDispatcher.getInstance().dispatchEvent(FeedbackEvent.saveFeedback(internalFeedback.feedbacks));
+				CairngormEventDispatcher.getInstance().dispatchEvent(FeedbackEvent.saveFeedback(customerFeedback.feedbacks));
+				PopUpManager.removePopUp(this);
+			}
+
+	  		
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    } 		  		
+		]]>
+	</mx:Script>
+
+        
+    <!--==========================
+	    Page Layout
+	===========================--> 
+	<mx:TabBar width="100%" dataProvider="{editTaskVS}"/>   
+    <mx:ViewStack id="editTaskVS" width="100%" height="100%" creationPolicy="all">
+    	<widget:EditTaskBasic id="editTaskBasic" selectedProject="{model.GLOBAL_SELECTED_PROJECT}" selectedTask="{model.GLOBAL_SELECTED_TASK}"/>
+    	<widget:EditTaskDetail id="editTaskDetail"/>
+    	<widget:EditActivity id="editActivity" taskId="{task.id}"/>
+    	<widget:EditFeedback id="internalFeedback" CATEGORY="{Constants.FEEDBACK_CATEGORY_INTERNAL}" task="{task}"
+    		label="{resourceManager.getString('Language','label.qa_feedback') + ' (' + internalFeedback.feedbacks.length + ')'}"/>
+    	<widget:EditFeedback id="customerFeedback" CATEGORY="{Constants.FEEDBACK_CATEGORY_CUSTOMER}" task="{task}"
+    		label="{resourceManager.getString('Language','label.customer_feedback') + ' (' + customerFeedback.feedbacks.length + ')'}"/>    		
+		<widget:ViewTaskComments id="viewTaskComments" task="{task}"/>
+	</mx:ViewStack>
+    
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" 
+        	click="validationEditTask()"  enabled="{model.taskEditable}"/>
+        <mx:Button label="{resourceManager.getString('Language','button.add_comment')}" 
+        	click="addComment()"
+        	toolTip="{resourceManager.getString('Language','button.add_comment')}"/>        	
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</advancedPanel:AdvancedPanel>

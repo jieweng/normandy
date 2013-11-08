@@ -1,0 +1,19 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	</head>
+	<body>
+		<font style="font-size: 15">
+			<p>Your account in Normandy is created. (你的Normandy帐号已经创建)</p>
+			<p>
+			    <b>User Name (用户名): </b>$!{user.userName}<br>			
+			    <b>Password (密码): </b>$!{password}
+			</p>			    
+			<p>You can login <a href='http://app.pde.net/normandy'>Normandy</a> to access the application and change your password.<br>
+			   你可以登录<a href='http://app.pde.net/normandy'>Normandy</a>并修改密码.
+			</p>			    
+		</font>
+		<br>
+		<br>
+	</body>
+</html>

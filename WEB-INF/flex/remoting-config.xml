@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service id="remoting-service" 
+    class="flex.messaging.services.RemotingService" 
+    messageTypes="flex.messaging.messages.RemotingMessage">
+
+    <adapters>
+        <adapter-definition id="java-object" class="flex.messaging.services.remoting.adapters.JavaAdapter" default="true"/>
+    </adapters>
+
+    <default-channels>
+        <channel ref="my-amf"/>
+    </default-channels>   
+    
+    
+	<!--===================== MetaData ==============-->
+    <destination id="ro.metadata">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>metaDataService</source>
+        </properties>
+    </destination>	
+	
+	
+	<!--===================== Customer/UserGroup/User ==============-->
+    <destination id="ro.customer">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>customerService</source>
+        </properties>
+    </destination>  
+
+    <destination id="ro.usergroup">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>userGroupService</source>
+        </properties>
+    </destination>
+
+    <destination id="ro.user">
+        <properties>
+   	        <factory>spring</factory>
+            <source>userService</source>
+        </properties>
+    </destination>
+        
+
+	<!--=================== Project/Milestone/Process ===============-->
+    <destination id="ro.project">
+        <properties>
+   	        <factory>spring</factory>        	
+            <source>projectService</source>
+        </properties>
+    </destination>        
+    
+    <destination id="ro.productionProcess">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>productionProcessService</source>
+        </properties>
+    </destination>   
+    
+    <destination id="ro.processStep">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>processStepService</source>
+        </properties>
+    </destination>               
+
+
+	<!--=================== Project User/Project Group/Project Member =====================-->
+    <destination id="ro.projectuser">
+        <properties>
+        	<factory>spring</factory>
+            <source>projectUserService</source>
+        </properties>
+    </destination> 
+    
+     <destination id="ro.projectMember">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>projectMemberService</source>
+        </properties>
+    </destination>
+
+
+	<!--====================== Task/Detail/Activity/Comment =========================-->
+    <destination id="ro.task">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>taskService</source>
+        </properties>
+    </destination>     
+    
+    <destination id="ro.taskDetail">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>taskDetailService</source>
+        </properties>
+    </destination>       
+    
+    <destination id="ro.activity">
+        <properties>
+            <factory>spring</factory>        
+            <source>activityService</source>
+        </properties>
+    </destination>       
+    
+    <destination id="ro.comment">
+        <properties>
+            <factory>spring</factory>        
+            <source>commentService</source>
+        </properties>
+    </destination>
+    
+    
+    <!--====================== Baseline =========================-->
+    <destination id="ro.baseline">
+        <properties>
+            <factory>spring</factory>        
+            <source>baselineService</source>
+        </properties>
+    </destination>
+    
+    <!--====================== Report =========================-->
+    <destination id="ro.report">
+        <properties>
+            <factory>spring</factory>        
+            <source>reportService</source>
+        </properties>
+    </destination>
+        
+     <!--====================== Timesheet =========================-->
+    <destination id="ro.timeSheet">
+        <properties>
+            <factory>spring</factory>        
+            <source>timeSheetService</source>
+        </properties>
+    </destination>
+    
+    <!--====================== Feedback/FeedbackThread/FeedbackReference =========================-->
+    <destination id="ro.feedback">
+    	<properties>
+    		<factory>spring</factory>
+    		<source>feedbackService</source>
+    	</properties>
+    </destination>
+    
+    <destination id="ro.feedbackThread">
+    	<properties>
+    		<factory>spring</factory>
+    		<source>feedbackThreadService</source>
+    	</properties>
+    </destination>
+    
+    <destination id="ro.feedbackReference">
+    	<properties>
+    		<factory>spring</factory>
+    		<source>feedbackReferenceService</source>
+    	</properties>
+    </destination>
+
+    <!--========================== Check Item / Check Item Log ==========================-->   
+    <destination id="ro.checkitem">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>checkItemService</source>
+        </properties>
+    </destination>
+    
+    <destination id="ro.checkitemlog">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>checkItemLogService</source>
+        </properties>
+    </destination>      
+    
+    <!--===================== LOV/Report =====================-->
+    <destination id="ro.listofvalue">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>listOfValueService</source>
+        </properties>
+    </destination>    
+
+    <destination id="ro.reportLog">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>reportLogService</source>
+        </properties>
+    </destination> 
+    
+    <!--==========================Calendar=====================-->
+    <destination id="ro.calendar">
+        <properties>
+   	        <factory>spring</factory>        
+            <source>calendarService</source>
+        </properties>
+    </destination> 
+    
+    <!--========================== Project Time Value =============-->
+    <destination id="ro.projectTimeValue">
+        <properties>
+         	<factory>spring</factory>       
+         	<source>projectTimeValueService</source>
+        </properties>
+    </destination>
+    
+    <!--========================= User Contract =====================-->
+    <destination id="ro.userContract">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>userContractService</source>      
+        </properties>
+    </destination>
+    
+    <!--========================= User Salary =====================-->
+    <destination id="ro.userSalary">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>userSalaryService</source>      
+        </properties>
+    </destination>
+    
+    <!--========================= User Privilege =====================-->
+    <destination id="ro.userPrivilege">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>userPrivilegeService</source>      
+        </properties>
+    </destination>
+    
+    <destination id="ro.userPunctual">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>userPunctualService</source>      
+        </properties>
+    </destination>
+    
+    <!--========================= Project Member Ability =====================-->
+    <destination id="ro.projectMemberAbility">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>projectMemberAbilityService</source>      
+        </properties>
+    </destination>
+    
+    <destination id="ro.sysConfig">
+        <properties>
+         	<factory>spring</factory> 
+         	<source>sysConfigService</source>      
+        </properties>
+    </destination>
+</service>

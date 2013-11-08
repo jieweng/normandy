@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*" 
+	alpha="1" borderStyle="none" borderThickness="0" borderAlpha="1" title="{resourceManager.getString('Language','title.member_ability')}" 
+	keyDown="onKeyDown(event)" showControls="true" enableResize="true" creationComplete="init()" height="800" width="1400"
+	xmlns:ext="com.adobe.flex.extras.controls.*" 
+	xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*" backgroundColor="0xe2e2e2" xmlns:popTextInput="com.pearl.normandy.component.popTextInput.*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			import mx.collections.ICollectionView;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			import com.pearl.normandy.vo.ProjectMemberAbilityVO;
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.ProjectVO;
+			import mx.events.ListEvent;
+			import mx.collections.ArrayCollection;
+			import mx.events.NumericStepperEvent;
+			import mx.managers.PopUpManager;
+			
+			[Bindable]
+			private var userProjects:ArrayCollection;
+			[Bindable]
+			private var selectedProject:ProjectVO;
+			[Bindable]
+			private var selectedYear:int;
+			[Bindable]
+			private var selectedMonth:int;
+			[Bindable]
+			private var projectMemberAbility:ArrayCollection;
+			[Bindable]
+			private var selectedMember:ProjectMemberAbilityVO;
+			
+			private var projectMember:ProjectMemberVO;
+			[Bindable]
+			private var leads:ArrayCollection;
+			
+		    private var currDate:Date = new Date();
+			private function init():void{
+				
+				selectedYear  = currDate.fullYear;
+				selectedMonth = currDate.month + 1;
+				selectedProject = model.GLOBAL_SELECTED_PROJECT;
+				projectMemberRo.getProjectMemberByProjectIdAndUserId(selectedProject.id, model.currUser.id);
+				projectUserRo.getLeadsHierarchical(selectedProject.id, true);
+				
+				if(userProjects && userProjects.length > 0){
+					for(var i:int = 0; i < userProjects.length; i++){
+						var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+						if(item.id == selectedProject.id){
+							projectCB.selectedIndex = i;
+						}
+					}
+				}
+			}
+			
+			private function getProjectMemberAbilityByActHandler(e:ResultEvent):void{
+				if(projectMemberAbility){
+					projectMemberAbility.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onAbilityChange);
+				}
+				projectMemberAbility =e.result as ArrayCollection;
+				projectMemberAbility.addEventListener(CollectionEvent.COLLECTION_CHANGE, onAbilityChange);
+				
+				for each(var pma:ProjectMemberAbilityVO in projectMemberAbility){
+					pma.projectId = selectedProject.id;
+					pma.year = selectedYear;
+					pma.month = selectedMonth;
+				}
+			}
+			
+			private var pmaRemark:ProjectMemberAbilityVO;
+			
+			private function onAbilityChange(e:CollectionEvent):void{
+				if(e.kind == CollectionEventKind.UPDATE){
+					for each(var pce:PropertyChangeEvent in e.items){
+						if(pce.property != null && pce.property.toString() == "remark"){
+							if((pce.newValue != "") && (pce.newValue != pce.oldValue)){
+								pmaRemark = pce.source as ProjectMemberAbilityVO;
+								if(pmaRemark.id == 0){
+									projectMemberAbilityRo.createProjectMemberAbility(pmaRemark);
+								}else{
+									projectMemberAbilityRo.updateProjectMemberAbility(pmaRemark);
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			private function createProjectMemberAbilityHandler(e:ResultEvent):void{
+				var id:int = e.result as int;
+				pmaRemark.id = id;
+			}
+			
+			private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		    
+		    private function onYearChange(e:NumericStepperEvent):void{
+		    	selectedYear = e.value;
+		    	getProjectMember();
+		    }
+		    
+		    private function onMonthChange(e:NumericStepperEvent):void{
+		    	if(e.value == 0){
+					yearNumStep.value -= 1;
+					monthNumStep.value = 12;
+				}else if(e.value == 13){
+					yearNumStep.value += 1;
+					monthNumStep.value = 1;
+				}
+				selectedYear = yearNumStep.value;
+		    	selectedMonth = monthNumStep.value;
+		    	getProjectMember();
+		    }
+		    
+		private function onProjectChange():void{
+		    if(projectCB.selectedIndex !=-1){   
+		    	selectedProject = projectCB.selectedItem as ProjectVO;
+		    	projectMemberRo.getProjectMemberByProjectIdAndUserId(selectedProject.id, model.currUser.id);
+		    	projectUserRo.getLeadsHierarchical(selectedProject.id, true);
+		   	}
+		}
+		 
+		    private function getProjectMemberByProjectIdAndUserIdHandler(e:ResultEvent):void{
+		    	var result:ArrayCollection = e.result as ArrayCollection;
+		    	if(result.length > 0){
+		    		projectMember = result.getItemAt(0) as ProjectMemberVO;
+		    	}else{
+		    		projectMember = new ProjectMemberVO();
+		    	}
+		    	getProjectMember();
+		    }
+		    
+		    private function getLeadsHierarchicalHandler(e:ResultEvent):void{
+		    	leads = e.result as ArrayCollection;
+		    }
+		    
+		    private function onItemClick(e:ListEvent):void{
+		    	selectedMember = pmaADG.selectedItem as ProjectMemberAbilityVO;
+		    }
+		    
+		    private function getProjectMember():void{
+		    	if(projectMember.privPerformance == Constants.BOOLEAN_YES){
+		    		projectMemberAbilityRo.getProjectMemberAbilityByAct(selectedProject.id, selectedYear, selectedMonth);
+		    	}else{
+		    		projectMemberAbility = new ArrayCollection();
+		    	}
+		    }
+		    
+		    private function onLeadChange():void{
+		    	if(leadCB.selectedIndex == 0){
+					this.leadFilter = null;
+				}else{
+					this.leadFilter = leadCB.selectedItem as ProjectUserVO;
+				}
+		    }
+		    
+		    private var _leadFilter:ProjectUserVO = null;
+			[Bindable]
+			public function set leadFilter(value:ProjectUserVO):void{
+				this._leadFilter = value;
+				updateResourceFilter(); 
+			}
+			
+			public function get leadFilter():ProjectUserVO{
+				return this._leadFilter;
+			}
+			
+			private function updateResourceFilter():void{
+		    	var resourceCollection:ICollectionView = pmaADG.dataProvider as ICollectionView;
+		    	if (resourceCollection.filterFunction == null) {
+		      		resourceCollection.filterFunction = resourceFilter;
+		    	}
+		    	resourceCollection.refresh();    		
+		  	}
+		  	
+		  	private function resourceFilter(item:Object):Boolean {
+		  		var user:ProjectMemberAbilityVO = item as ProjectMemberAbilityVO;	   							
+					
+		   		var leadFilterPass:Boolean = false;
+		   		if(leadFilter){
+		   			if(user.userId == leadFilter.userId){
+		   				leadFilterPass = true;
+		   			}else{
+			   			for each(var artist:ProjectUserVO in leadFilter.children){
+			   				if(user.userId == artist.userId){
+			   					leadFilterPass = true;
+			   					break;
+			   				}
+			   			}
+			   		}
+		   		}else{
+		   			leadFilterPass = true;
+		   		}
+		   		return leadFilterPass;
+		  	}
+
+//==============================================================================		    
+//		    lab function
+//===============================================================================
+		    private function labFunc(item:Object, column:AdvancedDataGridColumn):String{
+		    	var pma:ProjectMemberAbilityVO = item as ProjectMemberAbilityVO;
+		    	var field:String = column.dataField;
+		    	var judge:String;
+		    	switch(field){
+		    		case "highPoly":	judge = pma.highPoly; 		break;
+					case "lowPoly":		judge = pma.lowPoly; 		break;
+					case "zbrush":		judge = pma.zbrush; 		break;
+					case "texture":		judge = pma.texture; 		break;	
+					case "integration": judge = pma.integration;	break;
+					case "colligation": judge = pma.colligation;	break;
+					case "engine":		judge = pma.engine;			break;
+					case "initiative":	judge = pma.initiative;		break;
+					case "communicate":	judge = pma.communicate;	break;
+					case "artCulture":	judge = pma.artCulture;		break;
+					case "innovation":	judge = pma.innovation;		break;
+					case "punctual":	judge = pma.punctual;		break;
+					case "contribute":	judge = pma.contribute;		break;
+		    	}
+		    	return getLab(judge);
+		    }
+		    
+		    private function getLab(val:String):String{
+		    	if(val == "A"){
+		    		return "太阳";
+		    	}else if(val == "B"){
+		    		return "月亮";
+		    	}else if(val == "C"){
+		    		return "星星";
+		    	}else if(val == "D"){
+		    		return "闪电";
+		    	}else if(val == "E"){
+		    		return "阵雨";
+		    	}else{
+		    		return "";
+		    	}
+		    }
+		]]>
+	</mx:Script>
+	
+	<mx:Binding source="model.GLOBAL_USER_PROJECTS" destination="this.userProjects"/>
+	
+	<mx:RemoteObject id="projectMemberAbilityRo" destination="ro.projectMemberAbility" showBusyCursor="true">
+		<mx:method name="getProjectMemberAbilityByAct" result="getProjectMemberAbilityByActHandler(event)"/>
+		<mx:method name="createProjectMemberAbility" result="createProjectMemberAbilityHandler(event)"/>
+		<mx:method name="updateProjectMemberAbility"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" showBusyCursor="true">
+		<mx:method name="getProjectMemberByProjectIdAndUserId" result="getProjectMemberByProjectIdAndUserIdHandler(event)"/>
+	</mx:RemoteObject> 
+	<mx:RemoteObject id="projectUserRo" destination="ro.projectuser" showBusyCursor="true">
+		<mx:method name="getLeadsHierarchical" result="getLeadsHierarchicalHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:VBox width="100%" height="100%">
+		<mx:HBox width="100%" horizontalAlign="center">
+			<mx:Label text="{resourceManager.getString('Language','label.lead')}:"/>
+			<mx:ComboBox id="leadCB" width="100" labelField="name" dataProvider="{leads}" change="onLeadChange()"/>
+			<mx:Label text="{resourceManager.getString('Language','label.project_name')}:"/>
+			<popTextInput:PopUpTextInput id="projectCB" width="200" dataProvider="{userProjects}" 
+			    onChange="onProjectChange()" labelFunction="projectLabelFunc" keepSelection="true"/>
+			<mx:Label text="{resourceManager.getString('Language','label.notification.date')}:" paddingLeft="30"/>
+			<mx:NumericStepper id="yearNumStep" minimum="2000" maximum="9999" value="{currDate.fullYear}" change="onYearChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.year')}"/>
+			<mx:NumericStepper id="monthNumStep" minimum="0" maximum="13" value="{currDate.month+1}" change="onMonthChange(event)"/>
+			<mx:Label text="{resourceManager.getString('Language','label.month')}"/>
+		</mx:HBox>
+		<mx:AdvancedDataGrid id="pmaADG" dataProvider="{projectMemberAbility}" itemClick="onItemClick(event)" editable="true" 
+			lockedColumnCount="2" width="100%" height="100%" textAlign="center">
+			<mx:groupedColumns>
+				<mx:AdvancedDataGridColumn dataField="userName" headerText="{resourceManager.getString('Language','label.member.name')}" 
+					editable="false" width="70"/>
+				<mx:AdvancedDataGridColumn dataField="userGroupName" headerText="{resourceManager.getString('Language','label.group')}" 
+					editable="false" width="120"/>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.competence')}">
+					<mx:AdvancedDataGridColumn dataField="lowPoly" headerText="{resourceManager.getString('Language','headText.low_poly')}" 
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="lowPoly"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="highPoly" headerText="{resourceManager.getString('Language','headText.high_poly')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="highPoly"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="zbrush" headerText="Zbrush" editorDataField="text" 
+						labelFunction="labFunc"  width="70">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="zbrush"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="texture" headerText="{resourceManager.getString('Language','headText.texture')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="texture"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="integration" headerText="{resourceManager.getString('Language','headText.integration')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="integration"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="colligation" headerText="{resourceManager.getString('Language','headText.colligation')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:优秀，高于项目需求，得到客户的表扬。&#13;月亮：良好，胜任项目需求，得到项目内AD和大家的认可。&#13;星星：中等，刚好达到项目需求，反馈较少。&#13;闪电：及格，达到项目需求，但修改较多。&#13;阵雨：加油，无法达到项目需求，需要他人协助修改。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="colligation"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="engine" headerText="{resourceManager.getString('Language','headText.engine')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:使用娴熟，能解决突发事件。&#13;月亮：达到项目全部需求。&#13;星星：满足项目基本要求。&#13;闪电：只能进行简单操作。&#13;阵雨：不会使用。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="engine"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+				</mx:AdvancedDataGridColumnGroup>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.other')}">
+					<mx:AdvancedDataGridColumn dataField="initiative" headerText="{resourceManager.getString('Language','headText.initiative')}" 
+						editorDataField="text" labelFunction="labFunc" width="70">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:经常主动和同事或lead、AD讨论问题，并且沟通非常高效。&#13;月亮：能和同事或lead、AD讨论问题，主动性良好。沟通顺畅。&#13;星星：能和同事或lead、AD讨论问题，但主动性一般。沟通能力需要加强。&#13;闪电：不主动与大家讨论问题，缺少分享精神和沟通能力。&#13;阵雨：不愿意和大家合作、沟通。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="initiative"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="communicate" headerText="{resourceManager.getString('Language','headText.communication')}"
+						editorDataField="text" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:有很好的合作、分享精神，积极配合工作需求。&#13;月亮：配合工作，配合度良好。&#13;星星：配合工作，但配合度一般，需要加强。&#13;闪电：勉强接受工作需求上的合作，配合度低。&#13;阵雨：不愿意配合工作。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="communicate"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="artCulture" headerText="{resourceManager.getString('Language','headText.art_culture')}"
+						editorDataField="text" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:有较高的美术基础与艺术修养，高与项目需求,经常得到客户的表扬。&#13;月亮：有良好的美术基础与艺术修养，胜任项目需求,得到项目内AD与大家的认可。&#13;星星：有一定的美术基础与艺术修养，刚好达到项目需求,反馈较少。&#13;闪电：美术基础与艺术修养需要加强。&#13;阵雨：美术基础与艺术修养比较薄弱。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="artCulture"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="innovation" headerText="{resourceManager.getString('Language','headText.innovation')}"
+						editorDataField="text" labelFunction="labFunc" width="80">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:比较强。&#13;月亮：良好。&#13;星星：一般。&#13;闪电：较弱。&#13;阵雨：不愿意接受。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="innovation"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="punctual" headerText="{resourceManager.getString('Language','headText.punctual')}"
+						editorDataField="text" labelFunction="labFunc" width="60" editable="false">
+						<mx:headerRenderer>
+							<mx:Component>
+								<mx:Label toolTip="太阳:全勤。&#13;月亮：迟到=1次。&#13;星星：迟到=2次。&#13;闪电：迟到=≥3次。&#13;阵雨：有旷工现象。"/>
+							</mx:Component>
+						</mx:headerRenderer>
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="punctual"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+				</mx:AdvancedDataGridColumnGroup>
+				<mx:AdvancedDataGridColumnGroup headerText="{resourceManager.getString('Language','headText.subjoin')}">
+					<mx:AdvancedDataGridColumn dataField="contribute" headerText="{resourceManager.getString('Language','headText.contribute')}"
+						editorDataField="text" labelFunction="labFunc" width="60">
+						<mx:itemEditor>
+							<mx:Component>
+								<advancedDataGridClasses:AdvancedDataGridMemberAbilityEditor field="contribute"/>
+							</mx:Component>
+						</mx:itemEditor>
+					</mx:AdvancedDataGridColumn>
+					<mx:AdvancedDataGridColumn dataField="remark" headerText="{resourceManager.getString('Language','headText.remark')}" 
+						editable="true" width="200"/>
+				</mx:AdvancedDataGridColumnGroup>
+			</mx:groupedColumns>
+		</mx:AdvancedDataGrid>
+	</mx:VBox>
+</advancedPanel:AdvancedPanel>

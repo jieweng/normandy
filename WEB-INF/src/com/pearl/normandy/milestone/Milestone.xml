@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Milestone">
+
+  <!-- Use type aliases to avoid typing the full classname every time. -->
+  <typeAlias alias="Milestone" type="com.pearl.normandy.milestone.MilestoneTo"/>
+
+  <resultMap id="MilestoneResult" class="Milestone">
+    <result property="id" column="m.ID"/>
+    <result property="milestone" column="m.MILESTONE"/>
+    <result property="description" column="m.DESCRIPTION"/>
+    <result property="completionDate" column="m.COMPLETION_DATE"/>
+    <result property="objective" column="m.OBJECTIVE"/>
+    <result property="assumption" column="m.ASSUMPTION"/>
+    <result property="constraints" column="m.CONSTRAINTS"/>
+    <result property="deleted" column="m.DELETED"/>
+    <result property="version" column="m.VERSION"/>
+    <result property="createdDate" column="m.CREATED_DATE"/>
+    <result property="createdBy" column="m.CREATED_BY"/>
+  	<result property="updatedDate" column="m.UPDATED_DATE"/>
+  	<result property="updatedBy" column="m.UPDATED_BY"/>
+  	
+	<result property="projectId" column="p.ID"/>	  	    
+<!--   	<result property="projectName" column="PROJECT.PROJECT_NAME"/> --> 
+  </resultMap>
+  
+	<select id="selectProjectIdMilestones" parameterClass="Integer" resultMap="MilestoneResult">
+		select *
+		from MILESTONE m, PROJECT p
+		where (m.deleted IS NULL or m.deleted != 'Y')
+		AND m.PROJECT_ID = p.ID 
+		AND m.PROJECT_ID = #projectId#
+	</select> 
+	
+	<insert id="insert" parameterClass="Milestone">
+		insert into MILESTONE
+			(ID,
+			PROJECT_ID,
+			MILESTONE,
+			DESCRIPTION,
+			COMPLETION_DATE,
+			OBJECTIVE,
+			ASSUMPTION,
+			CONSTRAINTS,
+			DELETED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		values
+			(#id#,
+			#projectId#,
+			#milestone#,
+			#description#,
+			#completionDate#,
+			#objective#,
+			#assumption#,
+			#constraints#,
+			#deleted#,
+			#version#,
+			#createdDate#,
+			#createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="Milestone">
+		update MILESTONE set 
+			PROJECT_ID = #projectId#, 
+			MILESTONE = #milestone#,
+			DESCRIPTION = #description#,
+			COMPLETION_DATE = #completionDate#,
+			OBJECTIVE = #objective#,
+			ASSUMPTION = #assumption#,
+			CONSTRAINTS = #constraints#,
+			DELETED =  #deleted#,
+			VERSION = #version#,
+			UPDATED_DATE = #updatedDate#,
+			UPDATED_BY = #updatedBy#
+		where ID = #id#
+	</update>
+</sqlMap>

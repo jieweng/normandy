@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" horizontalAlign="center"
+	 horizontalScrollPolicy="off" verticalScrollPolicy="off">
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.ProjectMemberAbilityVO;
+			import mx.collections.ArrayCollection;
+			
+			public var field:String;
+			[Bindable]
+			public var text:String;
+			[Bindable]
+			public var dp:ArrayCollection = new ArrayCollection([
+				{label:""},
+				{label:"太阳", value:"A"},
+				{label:"月亮", value:"B"},
+				{label:"星星", value:"C"},
+				{label:"闪电", value:"D"},
+				{label:"阵雨", value:"E"}
+			]);
+			
+			private var _data:Object;
+			[Bindable]
+			public override function set data(val:Object):void{
+				this._data = val;
+				switch(field){
+					case "highPoly":	text = data.highPoly; 	break;
+					case "lowPoly":		text = data.lowPoly; 	break;
+					case "zbrush":		text = data.zbrush; 	break;
+					case "texture":		text = data.texture; 	break;	
+					case "integration": text = data.integration;break;
+					case "colligation": text = data.colligation;break;
+					case "engine":		text = data.engine;		break;
+					case "initiative":	text = data.initiative;	break;
+					case "communicate":	text = data.communicate;break;
+					case "artCulture":	text = data.artCulture;	break;
+					case "innovation":	text = data.innovation;	break;
+					case "punctual":	text = data.punctual;	break;
+					case "contribute":	text = data.contribute;	break;
+				}
+				
+				if(text == "A"){
+					cb.selectedIndex = 1;
+				}else if(text == "B"){
+					cb.selectedIndex = 2;	
+				}else if(text == "C"){
+					cb.selectedIndex = 3;
+				}else if(text == "D"){
+					cb.selectedIndex = 4;
+				}else if(text == "E"){
+					cb.selectedIndex = 5;
+				}else{
+					cb.selectedIndex = 0;
+				}
+			}
+			
+			public override function get data():Object{
+				return this._data;
+			}
+			
+			private function onChange():void{
+				text = cb.selectedItem.value;
+				var pma:ProjectMemberAbilityVO = data as ProjectMemberAbilityVO;
+				switch(field){
+					case "highPoly":	pma.highPoly 	= text;	break;
+					case "lowPoly":		pma.lowPoly 	= text; break;
+					case "zbrush":		pma.zbrush 		= text; break;
+					case "texture":		pma.texture 	= text; break;	
+					case "integration": pma.integration = text;	break;
+					case "colligation": pma.colligation = text;	break;
+					case "engine":		pma.engine 		= text;	break;
+					case "initiative":	pma.initiative 	= text;	break;
+					case "communicate":	pma.communicate = text;	break;
+					case "artCulture":	pma.artCulture 	= text;	break;
+					case "innovation":	pma.innovation 	= text;	break;
+					case "punctual":	pma.punctual 	= text;	break;
+					case "contribute":	pma.contribute 	= text;	break;
+				}
+				
+				if(pma.id == 0){
+					projectMemberAbilityRo.createProjectMemberAbility(pma);
+				}else{
+					projectMemberAbilityRo.updateProjectMemberAbility(pma);
+				}
+			}
+			
+			private function createProjectMemberAbilityHandler(e:ResultEvent):void{
+				var id:int = e.result as int;
+				data.id = id;
+			}
+		]]>
+	</mx:Script> 
+	
+	<mx:RemoteObject id="projectMemberAbilityRo" destination="ro.projectMemberAbility" showBusyCursor="true">
+		<mx:method name="createProjectMemberAbility" result="createProjectMemberAbilityHandler(event)"/>
+		<mx:method name="updateProjectMemberAbility"/>
+	</mx:RemoteObject>
+	
+	<mx:ComboBox id="cb" dataProvider="{dp}" rowCount="6" change="onChange()"/>
+</mx:HBox>

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProjectUser">
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ProjectUser"
+		type="com.pearl.normandy.projectuser.ProjectUserTo" />
+	
+	<!--========================= Select ========================-->	
+	<select id="selectDistinctProjectUserRoleByUserId" parameterClass="java.lang.Integer" resultClass="java.lang.String">
+		select distinct
+			pr.PROJECT_ROLE_NAME
+		from PROJECT_USER pu, PROJECT_ROLE pr
+		where pu.USER_ID=#value#
+		and pr.ID=pu.PROJECT_ROLE_ID 
+	</select>
+	
+	<select id="selectProjectUserRole" parameterClass="java.util.Map" resultClass="ProjectUser">
+		select distinct
+			   pu.project_role_id			as projectRoleId,
+			   pr.project_role_name			as projectRoleName
+		from project_user pu, 
+			 project_role pr, 
+			 project_member pm
+		where pu.project_id=pm.project_id
+  			and pu.user_id=pm.user_id
+  			and pu.project_role_id=pr.id
+  			and pm.status = 'ASSIGNED'
+  			<dynamic>
+  				<isNotNull prepend="and" property="projectId">
+  					pu.project_id = #projectId#
+  				</isNotNull>
+  				<isNotNull prepend="and" property="userId">
+  					pu.user_id = #userId#
+  				</isNotNull>
+  			</dynamic>
+	</select>
+	
+	<select id="selectProjectUser" parameterClass="java.util.Map" resultClass="ProjectUser">
+		select
+			pu.ID 					as id,
+			pu.USER_ID				as userId,
+      		CONCAT(u.FIRST_NAME," ",u.LAST_NAME) 	as name,
+			u.FIRST_NAME			as firstName,
+			u.LAST_NAME				as lastName,		
+			pu.PROJECT_ID			as projectId,
+			p.PROJECT_NAME			as projectName,
+			pu.PROJECT_ROLE_ID		as projectRoleId,
+    		pr.PROJECT_ROLE_NAME	as projectRoleName,
+			pu.SUPERVISOR_ID		as supervisorId,
+			CONCAT(u1.FIRST_NAME," ",u1.LAST_NAME) 	as supervisor,
+			pu.STATUS				as status,			
+			pu.VERSION				as version,
+			pu.CREATED_DATE			as createdDate,
+			pu.CREATED_BY			as createdBy,
+			pu.UPDATED_DATE			as updatedDate,
+			pu.UPDATED_BY			as updatedBy,
+			pu.RELEASE_DATE			as releaseDate
+		from PROJECT_USER pu left outer join user u1 on u1.ID =pu.SUPERVISOR_ID
+							 , USER u, PROJECT_ROLE pr, PROJECT p
+		where pu.USER_ID=u.ID
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				pu.PROJECT_ID=#projectId#
+			</isNotNull>		
+			<isNotNull prepend="and" property="projectRoleId">
+				pu.PROJECT_ROLE_ID=#projectRoleId#
+			</isNotNull>
+			<isNotNull prepend="and" property="projectRoleName">
+				pr.PROJECT_ROLE_NAME=#projectRoleName#
+			</isNotNull>		 					 
+			<isNotNull prepend="and" property="userId">
+				u.ID=#userId#
+			</isNotNull>		 
+			<isNotNull prepend="and" property="groupId">
+				u.USER_GROUP_ID=#groupId#
+			</isNotNull>
+			<isNotNull prepend="and" property="supervisorId">   
+				pu.SUPERVISOR_ID = #supervisorId#
+			</isNotNull>
+		</dynamic>		
+    	and pr.ID=pu.PROJECT_ROLE_ID
+    	and p.ID=pu.PROJECT_ID
+	</select>
+	
+	<select id="selectDistinctProjectUser" parameterClass="java.util.Map" resultClass="ProjectUser">
+		select distinct
+			pu.USER_ID				as userId,
+      		CONCAT(u.FIRST_NAME," ",u.LAST_NAME) 	as name,
+			u.FIRST_NAME			as firstName,
+			u.LAST_NAME				as lastName,		
+			pu.PROJECT_ID			as projectId,
+			p.PROJECT_NAME			as projectName,
+			pu.PROJECT_ROLE_ID		as projectRoleId,
+    		pr.PROJECT_ROLE_NAME	as projectRoleName
+		from PROJECT_USER pu, USER u, PROJECT_ROLE pr, PROJECT p
+		where pu.USER_ID=u.ID
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				pu.PROJECT_ID=#projectId#
+			</isNotNull>		
+			<isNotNull prepend="and" property="projectRoleId">
+				pu.PROJECT_ROLE_ID=#projectRoleId#
+			</isNotNull>					
+		</dynamic>		
+    	and pr.ID=pu.PROJECT_ROLE_ID
+    	and p.ID=pu.PROJECT_ID
+	</select>	
+	
+	<select id="selectProjectUserByGroup" parameterClass="java.lang.Integer" resultClass="ProjectUser">
+		select distinct
+			pu.USER_ID			as userId,
+			pu.PROJECT_ID		as projectId,
+			p.PROJECT_NAME		as projectName
+		from PROJECT_USER pu, USER u, PROJECT p
+		where
+		u.USER_GROUP_ID=#groupId#
+		and pu.USER_ID=u.ID
+    	and p.ID=pu.PROJECT_ID
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="ProjectUser">
+		insert into PROJECT_USER
+			(USER_ID,
+			PROJECT_ID,
+			PROJECT_ROLE_ID,
+			SUPERVISOR_ID,
+			STATUS,			
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			RELEASE_DATE
+			)
+		values
+			(#userId#,
+			#projectId#,
+			#projectRoleId#,
+			#supervisorId#,
+			#status#,
+			#version#,
+			#createdDate#,
+			#createdBy#,
+			#releaseDate#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="ProjectUser">
+		update PROJECT_USER set 
+		USER_ID			=	#userId#,
+		PROJECT_ID		=	#projectId#,
+		PROJECT_ROLE_ID	=	#projectRoleId#,
+		SUPERVISOR_ID	=	#supervisorId#,
+		STATUS			=	#status#,		
+		VERSION			=	#version#,
+		UPDATED_DATE	=	#updatedDate#,
+		UPDATED_BY		=	#updatedBy#,
+		RELEASE_DATE	=	#releaseDate#
+		where ID = #id#
+	</update>
+	
+	<update id="updateStatus" parameterClass="ProjectUser">
+		update PROJECT_USER set 
+			STATUS		=	#status#,
+			VERSION		=	#version#,
+			UPDATED_DATE=	#updatedDate#,
+			UPDATED_BY	=	#updatedBy#,
+			RELEASE_DATE=	#releaseDate#
+		where ID=#id#
+	</update>	
+	
+	<delete id="delete" parameterClass="java.lang.Integer">
+		delete from PROJECT_USER
+		where ID=#value#
+	</delete>
+	
+	<update id="updateSupervisorId" parameterClass="java.util.Map">
+		update PROJECT_USER
+		set	SUPERVISOR_ID=#newSupervisorId#
+		where PROJECT_ID=#projectId#
+		and SUPERVISOR_ID=#supervisorId#
+		and PROJECT_ROLE_ID=#projectRoleId#
+	</update>		
+</sqlMap>

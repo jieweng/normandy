@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ProductionProcess">
+
+  <!-- Use type aliases to avoid typing the full classname every time. -->
+  <typeAlias alias="ProductionProcess" type="com.pearl.normandy.productionprocess.ProductionProcessTo"/>
+
+	<!--========================= Select ========================-->	
+	<select id="selectProcessByProjectId" parameterClass="java.lang.Integer" resultClass="ProductionProcess">
+		select
+			p.ID					as id,
+			p.PROJECT_ID			as projectId,
+			p.PROCESS_NAME			as processName,
+			p.DESCRIPTION			as description,
+			p.DELETED				as deleted,
+			p.VERSION				as version,
+			p.CREATED_DATE			as createdDate,
+			p.CREATED_BY			as createdBy,
+			p.UPDATED_DATE			as updateDate,
+			p.UPDATED_BY			as updateBy
+		from PRODUCTION_PROCESS p
+		where(p.DELETED is null or p.DELETED != 'Y')
+			and p.PROJECT_ID=#value#
+	    order by p.PROCESS_NAME;
+	</select> 
+	
+	
+
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insert" parameterClass="ProductionProcess">
+		insert into PRODUCTION_PROCESS
+		(
+		ID,		
+		PROJECT_ID,	
+		PROCESS_NAME,	
+		DESCRIPTION,	
+		DELETED,	
+		VERSION,	
+		CREATED_DATE,
+		CREATED_BY,	
+		UPDATED_DATE,	
+		UPDATED_BY
+		)
+		values
+		(
+		#id#,
+		#projectId#,
+		#processName#,
+		#description#,
+		#deleted#,
+		#version#,
+		#createdDate#,
+		#createdBy#,
+		#updatedDate#,
+		#updatedBy#
+		)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="ProductionProcess">
+		update PRODUCTION_PROCESS set 
+			PROJECT_ID=#projectId#,
+			PROCESS_NAME=#processName#,
+			DESCRIPTION=#description#,
+			DELETED=#deleted#,	
+			VERSION=#version#,	
+			CREATED_DATE=#createdDate#,
+			CREATED_BY=#createdBy#,	
+			UPDATED_DATE=#updatedDate#,	
+			UPDATED_BY=#updatedBy#
+		where ID=#id#
+	</update>
+	
+	
+	<update id="delete" parameterClass="java.lang.Integer">
+		update PRODUCTION_PROCESS set 
+		DELETED = "Y"
+		where ID=#value#
+	</update>		
+	
+	
+	
+	
+	
+	
+	
+	<!--========================= Ready to delete ========================-->	
+	<select id="selectProcessByProjectAndUserId" parameterClass="java.util.Map" resultClass="ProductionProcess">
+		select distinct
+			pp.ID					as id,
+			pp.PROJECT_ID			as projectId,
+			pp.PROCESS_NAME			as processName,
+			pp.TASK_CATEGORY_ID		as taskCategoryId,
+			l.LIST_VALUE			as category,
+			pp.DESCRIPTION			as description,
+			pp.DELETED				as deleted,
+			pp.VERSION				as version,
+			pp.CREATED_DATE			as createdDate,
+			pp.CREATED_BY			as createdBy,
+			pp.UPDATED_DATE			as updateDate,
+			pp.UPDATED_BY			as updateBy
+		from PROJECT_USER pu, PRODUCTION_PROCESS pp, GROUP_TASK_CATEGORY gtc, LIST_OF_VALUE l
+		where(pp.DELETED is null or pp.DELETED != 'Y')
+		<dynamic>
+			<isNotNull prepend="and" property="userId">
+				pu.USER_ID=#userId#
+			</isNotNull>
+			<isNotNull prepend="and" property="projectId">
+				pu.PROJECT_ID=#projectId# and pp.PROJECT_ID=#projectId#
+			</isNotNull>
+			<isNotNull prepend="and" property="projectRoleId">
+				pu.PROJECT_ROLE_ID=#projectRoleId#
+			</isNotNull>	
+		</dynamic>		
+    	and pu.TYPE=gtc.GROUP_ID
+    	and pp.TASK_CATEGORY_ID=gtc.TASK_CATEGORY_ID
+  		and pp.TASK_CATEGORY_ID=l.ID
+    	order by pp.TASK_CATEGORY_ID;
+	</select> 			
+	
+	
+	<select id="selectProductionProcessByProjectIdAndTaskCategoryId" parameterClass="java.util.Map" resultClass="ProductionProcess">
+		SELECT 
+			ID				as id,
+			PROJECT_ID	as projectId,
+			PROCESS_NAME	as processName,
+			DESCRIPTION	as description,
+			DELETED	as deleted,
+			VERSION	as version,
+			CREATED_DATE	as createdDate,
+			CREATED_BY	as createdBy,
+			UPDATED_DATE	as updateDate,
+			UPDATED_BY	as updateBy
+		FROM production_process
+		WHERE (production_process.deleted IS NULL or production_process.deleted != 'Y')
+		AND project_id=#projectId#
+	    AND task_category_id=#taskCategoryId#
+	</select> 	
+</sqlMap>

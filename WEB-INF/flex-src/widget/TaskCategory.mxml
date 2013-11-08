@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ICollectionView;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;			
+			
+			import com.pearl.normandy.vo.TaskVO;			
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.utils.Constants;
+			
+			
+		    //==============================
+		    //Control Attributes
+		    //==============================	
+			//Current selected project id
+			private var _project:ProjectVO;
+			
+			public function set project(value:ProjectVO):void{
+				this._project = value;
+				taskRo.getTaskByProjectId(project.id);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}					    		    			
+			
+
+			private var _milestone:String = Constants.SELECT_ITEM_ALL;
+			[Bindable]	
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				updateCollectionFilter();
+			}		
+			
+			public function get milestone():String{
+				return this._milestone;
+			}
+			
+			private var _taskCategory:String;	
+			[Bindable]
+			public function set taskCategory(value:String):void{
+				this._taskCategory = value;
+				updateCollectionFilter();		
+			}		
+			
+			public function get taskCategory():String{
+				return this._taskCategory;
+			}				
+			
+			private var _taskNameFilter:String = "";
+			[Bindable]		
+			public function set taskNameFilter(value:String):void{
+				this._taskNameFilter = value;
+				updateCollectionFilter();
+			}		
+			
+			public function get taskNameFilter():String{
+				return this._taskNameFilter;
+			}	
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================
+			[Bindable]
+			private var tasks:ArrayCollection;		    
+		    			
+			
+		    //==============================
+		    //Methods
+		    //==============================			
+		  	private function updateCollectionFilter():void{
+		  		if(taskADG){
+			    	var collection:ICollectionView = taskADG.dataProvider as ICollectionView;
+			    	if (collection.filterFunction == null) {
+			      		collection.filterFunction = collectionFilter;
+			    	}
+			    	collection.refresh();
+			   }    		
+		  	}
+		  
+
+		  	private function collectionFilter(item:Object):Boolean {
+		    	var task:TaskVO = item as TaskVO;
+ 		   
+		   		if(milestone == Constants.SELECT_ITEM_ALL || task.milestone == milestone){
+		   			if(taskCategory == Constants.SELECT_ITEM_ALL || task.taskCategory == taskCategory){
+	   					if(taskNameFilter == ""){
+	   						return true;	
+	   					}
+	   					else{
+	   						if(fuzzyCompare(task.name, taskNameFilter)){
+	   							return true;
+	   						}
+	   						else{
+	   							return false;
+	   						}
+	   					}
+	   				}
+	   				else{
+	   					return false;
+	   				}		   					
+		   		}
+		   		else{
+		   			return false;
+		    	}              
+		  	}  				
+			
+			
+		    //==============================
+		    //Remote Objects Handlers
+		    //==============================			
+			private function getTaskByProjectIdHandler(event:ResultEvent):void{
+				tasks = event.result as ArrayCollection;
+				updateCollectionFilter();
+			}																								
+		]]>
+	</mx:Script>
+	
+	
+	<!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task">
+		<mx:method name="getTaskByProjectId" result="getTaskByProjectIdHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->	
+	<mx:AdvancedDataGrid id="taskADG" dataProvider="{tasks}"
+		width="100%" height="100%"
+		dataTipFunction="taskDataTip"		
+		dragEnabled="{model.taskEditable}"
+		doubleClickEnabled="true"
+		itemDoubleClick="showViewTaskWindow(event.itemRenderer.data)"
+		allowMultipleSelection="true">
+		<mx:columns>
+			<mx:AdvancedDataGridColumn dataField="name" width="160"
+				headerText="{resourceManager.getString('Language','label.task_name')}"
+				showDataTips="true"/>
+			<mx:AdvancedDataGridColumn dataField="startTime" width="70"
+				headerText="{resourceManager.getString('Language','label.start_date')}"
+				labelFunction="formatDateShort"/>
+			<mx:AdvancedDataGridColumn dataField="endTime" width="70"
+				headerText="{resourceManager.getString('Language','label.end_date')}"
+				labelFunction="formatDateShort"/>
+			<mx:AdvancedDataGridColumn dataField="owner" width="70"
+				headerText="{resourceManager.getString('Language','label.owner')}"/>
+		</mx:columns>
+	</mx:AdvancedDataGrid>	
+</mx:VBox>

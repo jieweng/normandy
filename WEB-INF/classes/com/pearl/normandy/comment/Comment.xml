@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="Comment">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="Comment"
+		type="com.pearl.normandy.comment.CommentTo" />
+		
+	<!--========================= Select ========================-->
+	
+	<select id="selectCommentsByTaskId" parameterClass="java.lang.Integer" resultClass="Comment">
+		select 
+			c.ID 					as id,
+			c.VERSION				as version,
+			c.TASK_ID				as taskId,
+			c.COMMENT				as comment,
+			c.CREATED_DATE			as createdDate,
+			c.CREATED_BY			as createdBy,
+			c.UPDATED_DATE			as updatedDate,
+			c.UPDATED_BY			as updatedBy
+		from COMMENTS c
+		where c.TASK_ID=#value#
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="Comment">
+		insert into COMMENTS 
+			(ID,
+			TASK_ID, 
+			COMMENT,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			UPDATED_DATE,
+			UPDATED_BY
+			)
+			values
+			(
+			#id#,
+			#taskId#, 
+			#comment#,
+			#version#,
+			#createdDate#,
+			#createdBy#,
+			#updatedDate#,
+			#updatedBy#
+			)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+	</insert>
+</sqlMap>

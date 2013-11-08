@@ -1,0 +1,1306 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex" 
+	xmlns:collections="com.pearl.normandy.collections.*"
+	xmlns:cust="com.pearl.normandy.controls.*"
+	xmlns:formatter="com.pearl.normandy.controls.formatters.*"		
+	width="100%" height="100%">
+	
+	<mx:Metadata>
+		[Event(name="change", type="com.pearl.normandy.event.ViewEvent")] 
+	</mx:Metadata>	
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script source="../script/GanttSheetHelper.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.StringUtil;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridTaskNameItemRenderer;
+			import flexlib.containers.DragScrollingCanvas;
+			import com.esria.samples.dashboard.view.DragHighlight;
+			import mx.managers.DragManager;
+			import mx.utils.ObjectUtil;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;				
+					
+			import mx.events.AdvancedDataGridEventReason;
+			import mx.events.AdvancedDataGridEvent;
+			
+			import mx.controls.Alert;
+			import mx.controls.AdvancedDataGrid;
+			import mx.controls.listClasses.IDropInListItemRenderer;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.ListEvent;
+   			import mx.events.DragEvent;			
+			import mx.events.CollectionEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.PropertyChangeEvent;
+			import mx.collections.ArrayCollection;
+			import mx.collections.HierarchicalData;
+			import mx.collections.ICollectionView;
+			
+			import ilog.gantt.TaskItem;
+			import ilog.gantt.TaskItemArea;
+			import ilog.gantt.GanttSheetEvent;			
+			import ilog.core.DataItem;
+			import ilog.utils.TimeUnit;
+			
+			import com.pearl.normandy.controls.NormandyDateField;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPlannedStaffDaysRenderer;
+			import com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPlannedFeedbackDaysRenderer;
+			import com.pearl.normandy.event.RightMenuEvent;			
+			import com.pearl.normandy.vo.ActivityVO;			
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ListOfValue;
+			import com.pearl.normandy.vo.UserVO;			
+			import com.pearl.normandy.enum.ImageEnum;
+			import com.pearl.normandy.enum.ColorEnum;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.HolidayUtil;
+			import com.pearl.normandy.utils.CalendarConfig;
+			import com.pearl.normandy.collections.HierarchicalCollectionViewFixed;
+			
+			import popup.EditTaskPopup;					
+			import popup.ViewTaskWithFeedbackPopup;				
+			import window.ProjectMgmtWindow;		
+						
+			import com.pearl.normandy.event.TaskEvent;
+			import com.pearl.normandy.event.ViewEvent;			
+			
+		    //==============================
+		    //Style Functions
+		    //==============================		
+		    private function taskADGStyleFunc(data:Object, col:AdvancedDataGridColumn):Object{
+		    	if(data!=null && data.hasOwnProperty("children") && data.children!=null){
+		    		return {fontWeight: "bold"};
+		    	}
+		    	else{
+		    		return null;		    		
+		    	}
+		    }	
+			
+		    //==============================
+		    //Control Attributes
+		    //==============================	
+		    private var myContextMenu:ContextMenu;
+		    private var item:ContextMenuItem;
+				
+			private var currUser:UserVO	= model.currUser;				    	
+		    private var holidayUtil:HolidayUtil = model.holidayUtil;				
+				
+			private var _taskViewMode:String;
+			[Bindable]
+			public function set taskViewMode(value:String):void{
+				this._taskViewMode = value;
+				
+				if(taskViewMode == Constants.VIEW_MODE_ALL || taskViewMode == Constants.VIEW_MODE_PROJECT){
+					CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.getProjectTaskEvent(project));	
+				}
+				else if(taskViewMode == Constants.VIEW_MODE_ASSIGNED){
+					CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.getLeadTaskEvent(project, currUser.id));
+				}
+				else if(taskViewMode == Constants.VIEW_MODE_NONE){
+					model.GLOBAL_USER_TASKS_HC = null;
+				}
+			}			
+			
+			public function get taskViewMode():String{
+				return this._taskViewMode;
+			}
+
+			
+			//Current selected project id
+			private var project:ProjectVO;			
+
+			
+			//Current selected milestone id
+			private var _milestone:String = Constants.SELECT_ITEM_ALL;									
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				updateCollectionFilter();	
+			}	
+			
+			public function get milestone():String{
+				return this._milestone;
+			}
+			
+			private var _selectedTaskCategory:String = Constants.SELECT_ITEM_ALL;
+			public function set selectedTaskCategory(value:String):void{
+				this._selectedTaskCategory = value;
+				updateCollectionFilter();	
+			}
+			
+			public function get selectedTaskCategory():String{
+				return this._selectedTaskCategory;
+			}
+			
+			
+			//Current selected task type
+			private var _taskTypeFilter:String = "";									
+			public function set taskTypeFilter(value: String):void{
+				this._taskTypeFilter = value;
+				updateCollectionFilter();	
+			}	
+			
+			public function get taskTypeFilter():String{
+				return this._taskTypeFilter;
+			}
+			
+			//Current selected task assignment
+			private var _taskAssignFilter:String = "";									
+			public function set taskAssignFilter(value: String):void{
+				this._taskAssignFilter = value;
+				updateCollectionFilter();	
+			}	
+			
+			public function get taskAssignFilter():String{
+				return this._taskAssignFilter;
+			}
+			
+			//Task name filter
+			private var _taskNameFilter:String = "";									
+			public function set taskNameFilter(value: String):void{
+				this._taskNameFilter = value;
+				updateCollectionFilter();	
+			}	
+			
+			public function get taskNameFilter():String{
+				return this._taskNameFilter;
+			}		
+			
+			public var isLink:Boolean = true;
+			
+			private var _taskStaffNotAssigned:Boolean = false;
+			[Bindable]
+			public function set taskStaffNotAssigned(value:Boolean):void{
+				this._taskStaffNotAssigned = value;
+				updateCollectionFilter();	
+			}	
+			
+			public function get taskStaffNotAssigned():Boolean{
+				return this._taskStaffNotAssigned;
+			}
+								
+			private var _isLock:Boolean = false;
+			[Bindable]
+			public function set isLock(value:Boolean):void{
+				this._isLock = value;
+				initGantt();				
+			}				
+			
+			public function get isLock():Boolean{
+				return this._isLock;
+			}						
+
+			
+ 			private var _taskEditable:Boolean
+			[Bindable]
+			public function set taskEditable(value:Boolean):void{
+				this._taskEditable = value;						
+				initGantt();	
+				initMenu();
+			}
+			
+			public function get taskEditable():Boolean{
+				return this._taskEditable;
+			} 
+			
+			private var _selectedActivity:ActivityVO;
+			[Bindable]
+			public function set selectedActivity(value:ActivityVO):void{
+				this._selectedActivity = value;
+							
+ 				if(isLink && project.id == selectedActivity.projectId){
+					for each(var task:TaskVO in (tasks.source as HierarchicalData).source){
+						if(task.id == selectedActivity.taskId as int){							
+							if(task.children!=null && task.children.length > 0){
+								if(!ganttDataGrid.isItemOpen(task)){
+									ganttDataGrid.expandItem(task, true, true, true);
+								}								
+							}
+							model.GLOBAL_SELECTED_TASK = task;
+			    			ganttDataGrid.selectedItem = task;				    			
+			    			ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+			    			dispatchEvent(new ViewEvent(ViewEvent.CHANGE, this));
+			    			return;		
+			   			}
+			   			else{
+			   				if(task.children!=null && task.children.length > 0){			   			
+								for each(var subtask:TaskVO in task.children){
+									if(subtask.id == selectedActivity.taskId as int){
+										if(!ganttDataGrid.isItemOpen(task)){
+											ganttDataGrid.expandItem(task, true, true, true);
+										}
+										model.GLOBAL_SELECTED_TASK = subtask;
+						    			ganttDataGrid.selectedItem = subtask;				    			
+						    			ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+						    			dispatchEvent(new ViewEvent(ViewEvent.CHANGE, this));
+						    			return;																											
+									}
+								}
+			   				}			   			
+			   			}											
+					}
+			 	}  	 			
+			}			
+			
+			public function get selectedActivity():ActivityVO{
+				return this._selectedActivity;
+			}
+						
+												
+		    //==============================
+		    //Data Attributes
+		    //==============================
+			[Bindable]		    
+		    private var _tasks:HierarchicalCollectionViewFixed;		    
+			public function set tasks(value:HierarchicalCollectionViewFixed):void{
+				if(_tasks){
+					_tasks.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);	
+				}
+				
+				this._tasks = value;
+	
+				if(_tasks){
+					_tasks.addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+				}		
+				
+				updateCollectionFilter();
+								
+			}	 	
+			
+			public function get tasks():HierarchicalCollectionViewFixed{
+				return this._tasks;
+			}
+			
+			private var _createdTasks:ArrayCollection;
+			[Bindable]
+			public function set createdTasks(value:ArrayCollection):void{
+				this._createdTasks = value;
+				
+				if(createdTasks != null && createdTasks.length > 0){
+					taskChart.autoResizeSummary = false;				
+									
+					if(_tasks == null){
+						_tasks = new HierarchicalCollectionViewFixed(new HierarchicalData());
+					}
+					
+					for(var i:int=0; i<createdTasks.length; i++){
+						var t:TaskVO = createdTasks.getItemAt(i) as TaskVO;
+						_tasks.addChild(null, t);
+						
+						//navigate to last added task
+						if(i==(createdTasks.length-1)){											
+							_tasks.refresh();
+							ganttDataGrid.selectedItem = t;
+							model.GLOBAL_SELECTED_TASK = t;
+					 		HierarchicalCollectionViewFixed(_tasks).openNode(t);
+					 		
+				 	 		if(ganttDataGrid.selectedIndex >= 0){
+								ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+							}	
+						}					
+					}									
+					
+					taskChart.resizeSummaryTasks();
+					taskChart.autoResizeSummary = true;
+				}	 				
+			}
+			
+			public function get createdTasks():ArrayCollection{
+				return this._createdTasks;
+			}
+			
+			private var _cancelledTask:TaskVO;
+			[Bindable]
+			public function set cancelledTask(value:TaskVO):void{
+				this._cancelledTask = value;
+				
+				if(cancelledTask!=null && cancelledTask is TaskVO){
+					if(cancelledTask.parentId == 0){
+						var i:int = ganttDataGrid.selectedIndex;						
+						model.GLOBAL_USER_TASKS_HC.removeChild(null, cancelledTask);
+						ganttDataGrid.selectedIndex = i;
+						model.GLOBAL_SELECTED_TASK = ganttDataGrid.selectedItem as TaskVO;						
+					}
+					else{
+						
+						var parentItem:TaskVO = model.GLOBAL_USER_TASKS_HC.getParentItem(cancelledTask);
+//						taskChart.autoResizeSummary = false;
+						taskChart.taskDataProvider = null;
+						if(_tasks){
+							_tasks.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);	
+						}
+						
+						model.GLOBAL_USER_TASKS_HC.removeChild(parentItem, cancelledTask);
+						if(parentItem.children.length == 0){
+							parentItem.children = null;
+						}
+						recalculateTask(parentItem);
+						CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(parentItem, Constants.PARENT_ID));
+			
+						if(_tasks){
+							_tasks.addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+						}	
+												
+						taskChart.taskDataProvider = _tasks;
+						ganttDataGrid.selectedItem = parentItem;
+						model.GLOBAL_SELECTED_TASK = parentItem;											
+//						taskChart.resizeSummaryTasks();
+//						taskChart.autoResizeSummary = true;	 																		
+					}
+					
+		 	 		if(ganttDataGrid.selectedIndex >= 0){
+						ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+					}						
+				}				
+			}
+			
+			public function get cancelledTask():TaskVO{
+				return this._cancelledTask;
+			}
+
+
+
+			private var _createdSubtask:TaskVO;
+			[Bindable]
+			public function set createdSubtask(value:TaskVO):void{
+				this._createdSubtask = value;
+						
+//				taskChart.autoResizeSummary = false;				
+				taskChart.taskDataProvider = null;
+				if(_tasks){
+					_tasks.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);	
+				}
+						
+				if(model.GLOBAL_ADD_SUBTASK_WAIT.children == null){
+					model.GLOBAL_ADD_SUBTASK_WAIT.children = new ArrayCollection();
+				}
+				model.GLOBAL_ADD_SUBTASK_WAIT.children.addItem(value);
+//				_tasks.refresh();	
+
+				if(_tasks){
+					_tasks.addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+				}
+				taskChart.taskDataProvider = _tasks;
+				
+		 		HierarchicalCollectionViewFixed(_tasks).openNode(model.GLOBAL_ADD_SUBTASK_WAIT);				
+				ganttDataGrid.selectedItem = value;
+				model.GLOBAL_SELECTED_TASK = value;
+		 		
+	 	 		if(ganttDataGrid.selectedIndex >= 0){
+					ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+				}										
+//				taskChart.resizeSummaryTasks();
+//				taskChart.autoResizeSummary = true;						
+			}	
+			
+			public function get createdSubtask():TaskVO{
+				return this._createdSubtask;
+			}
+			
+			private var _movedTask:TaskVO;
+			[Bindable]
+			public function set movedTask(value:TaskVO):void{
+				this._movedTask = value;
+				
+				taskChart.taskDataProvider = null;
+				if(_tasks){
+					_tasks.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+				}
+				
+				var parentTask:TaskVO = _tasks.getParentItem(movedTask) as TaskVO;
+				_tasks.removeChild(parentTask, movedTask);
+				if(parentTask.children.length == 0){
+					parentTask.children = null;
+				}else{
+					recalculateTask(parentTask);
+					CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(parentTask, Constants.PARENT_ID));
+				}
+				_tasks.addChild(null, movedTask);
+//				_tasks.addChildAt(null, movedTask, ganttDataGrid.selectedIndex);
+				
+				if(_tasks){
+					_tasks.addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+				}
+				taskChart.taskDataProvider = _tasks;
+				
+				ganttDataGrid.selectedItem = value;
+				model.GLOBAL_SELECTED_TASK = value;
+		 		
+	 	 		if(ganttDataGrid.selectedIndex >= 0){
+					ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+				}				
+			}
+			
+			public function get movedTask():TaskVO{
+				return this._movedTask;
+			}
+
+		    //==============================
+		    //Methods
+		    //==============================
+		    private function initGantt():void{
+		    	if(ganttDataGrid){
+			    	enableGantt(!isLock && model.taskEditable);																
+		    	}
+		    }
+		    
+		    private function enableGantt(value:Boolean):void{
+				ganttDataGrid.editable 	 = value.toString();
+				ganttSheet.resizeEnabled = value;
+				ganttSheet.moveEnabled	 = value;		    	
+		    }
+
+		    
+		    private var isSelectedTaskInCollection:Boolean = false;
+		  	/**
+		   	* Refreshes the collection view. 
+		   	*/  
+		  	private function updateCollectionFilter():void {
+		  		if(taskChart){
+			    	var collection:ICollectionView = taskChart.taskDataProvider as ICollectionView;
+			    	if (collection.filterFunction == null) {
+			      		collection.filterFunction = collectionFilter;
+			    	}
+			    	
+			    	isSelectedTaskInCollection = false;
+			    	collection.refresh();
+			    	
+			    	if(!isSelectedTaskInCollection){
+			    		ganttDataGrid.selectedItem = null;
+			    		model.GLOBAL_SELECTED_TASK = null;
+			    	}
+			   	}
+		  	}		    
+		    
+		    
+		  	/**
+		   	* The collection view filter that displays only current project activites.
+		   	*/  
+		  	private function collectionFilter(item:Object):Boolean {
+		    	var task:TaskVO = item as TaskVO;
+		    	var result:Boolean = true;
+		   		if(milestone == Constants.SELECT_ITEM_ALL || task.milestone == milestone){
+		   			if(selectedTaskCategory == Constants.SELECT_ITEM_ALL || task.taskCategory == selectedTaskCategory){		   				
+		   				if(taskTypeFilter == "" || task.type == taskTypeFilter){
+		   					if(taskAssignFilter == "" ){
+			   					if(taskNameFilter == ""){
+			   						result = true;	
+			   					}
+			   					else{
+			   						if(task.parentId != 0){
+			   							result = true;
+			   						}	   						
+			   						else if(fuzzyCompare(task.name, taskNameFilter)){
+			   							result = true;
+			   						}
+			   						else{
+			   							result = false;
+			   						}
+			   					}
+		   					}else{
+		   						var assign:Boolean=taskAssignFilter=="Assigned"?true:false;
+		   						var isAssigned:Boolean=true;
+			   					if(task.children != null){
+			   						for each(var subtask:TaskVO in task.children){
+			   						  	if(null==subtask.resourcesName || ""==subtask.resourcesName){
+			   						  		isAssigned=false;
+			   						  		break;
+			   						  	}
+			   						  }
+			   					}else if(task.parentId != 0){
+			   						assign=true;
+			   						isAssigned=true;
+			   					}else{
+			   						if(null!=task.resourcesName && ""!=task.resourcesName){
+			   							isAssigned=true;
+			   						}else{
+			   							isAssigned=false;
+			   						}
+			   					}
+			   					//result
+			   					if(assign){
+			   						if(isAssigned){
+			   							result = true;
+			   						}else{
+			   							result = false;
+			   						}
+			   					}else{
+			   						if(isAssigned){
+			   							result = false;
+			   						}else{
+			   							result = true;
+			   						}
+			   					}
+		   					}
+		   				}
+		   				else{
+		   					result = false;
+			   			}
+			   		}
+			   		else{
+			   			result = false;
+			   		}
+		   		}
+		   		else{
+		   			result = false;
+		    	}        
+		    	
+		    	if(result && task == ganttDataGrid.selectedItem){
+		    		isSelectedTaskInCollection = true;
+		    	}
+		    	
+		    	if(result && taskStaffNotAssigned){
+		   			if(task.children == null && task.plannedStaffDays + task.plannedFeedbackDays > task.staffAssigned){
+		   				return true;
+		   			}else if(task.children !=null){
+		   				var rootTaskAssigned:Number = 0;
+		   				for each(var t:TaskVO in task.children){
+		   					rootTaskAssigned = rootTaskAssigned + (t.plannedStaffDays + t.plannedFeedbackDays);
+		   					if(t.plannedStaffDays + t.plannedFeedbackDays >t.staffAssigned){
+		   						return true;
+		   					}
+		   				}
+
+						return false;
+		   			}else{
+		   				return false
+		   			}			
+		   		}      
+		    	
+		    	return result;
+		  	} 		    
+		    
+			private function showEditTask():void {
+				if(model.GLOBAL_SELECTED_TASK && project){					
+					var editTaskPopup:EditTaskPopup = EditTaskPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), EditTaskPopup, true));
+			        PopUpManager.centerPopUp(editTaskPopup);
+			        editTaskPopup.task = model.GLOBAL_SELECTED_TASK;
+			        ganttDataGrid.editable = "false";			 					 
+				}
+      		}
+      		
+      		private function showViewTaskWithFeedback():void{
+      			if(model.GLOBAL_SELECTED_TASK && project && tasks){
+			 		var viewTaskWithFeedbackPopup:ViewTaskWithFeedbackPopup = ViewTaskWithFeedbackPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), ViewTaskWithFeedbackPopup, true));
+   					PopUpManager.centerPopUp(viewTaskWithFeedbackPopup);
+   					viewTaskWithFeedbackPopup.taskId = model.GLOBAL_SELECTED_TASK.id;      				
+      			}
+      		}
+		    
+		    //==============================
+		    //Event Handlers
+		    //==============================		    						
+			public function onTaskChange(event:CollectionEvent):void{
+				
+ 				if (event.kind == CollectionEventKind.UPDATE){	
+	        		var collection:HierarchicalCollectionViewFixed = taskChart.taskDataProvider as HierarchicalCollectionViewFixed; 
+			        var child:TaskVO;				        							
+ 										
+			        for each (var pce:PropertyChangeEvent in event.items){
+			        	if (pce.property != null && pce.property.toString().indexOf("children") < 0){
+			        		var item:TaskVO = pce.source as TaskVO;
+	        				var parent:TaskVO = collection.getParentItem(item) as TaskVO;			        		
+			        		
+			        		if(pce.property == Constants.PLANNED_STAFF_DAYS){
+			        			if(item.children == null && parent != null){
+			        				var plannedStaffDays:Number = 0;			        								        		
+					        							        		
+			        				for each(child in parent.children){
+			        					plannedStaffDays += child.plannedStaffDays;
+			        				}
+			        				parent.plannedStaffDays = 	plannedStaffDays;				        				        				
+			        			}
+			        		}
+			        		
+			        		if(pce.property == Constants.PLANNED_FEEDBACK_DAYS){
+			        			if(item.children == null && parent != null){
+			        				var plannedFeedbackDays:Number = 0;	        								        		
+					        		
+			        				for each(child in parent.children){
+			        					plannedFeedbackDays += child.plannedFeedbackDays;
+			        				}
+			        				parent.plannedFeedbackDays = 	plannedFeedbackDays;				        				        				
+			        			}
+			        		}
+			        		
+			        		if(pce.property == Constants.TYPE){
+			        			if(item.children != null){	        								        							        		
+			        				for each(child in item.children){
+			        					child.type = pce.newValue as String;
+			        				}				        				        				
+			        			}
+			        		}			        				
+			        		
+			        		if(item.startTime.time >= item.endTime.time){
+			        			item.endTime   = CalendarConfig.parseEndTime(taskChart.calendar.addUnits(item.startTime, TimeUnit.DAY, 1));
+			        		}	        		
+							
+							var needUpdate:Boolean = true;
+							//The summary task will be updated several times for the same value, compare to escape unecessary update
+							if(item.children){
+	 							if(pce.oldValue is Date){
+									if((pce.oldValue as Date).time == (pce.newValue as Date).time){
+										needUpdate = false;
+									}			        						        			
+				    			}
+				    			
+				    			if(pce.oldValue is String || pce.oldValue is int || pce.oldValue is Number || pce.oldValue is Boolean){
+				    				if(pce.oldValue == pce.newValue){
+				    					needUpdate = false;
+				    				}
+				    			}
+				   			} 
+			    			
+			    			if(pce.property == "taskName" || pce.property == "status" || pce.property == "statusId"){
+			    				needUpdate = false;
+			    			}
+			    			
+			    			if(needUpdate){
+			    				model.updateTask = item;
+			    				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(item, pce.property as String));
+			    			}			    			
+			        	}
+			        }			       
+				} 
+			}
+		
+			
+			private function onGanttDataGridChange(event:ListEvent):void{
+				if(event.itemRenderer){
+					model.GLOBAL_SELECTED_TASK = event.itemRenderer.data as TaskVO;
+//					ganttDataGrid.selectedItem = model.GLOBAL_SELECTED_TASK;
+					activityRo.getAssignedEffortByTaskId(model.GLOBAL_SELECTED_TASK.id);
+				}
+			}
+			
+			private function onGanttDataGridDoubleClick(event:ListEvent):void{
+				var task:TaskVO = event.itemRenderer.data as TaskVO;
+				
+				if(model.taskEditable){
+					showEditTask();
+				}
+				else{
+					showViewTaskWithFeedback();
+				}
+			}			
+			
+	  		
+	      	private function onGanttSheetChange(event:GanttSheetEvent):void
+	      	{	        	
+	        	ganttDataGrid.selectedItem = event.item;
+	        	model.GLOBAL_SELECTED_TASK = event.item as TaskVO;
+	      	}	  			      	 
+      		
+      		private function onMouseDownGanttDataGrid(evt:MouseEvent):void{
+      			evt.preventDefault();
+      			if(!(evt.currentTarget as GanttDataGrid).selectedItem){
+      				return;
+      			}
+      			
+      			initGantt();
+      			
+      			if((evt.currentTarget as GanttDataGrid).selectedItem.children == null){
+      				feedbackColumn.editable				= true;
+ 					startTimeColumn.editable 			= true;
+ 					endTimeColumn.editable 				= true;
+ 					statusColumn.editable				= true;
+ 					     				 									 					
+      			}else{
+      				feedbackColumn.editable				= false;
+ 					startTimeColumn.editable 			= false;
+ 					endTimeColumn.editable 				= false;
+ 					statusColumn.editable				= false; 					   
+      			}
+      		}      	
+      		
+            
+            private function onItemEditEnd(event:AdvancedDataGridEvent):void {
+            	var value:Number;
+            	
+                if(event.dataField == Constants.START_TIME){
+                    event.preventDefault();                    
+                    ganttDataGrid.editedItemRenderer.data.startTime = CalendarConfig.parseStartTime(NormandyDateField(AdvancedDataGrid(event.target).itemEditorInstance).selectedDate);
+	                ganttDataGrid.destroyItemEditor();                       
+	                ganttDataGrid.dataProvider.itemUpdated(event.itemRenderer.data);                         
+                }
+                
+                if(event.dataField == Constants.END_TIME){
+                    event.preventDefault();                    
+                    ganttDataGrid.editedItemRenderer.data.endTime = CalendarConfig.parseEndTime(NormandyDateField(AdvancedDataGrid(event.target).itemEditorInstance).selectedDate);
+                	ganttDataGrid.destroyItemEditor();                       
+                	ganttDataGrid.dataProvider.itemUpdated(event.itemRenderer.data);                         
+                }    
+                
+        		if(event.dataField == Constants.PLANNED_STAFF_DAYS){
+        			value = new Number(AdvancedDataGridPlannedStaffDaysRenderer(AdvancedDataGrid(event.target).itemEditorInstance).text);
+        			if(isNaN(value)){
+        				event.preventDefault();			        				
+        			}else{
+        				newStaffDays=value;
+        				oldStaffDays=event.itemRenderer.data.plannedStaffDays;
+        				activityRo.getTotalStaffDaysByTaskId(model.GLOBAL_SELECTED_TASK.id);
+        			}
+        		} 
+        		
+        		if(event.dataField == Constants.PLANNED_FEEDBACK_DAYS){
+        			value = new Number(AdvancedDataGridPlannedFeedbackDaysRenderer(AdvancedDataGrid(event.target).itemEditorInstance).text);
+        			if(isNaN(value)){
+        				event.preventDefault();			        				
+        			}   
+        		}
+        		
+        		if(event.dataField == Constants.TASK_NAME){
+        			var str:String = AdvancedDataGridTaskNameItemRenderer(AdvancedDataGrid(event.target).itemEditorInstance).taskNameTI.text;
+        			str = StringUtil.trim(str);
+        			if(str && str.length > 0){
+        				ganttDataGrid.editedItemRenderer.data.name = str;
+        				ganttDataGrid.destroyItemEditor(); 
+        				ganttDataGrid.dataProvider.itemUpdated(event.itemRenderer.data);
+        			}else{
+        				event.preventDefault();
+        			}
+        		}          		        		                                                                         
+            } 
+            private var newStaffDays:Number;
+            private var oldStaffDays:Number;
+            private function getTotalStaffDaysByTaskIdHandler(e:ResultEvent):void{
+            	var value:Number=e.result as Number;
+            	if(value>newStaffDays){
+            		Alert.show(StringUtil.substitute(resourceManager.getString("Language","alert.task.staff_days_lower"),value));
+            		ganttDataGrid.selectedItem.plannedStaffDays = oldStaffDays;
+            		ganttDataGrid.dataProvider.itemUpdated(ganttDataGrid.selectedItem);
+            	}
+            }                   
+            
+		    private function onDragComplete(event:DragEvent):void{
+		        event.preventDefault();
+		        event.currentTarget.hideDropFeedback(event);    	
+		    }           
+		    
+
+		    private function initMenu():void{
+		    	myContextMenu = new ContextMenu();
+		    	removeDefaultItems(myContextMenu);
+				addCustomMenuItems();
+				ganttDataGrid.contextMenu = myContextMenu;
+		    }          		
+
+			
+			private function addCustomMenuItems():void {
+				if(model.taskEditable){
+					item = new ContextMenuItem("新建任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+					item = new ContextMenuItem("添加子任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);						
+					item = new ContextMenuItem("编辑任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+					item = new ContextMenuItem("拷贝任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+					item = new ContextMenuItem("移动任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+					item = new ContextMenuItem("取消任务");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+				}
+			}
+
+			private function menuItemSelectHandler(evt:ContextMenuEvent):void{				
+				var event:RightMenuEvent = new RightMenuEvent(RightMenuEvent.RIGHT_MENU_EVENT);
+				event.label = evt.currentTarget.caption;
+				this.parentDocument.dispatchEvent(event);
+			}		
+			
+			private var dragTask:TaskVO;
+			private var dropTask:TaskVO;
+			
+			private function onDragEnter(e:DragEvent):void{
+				e.preventDefault();
+				if(e.dragSource.hasFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS)){					
+					var target:ExtendedAdvancedDataGrid = e.currentTarget as ExtendedAdvancedDataGrid;
+//					var items:Array = e.dragSource.dataForFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS) as Array;
+//					dragTask = items[0] as TaskVO; 
+					dragTask = target.selectedItem as TaskVO;
+					model.draggedTask = dragTask;
+					model.draggedIndex = target.selectedIndex;
+					if(dragTask.children == null){
+						DragManager.acceptDragDrop(target);
+					}
+					else{
+						e.preventDefault();
+					}					
+				}
+			}
+			
+			private function onDragOver(e:DragEvent):void{
+				var target:ExtendedAdvancedDataGrid = e.currentTarget as ExtendedAdvancedDataGrid;
+				var dropIdx:int = target.calculateDropIndex(e);
+					
+				if(dropIdx < _tasks.length){
+					target.selectedIndex = dropIdx;
+				}
+				else{
+					target.selectedIndex = model.draggedIndex;
+				}				
+			}
+			
+			private function onDragDropHandler(e:DragEvent):void{
+				if(e.dragSource.hasFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS)){
+					e.preventDefault();
+					e.currentTarget.hideDropFeedback(e);
+					var target:ExtendedAdvancedDataGrid	= ExtendedAdvancedDataGrid(e.currentTarget);		
+					var p:Point = target.contentToGlobal(new Point(0, target.contentMouseY));
+					dropTask = target.getRowItemAtPosition(p.y) as TaskVO;
+					if(dropTask){
+						if(dropTask.parentId == 0){
+							activityRo.getActivitiesByTaskId(dropTask.id);
+						}						
+					}else{
+						proceedDragDrop();
+					}					
+				}
+			}	
+			
+			private function getActivitiesByTaskIdHandler(e:ResultEvent):void{
+				var activities:ArrayCollection = e.result as ArrayCollection;
+				if(activities && activities.length > 0){
+					Alert.show(resourceManager.getString('Language', 'alert.task_drag_drop'));
+				}else{
+					proceedDragDrop();
+				}
+			}
+			private var assignedEffort:Number = 0;
+			private function getAssignedEffortByTaskIdHandler(e:ResultEvent):void{
+				assignedEffort = e.result as Number;
+				model.activityStaff = assignedEffort;
+				if(model.GLOBAL_SELECTED_TASK!=null && model.GLOBAL_SELECTED_TASK.children!=null){
+						var rootTaskAssigned:Number = 0;
+		   				for each(var t:TaskVO in model.GLOBAL_SELECTED_TASK.children){
+		   					rootTaskAssigned = rootTaskAssigned + (t.staffAssigned);
+		   				}
+		   				model.activityStaff = rootTaskAssigned;
+				}
+			}
+			
+			private function proceedDragDrop():void{
+				if(dragTask && (dragTask.children == null)){					
+					var dragParentTask:TaskVO = tasks.getParentItem(dragTask) as TaskVO;
+					if(dropTask){
+						if(dropTask.parentId == 0){
+							if(dragTask.id != dropTask.id){
+								if(dragParentTask){
+									if(dragParentTask.id != dropTask.id){										
+										dragTask.parentId   = dropTask.id;
+										dragTask.parentName = dropTask.name;
+									}else{
+										return;
+									}
+								}else{
+									dragTask.parentId   = dropTask.id;
+									dragTask.parentName = dropTask.name;
+								}							
+							}else{
+								return;
+							}
+						}else{
+							return;
+						}						
+					}else{
+						if(dragTask.parentId != 0){
+							dragTask.parentId 	= 0;
+							dragTask.parentName	= "";
+						}else{
+							return;
+						}
+					}
+						
+					taskChart.taskDataProvider = null;
+					if(_tasks){
+						_tasks.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+					}
+					_tasks.removeChild(dragParentTask, dragTask);
+
+					if(dragParentTask){
+						if(dragParentTask.children != null){
+							if(dragParentTask.children.length == 0){
+								dragParentTask.children = null;
+							}else{							
+								recalculateTask(dragParentTask);
+								CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(dragParentTask, Constants.PARENT_ID));
+							}
+						}
+					}
+					
+					if(dropTask){
+						if(dropTask.children == null){
+							dropTask.children = new ArrayCollection();
+						}						
+						dropTask.children.addItem(dragTask);
+						recalculateTask(dropTask);
+						CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.updateTaskEvent(dropTask, Constants.PARENT_ID));
+						
+					}else{
+						_tasks.addChild(dropTask, dragTask);
+					}					
+					
+					if(_tasks){
+						_tasks.addEventListener(CollectionEvent.COLLECTION_CHANGE, onTaskChange);
+					}
+					taskChart.taskDataProvider = _tasks;
+					if(dropTask){
+						HierarchicalCollectionViewFixed(_tasks).openNode(dropTask);
+					}
+					ganttDataGrid.selectedItem = dragTask;
+					model.GLOBAL_SELECTED_TASK = dragTask;
+					
+					if(ganttDataGrid.selectedIndex >= 0){						
+						ganttDataGrid.scrollToIndex(ganttDataGrid.selectedIndex);
+					}
+				}
+			}
+			
+			private function recalculateTask(task:TaskVO):TaskVO{
+				var plannedStaffDays:Number 	= 0;
+				var plannedFeedbackDays:Number	= 0;
+				var finishedEfforts:Number		= 0;
+				
+				for each(var t:TaskVO in task.children){
+					plannedStaffDays 	+= t.plannedStaffDays;
+					plannedFeedbackDays += t.plannedFeedbackDays;
+					finishedEfforts		+= (t.plannedStaffDays + t.plannedFeedbackDays) * t.progress;
+				}
+				
+				task.plannedStaffDays	 = plannedStaffDays;
+				task.plannedFeedbackDays = plannedFeedbackDays;
+				task.progress			 = Math.round(finishedEfforts / (plannedStaffDays + plannedFeedbackDays));
+				
+				return task;
+			}
+		]]>
+	</mx:Script>
+	
+	
+	
+	  <!--==========================
+	    Data Binding
+	  ===========================-->
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.project"/>
+	<mx:Binding source="model.GLOBAL_USER_TASKS_HC" destination="this.tasks"/>
+	<mx:Binding source="model.GLOBAL_CREATED_TASKS" destination="this.createdTasks"/>
+	<mx:Binding source="model.GLOBAL_CREATED_SUBTASK" destination="this.createdSubtask"/>
+	<mx:Binding source="model.GLOBAL_CANCELLED_TASK" destination="this.cancelledTask"/>
+	<mx:Binding source="model.GLOBAL_MOVED_TASK" destination="this.movedTask"/>
+	<mx:Binding source="model.taskViewMode" destination="this.taskViewMode"/>
+	<mx:Binding source="model.taskEditable" destination="this.taskEditable"/>	  		  
+	<mx:Binding source="model.GLOBAL_SELECTED_ACTIVITY" destination="this.selectedActivity"/>
+	
+	<mx:Binding source="model.selectedMilestone" destination="this.milestone"/>
+	<mx:Binding source="model.selectedTaskCategory" destination="this.selectedTaskCategory"/>
+	<mx:Binding source="model.taskTypeFilter" destination="this.taskTypeFilter"/>
+	<mx:Binding source="model.taskAssignFilter" destination="this.taskAssignFilter"/>
+	<mx:Binding source="model.taskNameFilter" destination="this.taskNameFilter"/>
+	<mx:Binding source="model.isLink" destination="this.isLink"/>
+	<mx:Binding source="model.isLock" destination="this.isLock"/>
+	<mx:Binding source="model.taskStaffNotAssigned" destination="this.taskStaffNotAssigned"/>	
+	
+	<mx:RemoteObject id="activityRo" destination="ro.activity">
+		<mx:method name="getActivitiesByTaskId" result="getActivitiesByTaskIdHandler(event)"/>
+		<mx:method name="getAssignedEffortByTaskId" result="getAssignedEffortByTaskIdHandler(event)"/>
+		<mx:method name="getTotalStaffDaysByTaskId" result="getTotalStaffDaysByTaskIdHandler(event)"/>
+	</mx:RemoteObject> 
+  
+	  <!--==========================
+	    Page Layout
+	  ===========================--> 	  
+	<ilog:TaskChart id="taskChart" width="100%" height="100%"
+			taskDataProvider="{_tasks}"
+			taskIsMilestoneField="isMilestone" 
+			taskLabelFunction="taskChart_taskLabelFunc">
+		<ilog:dataGrid>
+          <collections:ExtendedAdvancedDataGrid id="ganttDataGrid" editable="true" rowHeight="22"
+          		sortExpertMode="false"
+          		folderClosedIcon="{ImageEnum.IMAGECLASS_SUMMARY_TASK}"
+          		folderOpenIcon="{ImageEnum.IMAGECLASS_SUMMARY_TASK}"
+          		defaultLeafIcon="{ImageEnum.IMAGECLASS_TASK}"
+          		treeColumn="{taskColumn}"
+          		
+          		styleFunction="taskADGStyleFunc"
+          		
+          		change="onGanttDataGridChange(event)"
+          		doubleClickEnabled="true"
+          		itemDoubleClick="onGanttDataGridDoubleClick(event)"
+          		mouseDown="onMouseDownGanttDataGrid(event)"
+          		itemEditEnd="onItemEditEnd(event)"
+          		
+          		dragEnabled="{model.activityEditable}"
+          		dragComplete="onDragComplete(event)" dragEnter="onDragEnter(event)" 
+          		dragOver="onDragOver(event)" dropEnabled="true" dragDrop="onDragDropHandler(event)">          		
+
+            <collections:columns>
+			  <mx:AdvancedDataGridColumn id="feedbackColumn" dataField="isFeedback" editable="true" width="25" sortable="false"
+			  	rendererIsEditor="false" editorDataField="isFeedback">
+			  	<mx:headerRenderer>
+			  		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalAlign="middle">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{ImageEnum.IMAGECLASS_FEEDBACK}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	   			  			
+			  		</mx:Component>
+			  	</mx:headerRenderer>
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalScrollPolicy="off" horizontalScrollPolicy="off">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{data.isFeedback==Constants.BOOLEAN_YES?ImageEnum.IMAGECLASS_FEEDBACK:''}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              						import com.pearl.normandy.utils.Constants;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+	              			<mx:Label id="feedbackCount">
+	              				<mx:Script>
+			              			<![CDATA[
+			              				import mx.controls.Alert;
+										import com.pearl.normandy.vo.TaskVO;
+										
+										private var _data:Object;
+											                           	
+										[Bindable]                               	
+										public override function set data(data:Object):void{								
+											                         		
+											this._data = data;
+											if(feedbackCount!=null){
+												if( data.children != null){
+													 var count:int = 0;
+													 for each(var subtask:TaskVO in data.children){
+									//					 Alert.show(data.feedbackNum);
+														if(0!=subtask.feedbackNum){
+															count=count+subtask.feedbackNum;	
+														}
+													}
+													count=count+data.feedbackNum;
+													if(count==0){
+														feedbackCount.text="";
+													}else{
+														feedbackCount.text= ""+count;
+													}
+												}else{
+													if(data.feedbackNum == 0){
+														feedbackCount.text="";
+													}else{
+														feedbackCount.text= ""+data.feedbackNum;
+													}
+												}
+											}
+										}   
+										public override function get data():Object{
+											return this._data;
+										}
+			              			]]>
+			              		</mx:Script>
+	              			</mx:Label>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer> 
+              	<mx:itemEditor>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="left" verticalAlign="middle" paddingLeft="10">             				
+	              			<mx:CheckBox id="feedbackCB" change="onChange(event)">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import mx.controls.CheckBox;
+	              						import com.pearl.normandy.utils.Constants;
+	              						
+	              						[Bindable]
+	              						public var isFeedback:String;
+	              						private var _data:Object;
+	              						[Bindable]
+	              						public override function set data(value:Object):void{
+	              							this._data = value;	 
+	              							
+	              							if(data.isFeedback==Constants.BOOLEAN_YES){
+	              								feedbackCB.selected = true;
+	              								isFeedback = Constants.BOOLEAN_YES;
+	              							}             							
+	              						}
+	              						
+	              						public override function get data():Object{
+	              							return this._data;
+	              						}
+	              						
+	              						private function onChange(event:Event):void{
+	              							var cb:CheckBox = event.currentTarget as CheckBox;
+	              							if(cb.selected){
+	              								data.isFeedback = Constants.BOOLEAN_YES;
+	              								isFeedback = Constants.BOOLEAN_YES;
+	              							}
+	              							else{
+	              								data.isFeedback = "";
+	              								isFeedback = "";
+	              							}
+	              						}
+	              					]]>
+	              				</mx:Script>
+	              			</mx:CheckBox>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemEditor>               	
+              </mx:AdvancedDataGridColumn>                				  	            
+              <mx:AdvancedDataGridColumn editable="false" width="25" sortable="false">
+			  	<mx:headerRenderer>
+			  		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalAlign="middle">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{ImageEnum.IMAGECLASS_TRAINING}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	   			  			
+			  		</mx:Component>
+			  	</mx:headerRenderer>              
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="center">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{data.type==Constants.PROJECT_TYPE_TRAINING?ImageEnum.IMAGECLASS_TRAINING:''}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              						import com.pearl.normandy.utils.Constants
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer>              	
+              </mx:AdvancedDataGridColumn>
+              <mx:AdvancedDataGridColumn editable="false" width="25" sortable="false"
+              	itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridToolTipImageRenderer">
+			  	<mx:headerRenderer>
+			  		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalAlign="middle">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{ImageEnum.IMAGECLASS_PICTURE}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	   			  			
+			  		</mx:Component>
+			  	</mx:headerRenderer>                	
+              </mx:AdvancedDataGridColumn>
+              
+              <mx:AdvancedDataGridColumn dataField="id" editable="false" width="65" 
+              		headerText="{resourceManager.getString('Language','label.task_id')}"/> 
+              
+              <mx:AdvancedDataGridColumn dataField="name" id="taskColumn" editorDataField="text" textAlign="left"
+              		headerText="{resourceManager.getString('Language','label.task_name')}" width="200"
+              		itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridTaskNameItemRenderer"/>
+                              		          
+              <mx:AdvancedDataGridColumn dataField="priority" editable="false" width="20"
+              		headerText="{resourceManager.getString('Language','label.priority')}"
+              		itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPriorityImageRenderer"/>
+              		
+              <mx:AdvancedDataGridColumn dataField="milestone" editable="true" width="40"
+              		headerText="{resourceManager.getString('Language','label.milestone')}"/>
+              		
+              <mx:AdvancedDataGridColumn dataField="taskGroup" editable="true" width="70"
+              		headerText="{resourceManager.getString('Language','label.task_group')}"/>
+              
+              <mx:AdvancedDataGridColumn dataField="startTime" width="90" id="startTimeColumn" labelFunction="formatDateDay"
+              		headerText="{resourceManager.getString('Language','label.start_date')}" editorDataField="selectedDate"
+              		itemEditor="com.pearl.normandy.controls.NormandyDateField" textAlign="right"/>
+              
+              <mx:AdvancedDataGridColumn dataField="endTime" headerText="{resourceManager.getString('Language','label.end_date')}"
+              		labelFunction="formatDateDay" width="90" id="endTimeColumn" editorDataField="selectedDate" textAlign="right"
+              		itemEditor="com.pearl.normandy.controls.NormandyDateField"/>           
+              
+              <mx:AdvancedDataGridColumn width="40" editable="false" id="durationColumn" textAlign="right"
+              		headerText="{resourceManager.getString('Language','label.duration')}">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:Label text="{holidayUtil.getWorkingDays(data.startTime, data.endTime, Constants.TIMEUNIT_MINUE)} d">
+              				<mx:Script>
+              					<![CDATA[
+              						import com.pearl.normandy.utils.Constants;
+              						import com.pearl.normandy.utils.HolidayUtil;        
+              						import com.pearl.normandy.utils.NormandyModel;              						
+              						      						
+              						private var holidayUtil:HolidayUtil = NormandyModel.getInstance().holidayUtil;
+              					]]>
+              				</mx:Script>
+              			</mx:Label>              			
+              		</mx:Component>
+              	</mx:itemRenderer>
+              </mx:AdvancedDataGridColumn>              
+              
+              
+              <mx:AdvancedDataGridColumn dataField="plannedStaffDays" width="40" id="plannedStaffDaysColumn" textAlign="right"
+              		headerText="{resourceManager.getString('Language','label.planned_staff_days')}" editorDataField="text"
+              		itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPlannedStaffDaysRenderer"/>              
+              
+			  <mx:AdvancedDataGridColumn dataField="plannedFeedbackDays" width="40" id="plannedFeedbackDaysColumn" textAlign="right"
+              		headerText="{resourceManager.getString('Language','label.planned_feedback_days')}" editorDataField="text"
+              		itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridPlannedFeedbackDaysRenderer"/> 
+              		
+			  <mx:AdvancedDataGridColumn dataField="progress" width="40" id="progressColumn" editable="false" textAlign="right"
+              		headerText="{resourceManager.getString('Language','label.progress')}">
+			  	<mx:formatter>
+					 <formatter:PercentageFormatter/>				  		
+			  	</mx:formatter>
+			  </mx:AdvancedDataGridColumn>
+			      
+              <mx:AdvancedDataGridColumn id="statusColumn" dataField="status" editable="true" width="70" editorDataField="text"
+              		headerText="{resourceManager.getString('Language','label.subtask_status')}" styleFunction="taskStatusStyleFunction"
+              		itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridTaskStatusRenderer"/>
+              		
+              <mx:AdvancedDataGridColumn dataField="taskCategory" width="90" id="taskCategory" textAlign="right"
+              		headerText="{resourceManager.getString('Language','label.task_category')}"/>
+              		           		                                        
+            </collections:columns>
+          </collections:ExtendedAdvancedDataGrid>
+        </ilog:dataGrid>
+        
+        <ilog:ganttSheet>
+            <ilog:GanttSheet id="ganttSheet"
+	          	dataTipFunction="ganttDataTip"
+	          	editingTipFunction="ganttDataTip"  
+	          	
+	          	change="onGanttSheetChange(event)"
+	          	
+	            moveEnabled="true"
+	            resizeEnabled="true"
+	            reassignEnabled="false"
+	           	moveEnabledFunction="taskEditableFunction"
+	           	resizeEnabledFunction="taskEditableFunction"          	
+	          	
+           		showCurrentTimeIndicator="true"
+           		nonWorkingDays="{model.nonWorkingDays}"
+            	nonWorkingRanges="{model.nonWorkingRanges}"
+            	nonWorkingColor="{ColorEnum.NON_WORKING_COLOR}"
+            	workingTimes="{CalendarConfig.WORKING_TIMES}"
+            	
+            	taskItemRenderer="ilog.gantt.examples.TaskChartCustomTaskItemRenderer"/>            	
+        </ilog:ganttSheet>
+    </ilog:TaskChart>		
+</mx:VBox>

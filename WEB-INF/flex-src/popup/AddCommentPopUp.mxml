@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	title="{resourceManager.getString('Language','title.new_comment')} - [{task.name}]"
+	width="600" height="500" borderAlpha="1"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	 
+	<mx:Script source="../script/CommonScript.as"/> 
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			  
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.vo.CommentVO;
+			import com.pearl.normandy.vo.TaskVO;	
+			import com.pearl.normandy.event.CommentEvent;
+						
+		    //==============================
+		    //Data Attributes
+		    //==============================		     						
+			private var _task:TaskVO;
+			[Bindable]
+			public function set task(val:TaskVO):void{
+				this._task = val;
+			}
+			
+			public function get task():TaskVO{
+				return this._task;
+			}
+
+			
+			
+ 		    //==============================
+		    //Methods
+		    //==============================   		
+			private function init():void{
+				this.setFocus();					
+			}			    
+		    	
+			private function addComment():void{				
+				var newComment:CommentVO = new CommentVO();
+				newComment.taskId = task.id;
+				newComment.comment = parseHtml(content.htmlText);
+				newComment.createdBy = model.currUser.name;
+				newComment.createdDate = new Date();
+				CairngormEventDispatcher.getInstance().dispatchEvent(CommentEvent.createCommentEvent(newComment));
+				PopUpManager.removePopUp(this);
+			}
+
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }							
+		]]>
+	</mx:Script>
+	
+	
+	 <!--==========================
+	    Page Layout
+  	 ===========================-->	
+	<mx:RichTextEditor id="content" height="100%" width="100%"/>
+	
+	 <mx:ControlBar width="100%" horizontalAlign="center">
+		<mx:Button id="ok" label="{resourceManager.getString('Language','button.ok')}" click="addComment()"/>
+        <mx:Button id="cancel" label="{resourceManager.getString('Language','button.cancel')}"
+            click="PopUpManager.removePopUp(this);"/>
+	</mx:ControlBar>
+</mx:TitleWindow>

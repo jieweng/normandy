@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+	xmlns:component1="fr.kapit.introspection.component.*" xmlns:local="*" 
+	xmlns:pentacle="com.pearl.normandy.component.pentacle.*"
+	title="{resourceManager.getString('Language','title.edit_project')}"
+	width="100%" height="100%" borderAlpha="1" 
+	showCloseButton="true"
+	creationComplete="init()"
+	close="PopUpManager.removePopUp(this);"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>	
+	<mx:Script>
+		<![CDATA[
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+					
+			import mx.collections.ArrayCollection;
+			import mx.managers.PopUpManager;
+			import mx.validators.Validator;
+			import mx.events.CloseEvent;
+
+			import com.pearl.normandy.vo.CustomerVO;			
+			import com.pearl.normandy.utils.Constants;
+			
+			import com.pearl.normandy.event.CustomerEvent;
+			import com.pearl.normandy.event.ProjectEvent;				
+			
+		    //==============================
+		    //Data Attribute
+			//=============================
+			[Bindable]			
+ 			private var selectedProject:ProjectVO;
+
+			[Bindable]
+			private var _allCustomers:ArrayCollection;			
+			public function set allCustomers(value:ArrayCollection):void{
+				this._allCustomers = value;				
+				
+				if(allCustomers && allCustomers.length > 0){					
+									
+					var customerId:int;									
+					if(selectedProject == null){
+						customerNameCB.selectedIndex = 0;				 	
+					}								
+					else{
+						customerId = selectedProject.customerId;
+						
+						var match:Boolean = false;				
+		   				for(var i:int=0;i<allCustomers.length;i++){
+				   			var item:CustomerVO = allCustomers.getItemAt(i) as CustomerVO;
+			   				if(item.id == customerId){
+			   					customerNameCB.selectedIndex = i;
+			   					match = true;
+			   					break;
+			   				}
+		   				}
+
+		   				if(!match){
+		   					customerNameCB.selectedIndex = 0;
+		   				}
+		   			}
+				}					
+			}
+			
+			public function get allCustomers():ArrayCollection{
+				return this._allCustomers;
+			}
+		    //==============================
+		    //Private method
+			//==============================
+			private function init():void{
+				this.setFocus();	
+				CairngormEventDispatcher.getInstance().dispatchEvent(CustomerEvent.getAllCustomerEvent());
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.getAllProjectEvent());		
+			}			
+			
+			private function validate():Boolean{
+ 				var validateResult:Array = Validator.validateAll(
+					[projectNameValidation]);
+				if(validateResult.length > 0){
+ 		   			 return false;
+		   		}else{
+		   			updateProject();
+		   			PopUpManager.removePopUp(this);
+		   		}
+		   		return true;
+			}
+			
+			private function updateProject():void{
+				var customer:String = null;
+				
+				if(customerNameCB.selectedIndex == -1){
+					customer = StringUtil.trim(customerNameCB.text);
+				}
+				else{
+ 					selectedProject.customerId 	=  (customerNameCB.selectedItem as CustomerVO).id;
+ 				}				
+				
+				selectedProject.projectName 	= projectName.text;
+				selectedProject.projectKey		= projectKey.text;								
+				selectedProject.type			= projectType.selectedItem.type;
+				selectedProject.status			= projectStatus.selectedIndex==0?Constants.PROJECT_STATUS_OPEN:Constants.PROJECT_STATUS_CLOSE;				
+				selectedProject.needQa 			= (needQACB.selectedIndex==0?Constants.BOOLEAN_YES:Constants.BOOLEAN_NO);
+				selectedProject.updatedDate 	= new Date();
+				selectedProject.updatedBy 		= model.currUser.userName;
+				selectedProject.difficulty      = difficulty.value;
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProjectEvent.updateProjectEvent(selectedProject, customer, model.currUser));						
+				PopUpManager.removePopUp(this);
+			}			
+				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }				
+		]]>
+	</mx:Script>
+	
+	
+	<!--==========================
+	    Binding
+	===========================-->
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.selectedProject"/>
+	<mx:Binding source="model.GLOBAL_ALL_CUSTOMERS" destination="this.allCustomers"/>
+
+	
+	<!--==========================
+	    Page Layout
+	===========================-->	
+	<mx:HBox height="100%" width="100%">
+		<mx:VBox width="50%" height="100%">
+			<mx:Form width="100%">
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.project_name')}">
+		            <mx:TextInput id="projectName" width="150" text="{selectedProject.projectName}"/>
+		        </mx:FormItem>
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.customer_name')}">
+		            <mx:ComboBox id="customerNameCB" editable="true" width="150" 
+		            	dataProvider="{_allCustomers}" labelField="customerName"/>
+		        </mx:FormItem> 	 
+		        <mx:FormItem required="true" label="Need QA">
+		            <mx:ComboBox id="needQACB" width="150" selectedIndex="{selectedProject.needQa==Constants.BOOLEAN_YES?0:1}">
+		            	<mx:ArrayCollection>
+		            		<mx:String>Yes</mx:String>
+		            		<mx:String>No</mx:String>
+		            	</mx:ArrayCollection>
+		            </mx:ComboBox>
+		        </mx:FormItem>
+		        <mx:FormItem label="{resourceManager.getString('Language','label.project_difficulty')}" paddingBottom="0" >
+			      <pentacle:Pentacle id="difficulty" max="5" currentIndex="{selectedProject.difficulty}" width="150">
+			      </pentacle:Pentacle>
+		        </mx:FormItem>		
+		     </mx:Form>		        
+		</mx:VBox>
+			
+		<mx:VBox width="50%" height="100%">
+			<mx:Form width="100%">
+				<mx:FormItem label="{resourceManager.getString('Language','label.project_key')}">
+					<mx:TextInput id="projectKey" width="150" text="{selectedProject.projectKey}"/>
+				</mx:FormItem>
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.project_type')}">
+		            <mx:ComboBox id="projectType" width="150" labelField="type" dataProvider="{model.TYPE}"
+		            	selectedIndex="{selectedProject.type==Constants.PROJECT_TYPE_TRAINING?1:0}"/>
+		        </mx:FormItem>
+		        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.status')}" paddingBottom="0">
+		            <mx:ComboBox id="projectStatus" width="150" text="{selectedProject.status}"
+		            	selectedIndex="{selectedProject.status==Constants.PROJECT_STATUS_OPEN?0:1}">
+				      <mx:ArrayCollection>
+				         <mx:String>Open</mx:String>
+				         <mx:String>Close</mx:String>
+				      </mx:ArrayCollection>				            	
+		            </mx:ComboBox>		            
+		        </mx:FormItem> 		      	        
+			</mx:Form>		        
+		</mx:VBox>
+	</mx:HBox>	
+	
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <!--mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" click="validate()"
+        	enabled="{model.currUser.manager == Constants.BOOLEAN_YES || model.currUser.userGroupId == Constants.GROUP_PM_NUM}"/-->
+        <mx:Button id="okButton" label="{resourceManager.getString('Language','button.ok')}" click="validate()"/>
+        <mx:Button id="cancelButton" label="{resourceManager.getString('Language','button.cancel')}" click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+    
+    <mx:StringValidator id="projectNameValidation" required="true"
+    	source="{projectName}" property="text"
+    	trigger="{okButton}" triggerEvent="click"/>
+</mx:TitleWindow>

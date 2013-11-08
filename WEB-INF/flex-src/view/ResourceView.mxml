@@ -1,0 +1,1070 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex" 
+	xmlns:ganttClasses="com.pearl.normandy.controls.ganttClasses.*"
+	xmlns:widget="widget.*"
+	width="100%" height="100%"
+	creationComplete="init()">
+	
+	<mx:Metadata>
+		[Event(name="popup", type="com.pearl.normandy.event.PopupEvent")] 
+	</mx:Metadata>	
+	
+  	<mx:Script source="../script/CommonScript.as"/>	
+  	<mx:Script source="../script/GanttSheetHelper.as"/>	
+	
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.DateUtil;
+			import mx.utils.ObjectUtil;
+			import mx.utils.StringUtil;
+			import com.pearl.normandy.collections.ExtendedAdvancedDataGrid;
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import ilog.gantt.TaskItem;
+			import ilog.gantt.GanttSheetEvent;
+		
+			import mx.collections.ArrayCollection;			
+			import mx.rpc.events.ResultEvent;
+   			import mx.events.DragEvent;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.events.CloseEvent;	
+   			import mx.managers.DragManager;
+			import mx.managers.CursorManagerPriority;
+			import mx.managers.CursorManager;   			    			
+
+			import com.pearl.normandy.controls.ganttClasses.GanttSheetItemRenderer;
+			import com.pearl.normandy.controls.ganttClasses.StatusItemRenderer;
+			import com.pearl.normandy.controls.ganttClasses.ThumbItemRenderer;
+			import com.pearl.normandy.controls.ganttClasses.ThumbStatusItemRenderer;			
+			import com.pearl.normandy.enum.ImageEnum;			
+			import com.pearl.normandy.event.PopupEvent;			   			  			
+			import com.pearl.normandy.vo.ActivityVO;   			  			
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProjectUserVO;			
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.UserVO;
+  			import com.pearl.normandy.utils.CalendarConfig;			
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.GanttUtil;			
+			import com.pearl.normandy.utils.HolidayUtil;
+			
+			import popup.UpdateActivityPopup;						
+		    //==============================
+		    //Control Attribute
+		    //==============================
+			private var holidayUtil:HolidayUtil = model.holidayUtil;			
+			private var currUser:UserVO = model.currUser;		    
+		    
+		    
+		    public function get selectedTaskItem():TaskVO{
+		    	return this._selectedTaskItem;
+		    }
+		    
+		    private var _project:ProjectVO
+		    [Bindable]
+		    public function set project(value:ProjectVO):void{
+		    	this._project = value;
+		    	if(project != null){
+		    		if(activityViewMode != Constants.VIEW_MODE_ALL || limitToProjectResource){		    			
+		    			projectMemberRo.getReleasedProjectMembersByProjectId(project.id);
+		    		}
+		    		else{
+			    		model.releasedProjectMembers = null;
+			    	}
+			    	projectMemberRo.getAssignedProjectMembersByProjectId(project.id);
+			    }		    							    	
+		    }			
+		    
+		    public function get project():ProjectVO{
+		    	return this._project;
+		    }
+		    		    
+		    
+		    private var _activityViewMode:String;
+		    [Bindable]
+		    public function set activityViewMode(value:String):void{
+		    	this._activityViewMode = value;		    	
+		    	if(activityViewMode){
+		    		loadData();
+		    	}		    	
+		    }
+		    
+		    public function get activityViewMode():String{
+		    	return this._activityViewMode;
+		    }
+		    
+		    
+		    private var _minVisibleTime:Date;
+		    [Bindable]
+		    public function set minVisibleTime(value:Date):void{
+		    	this._minVisibleTime = minVisibleTime;
+		    	loadData();
+		    } 		  
+		    
+		    public function get minVisibleTime():Date{
+		    	return this._minVisibleTime;
+		    }
+		    		    		   
+		    private var _selectedActivity:ActivityVO;
+		    [Bindable]
+		    public function set selectedActivity(value:ActivityVO):void{
+		    	this._selectedActivity = value;
+		    	model.GLOBAL_SELECTED_ACTIVITY = value;
+		    }
+		    
+		    public function get selectedActivity():ActivityVO{
+		    	return this._selectedActivity;
+		    }
+		    
+		    
+		    private var _selectedResource:Object;
+		    [Bindable]
+		    public function set selectedResource(value:Object):void{
+		    	this._selectedResource = value;
+		    	model.selectedResource = value;
+		    }
+		    
+		    public function get selectedResource():Object{
+		    	return this._selectedResource;
+		    }
+			
+			//filters			
+			private var _limitToProjectResource:Boolean = false;
+			[Bindable]
+			public function set limitToProjectResource(value:Boolean):void{
+				this._limitToProjectResource = value;
+				loadData();				
+			}
+			
+			public function get limitToProjectResource():Boolean{
+				return this._limitToProjectResource;
+			}
+			
+			private var _limitToProjectActivity:Boolean = false;
+			[Bindable]
+			public function set limitToProjectActivity(value:Boolean):void{
+				this._limitToProjectActivity = value;
+				updateActivityFilter();
+
+			}
+			
+			public function get limitToProjectActivity():Boolean{
+				return this._limitToProjectActivity;
+			}
+						
+			private var _activityQualityFilter:int = 0;
+			[Bindable]
+			public function set activityQualityFilter(value:int):void{
+				this._activityQualityFilter = value;
+				updateActivityFilter();
+			}
+			
+			public function get activityQualityFilter():int{
+				return this._activityQualityFilter;
+			}
+			
+			private var _leadFilter:ProjectUserVO = null;
+			[Bindable]
+			public function set leadFilter(value:ProjectUserVO):void{
+				this._leadFilter = value;
+				updateResourceFilter();
+			}
+			
+			public function get leadFilter():ProjectUserVO{
+				return this._leadFilter;
+			}
+	
+			private var _resourceStatusFilter:String = "";
+			[Bindable]
+			public function set resourceStatusFilter(value:String):void{
+				this._resourceStatusFilter = value;
+				updateResourceFilter();
+			}
+			
+			public function get resourceStatusFilter():String{
+				return this._resourceStatusFilter;
+			}
+			
+			private var _isShowDelMem:Boolean = false;
+			[Bindable]
+			public function set isShowDelMem(value:Boolean):void{
+				this._isShowDelMem = value;
+				updateResourceFilter();
+			}	
+			
+			public function get isShowDelMem():Boolean{
+				return this._isShowDelMem;
+			}
+
+			private var _userInforFilter:String="";
+			[Bindable]
+			public function set userInforFilter(value:String):void{
+				this._userInforFilter=value;
+				updateResourceFilter();
+			}	
+			
+			public function get userInforFilter():String{
+				return this._userInforFilter;
+			}
+			
+			public var isLink:Boolean = true;
+			
+			private var _isThumb:Boolean = false;
+			[Bindable]
+			public function set isThumb(value:Boolean):void{
+				this._isThumb = value;				
+				switchView();
+			}	
+			
+			public function get isThumb():Boolean{
+				return this._isThumb;
+			}
+			
+			private var _ganttView:String = Constants.GANTT_VIEW_PERFORMANCE;
+			[Bindable]
+			public function set ganttView(value:String):void{
+				this._ganttView = value;
+				switchView();
+			}
+			
+			public function get ganttView():String{
+				return this._ganttView;
+			}
+			
+			private function switchView():void{
+				if(isThumb){
+					ganttDataGrid.rowHeight = 64;
+					
+					switch(ganttView){
+						case Constants.GANTT_VIEW_PERFORMANCE:
+							ganttSheet.taskItemRenderer = new ClassFactory(ThumbItemRenderer); break;
+						case Constants.GANTT_VIEW_STATUS:
+							ganttSheet.taskItemRenderer = new ClassFactory(ThumbStatusItemRenderer); break;
+						default:
+							ganttSheet.taskItemRenderer = new ClassFactory(ThumbItemRenderer); break;
+					}										
+				}
+				else{
+					ganttDataGrid.rowHeight = 22;
+
+					switch(ganttView){
+						case Constants.GANTT_VIEW_PERFORMANCE:
+							ganttSheet.taskItemRenderer = new ClassFactory(GanttSheetItemRenderer); break;
+						case Constants.GANTT_VIEW_STATUS:
+							ganttSheet.taskItemRenderer = new ClassFactory(StatusItemRenderer); break;
+						default:
+							ganttSheet.taskItemRenderer = new ClassFactory(GanttSheetItemRenderer); break;
+					}					
+				}				
+			}
+			
+			
+		    private var _selectedTaskItem:TaskVO;
+		    [Bindable]
+		    public function set selectedTaskItem(value:TaskVO):void{
+		    	this._selectedTaskItem = value;	
+		    	
+		    	if(isLink){	    	
+		    		highlight(resourceChart, selectedTaskItem);
+		    	}
+		    }						
+			
+			
+			
+			private var _createdActivity:ActivityVO;
+			[Bindable]
+			public function set createdActivity(value:ActivityVO):void{
+				this._createdActivity = value;
+				addActivityToGanttSheet(createdActivity);
+				addResourceNameToTask(createdActivity);				
+			}
+			
+			public function get createdActivity():ActivityVO{
+				return this._createdActivity;
+			}
+			
+			
+			private var _updatedActivities:ArrayCollection;
+			[Bindable]
+			public function set updatedActivities(value:ArrayCollection):void{
+				this._updatedActivities = value;
+				loadActivities();
+			}
+			
+			public function get updatedActivities():ArrayCollection{
+				return this._updatedActivities;
+			}
+		    //==============================
+		    //Data Attributes
+		    //==============================	
+			[Bindable]
+			private var users:ArrayCollection;
+			
+			[Bindable]
+			private var activities:ArrayCollection;
+			
+				
+				
+		    //==============================
+		    //Methods
+		    //==============================
+		    private function init():void{
+		    	var activityContextMenu:ContextMenu = new ContextMenu();
+		    	removeDefaultItems(activityContextMenu);
+				addCustomMenuItems(activityContextMenu);
+				ganttSheet.contextMenu = activityContextMenu;		    	
+		    }
+		    
+			private function addCustomMenuItems(contextMenu:ContextMenu):void {
+				item = new ContextMenuItem("Move To Front");
+				contextMenu.customItems.push(item);
+				item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onMenuItemSelected);
+				item = new ContextMenuItem("Move To Back");
+				contextMenu.customItems.push(item);
+				item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onMenuItemSelected);
+			}		    
+		    
+		    public function loadData():void{
+		    	//只有当APM勾选只显示当前项目成员的时候，或者当AD登录的时候才显示Rleased项目成员。
+//		    	if(project != null){
+//		    		if(activityViewMode != Constants.VIEW_MODE_ALL || limitToProjectResource){		    			
+//		    			projectMemberRo.getReleasedProjectMembersByProjectId(project.id);
+//		    		}
+//		    		else{
+//			    		model.releasedProjectMembers = null;
+//			    	}
+//			    	projectMemberRo.getAssignedProjectMembersByProjectId(project.id);
+//			    }				    	
+		    	
+		    	if(activityViewMode == Constants.VIEW_MODE_ALL){
+		    		if(limitToProjectResource){
+		    			userRo.getProjectUsers(project.id, null);	
+		    		}else{
+//		    			userRo.getAllProductionUsers();
+						userRo.getAllProductionUsersWithDeleted();
+		    		}
+		    	}else if(activityViewMode == Constants.VIEW_MODE_PROJECT){
+		    		userRo.getProjectUsers(project.id, null);
+		    	}else if(activityViewMode == Constants.VIEW_MODE_ASSIGNED){
+		    		userRo.getUsersForLead(project.id, currUser.id);
+		    	}else if(activityViewMode == Constants.VIEW_MODE_NONE){
+		    		users = null;
+		    	}
+		    	
+		    	selectedResource = null;		    	
+		    	selectedActivity = null;
+		    }
+		    
+		    public function refresh():void{
+				loadData();
+		    }
+		    
+		    private function loadActivities():void{
+		    	activityRo.getActivitiesByUsers(users, model.minVisibleTime, model.maxVisibleTime, null);	 
+		    }
+		    
+		    private function addResourceNameToTask(activity:ActivityVO):void{
+		    	var taskItem:TaskVO = model.GLOBAL_SELECTED_TASK;
+		    	
+		    	if(taskItem && taskItem.children == null && taskItem.id == activity.taskId){
+		    		
+		    		if(taskItem.resourcesName == null){
+		    			taskItem.resourcesName = activity.resourceName;
+		    		}
+		    		else{
+		    			if(taskItem.resourcesName.indexOf(activity.resourceName) >= 0){
+		    				return;
+		    			}
+		    			else{
+			    			taskItem.resourcesName += ", ";
+			    			taskItem.resourcesName += activity.resourceName;
+			    		}
+		    		}		    				    		
+		    	}
+		    }
+		    
+		    private function isResourceInProject(resourceId:Object):Boolean{
+				for each(var projm:ProjectMemberVO in model.assignedProjectMembers){
+					if(projm.userId == resourceId){
+						return true;
+					}
+				}		    	
+				
+				return false;
+		    }
+		    		
+		    		
+		  	private function updateResourceFilter():void{
+		  		//update resource collection
+		    	var resourceCollection:ICollectionView = resourceChart.resourceDataProvider as ICollectionView;
+		    	if (resourceCollection.filterFunction == null) {
+		      		resourceCollection.filterFunction = resourceFilter;
+		    	}
+		    	resourceCollection.refresh();    		
+		  	}
+		  
+		  	/**
+		   	* The collection view filter that displays only current project resource.
+		   	*/  
+		  	private function resourceFilter(item:Object):Boolean {
+		     	var user:UserVO = item as UserVO;
+		   		
+		   		//Check lead filter first
+		   		var leadFilterPass:Boolean = false;
+		   		if(leadFilter){
+		   			if(user.id == leadFilter.userId){
+		   				leadFilterPass = true;
+		   			}else{
+			   			for each(var artist:ProjectUserVO in leadFilter.children){
+			   				if(user.id == artist.userId){
+			   					leadFilterPass = true;
+			   					break;
+			   				}
+			   			}
+			   		}
+		   		}
+		   		
+		   		//Check resource status filter
+		   		var resourceStatusPass:Boolean = false;
+				for each(var projm:ProjectMemberVO in model.releasedProjectMembers){
+					if(projm.userId == user.id && projm.projectId == model.GLOBAL_SELECTED_PROJECT.id){
+						resourceStatusPass = true;
+						break;					
+					}
+				}
+				
+				var delMemFilterPass:Boolean = true;
+				if(!isShowDelMem){
+					if(user.deleted == Constants.BOOLEAN_YES){
+						delMemFilterPass = false;
+					}
+				}
+				
+				if(resourceStatusPass){//released member
+					switch(resourceStatusFilter){
+						case "Assigned": resourceStatusPass=false; break;
+						case "Released": resourceStatusPass=true; break;
+						default: resourceStatusPass=true; break;
+					} 							
+				}else{//assigned member
+					switch(resourceStatusFilter){
+						case "Assigned": resourceStatusPass=true; break;
+						case "Released": resourceStatusPass=false; break;
+						default: resourceStatusPass=true; break;
+					} 							
+				}		
+				
+				var limitToProjectResourcePass:Boolean = true;
+				if(limitToProjectResource){ 
+					if(user.projectsId){
+						var textArr:ArrayCollection = new ArrayCollection(user.projectsId.split(","));
+						for each(var projectId:String in textArr){
+							if(projectId != model.GLOBAL_SELECTED_PROJECT.id.toString()){
+								limitToProjectResourcePass = false;
+							}
+						}
+					}								
+				}	 			
+		   		
+		   		if((leadFilter == null || leadFilterPass) && resourceStatusPass && delMemFilterPass && limitToProjectResourcePass){
+		   			if(StringUtil.trim(userInforFilter)==""){
+		   				return true;
+		   			}
+		   			var searchArr:Array=StringUtil.trim(userInforFilter).split(" ");
+		   			var pattern:RegExp = / /g;
+		   			var searchStr:String=user.name.replace(pattern, "")+user.employeeNo;
+		   			if(user.userName!="null"){
+		   				searchStr=searchStr+user.userName;
+		   			}
+		   			if(user.userGroupName!="null"){
+		   				searchStr=searchStr+user.userGroupName;
+		   			}
+		   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+		   				return true;
+		   			}		   			
+					else{
+						return false;
+					}
+		   		}
+		   		else{
+		   			return false;
+		   		}
+		  	}   	
+		  	
+				  	
+		  	/**
+		   	* Refreshes the activity collection view. 
+		   	*/  
+		  	private function updateActivityFilter():void {
+		  		//update activity collection
+		    	var activityCollection:ICollectionView = resourceChart.taskDataProvider as ICollectionView;
+		    	if (activityCollection.filterFunction == null) {
+		      	activityCollection.filterFunction = activityFilter;
+		    	}
+		    	activityCollection.refresh();   	
+		  	}
+		
+		  
+		  	/**
+		   	* The collection view filter that displays only current project activites.
+		   	*/  
+		  	private function activityFilter(item:Object):Boolean {
+		    	var activity:ActivityVO = item as ActivityVO;
+		    	
+		    	var limitToProjectActivityPass:Boolean = true;
+		    	if(limitToProjectActivity && activity.projectId!=model.GLOBAL_SELECTED_PROJECT.id){
+		    		limitToProjectActivityPass = false;
+		    	}
+		    	
+		    	var activityQualityPass:Boolean = false;
+		    	if(activityQualityFilter == 0){
+		    		activityQualityPass = true		    		
+		    	}else{
+		    		if(activityQualityFilter == 6){
+		    			 if(activity.medalEdited != Constants.BOOLEAN_YES && ActivityVO.isProducton(activity)){
+		    			 	activityQualityPass = true;
+		    			 }
+		    		}else{
+		    			if(activity.medal == activityQualityFilter && ActivityVO.isProducton(activity)){
+		    				activityQualityPass = true;
+		    			}
+		    		}
+		    	}
+		    	
+		    	return (limitToProjectActivityPass && activityQualityPass);
+		   
+//		   		if(limitToProjectActivity && activity.projectId!=model.GLOBAL_SELECTED_PROJECT.id){
+//		   			return false;
+//		   		}
+//		   		else{
+//		    		return true;
+//		    	}             
+		  	} 		  		    								
+		    //==============================
+		    //Remote Object Handler
+		    //==============================	
+		    private function getUsersHandler(event:ResultEvent):void{
+		    	users = event.result as ArrayCollection;
+		    	loadActivities();   	
+		    	updateResourceFilter();
+		    }
+		    
+		    private function getActivitiesByUsersHandler(event:ResultEvent):void{
+		  		if(activities){
+					activities.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onActivityChange);
+				}
+				
+				activities = event.result as ArrayCollection;
+				
+				if(activities){
+					activities.addEventListener(CollectionEvent.COLLECTION_CHANGE, onActivityChange);				
+				} 		
+				
+				updateActivityFilter();		
+		    }		   
+		    
+		    private function getReleasedProjectMembersByProjectIdHandler(event:ResultEvent):void{
+		    	model.releasedProjectMembers = event.result as ArrayCollection;
+		    }
+		    
+		    private function getAssignedProjectMembersByProjectIdHandler(event:ResultEvent):void{
+		    	model.assignedProjectMembers = event.result as ArrayCollection;
+		    	for(var i:int = 0; i < model.assignedProjectMembers.length; i++){
+		    		var pm:ProjectMemberVO = model.assignedProjectMembers.getItemAt(i) as ProjectMemberVO;
+		    	}
+		    }		    
+		    
+		    private function addActivityToGanttSheet(activity:ActivityVO):void{
+		    	activity.highlighted = true;
+		    	activities.addItem(activity);
+				ganttSheet.scrollToItem(activity); 		    	
+		    }
+		    
+		    
+		    //==============================
+		    //Event Handler
+		    //==============================		
+		    private function onDragEnter(event:DragEvent):void{                								 				
+				var itemsArray:Array = event.dragSource.dataForFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS) as Array;		    	
+//				var task:TaskVO = null;
+//				
+//				if(itemsArray){
+//					task = itemsArray[0] as TaskVO;
+//				}					
+				var task:TaskVO = model.draggedTask;
+				var target:ExtendedAdvancedDataGrid = event.dragInitiator as ExtendedAdvancedDataGrid;
+				target.selectedIndex = model.draggedIndex;
+				if(task == null){
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}		    	
+		    	
+	            if (task.children==null) {
+	                // Get the drop target component from the event object.
+	                var dropTarget:GanttDataGrid=GanttDataGrid(event.currentTarget);
+	                // Accept the drop.
+	                DragManager.acceptDragDrop(dropTarget);
+	            }
+	            else{
+	            	event.preventDefault();
+	            }	           
+		    }
+		        		        
+		  	private function onDragOver(event:DragEvent):void {
+		  		var dropTarget:GanttDataGrid=GanttDataGrid(event.currentTarget);
+				var dropIndex:int = dropTarget.calculateDropIndex(event);
+				if(users == null || dropIndex >= users.length){
+					dropTarget.selectedIndex = -1;
+				}
+				else{
+					dropTarget.selectedIndex = dropIndex;
+				}
+		  	}  		
+		  	
+		    private function onDragDrop(event:DragEvent):void {
+		      if (event.dragSource.hasFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS)) {                
+		        // Explicitly handle the dragDrop event.            
+		        event.preventDefault();
+		        event.currentTarget.hideDropFeedback(event);	                								 
+				
+				// Get drop index and user id
+				var dropTarget:GanttDataGrid=GanttDataGrid(event.currentTarget);
+				var dropIndex:int = dropTarget.calculateDropIndex(event);
+				
+				var itemsArray:Array = event.dragSource.dataForFormat(Constants.FORMAT_TREE_DATAGRID_ITEMS) as Array;
+//				var task:TaskVO = null;
+//				
+//				if(itemsArray){
+//					task = itemsArray[0] as TaskVO;
+//				}					
+				var task:TaskVO = model.draggedTask;
+				if(task == null || users==null || dropIndex >= users.length){
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}
+		
+				
+				var resource:UserVO = dropTarget.selectedItem as UserVO;	
+				if(isResourceInProject(resource.id)){
+					updateActivity(task, resource);										            			                  
+			 	}   
+			 	else{
+			 	  	Alert.show(resourceManager.getString("Language","alert.resource.not_in_project"));
+					DragManager.showFeedback(DragManager.NONE);
+					return;			 	  	
+			 	}       
+		      }              
+		    }			
+		    
+
+		    private function onActivityChange(event:CollectionEvent):void{        	        	
+		    	if (event.kind == CollectionEventKind.UPDATE){
+		          for each (var pce:PropertyChangeEvent in event.items)
+		          {
+		            if (pce.property != null && pce.property != "highlighted" && pce.property != "zOrder"){
+		            	var item:ActivityVO = pce.source as ActivityVO;            	
+			    		
+		          		if(pce.property == Constants.START_TIME || pce.property == Constants.END_TIME){
+		          			var oldActualStaffDays:Number = item.actualStaffDays;
+		          			var newActualStaffDays:Number = holidayUtil.getWorkingDaysByMinutes(item.startTime, item.endTime);
+		          			
+		          			//根据当前计算出来的actualStaffDays来调整剩余的工作时间。
+		          			var deviation:Number = item.remainingEffort + newActualStaffDays - oldActualStaffDays;
+			          		pce.source.remainingEffort = deviation<0?0:deviation;
+		
+			          		//更新ActualStaffDays
+		          			pce.source.actualStaffDays = newActualStaffDays
+		          		}
+		          		
+		          		if(pce.property == Constants.MEDAL){
+		          			pce.source.medalEdited = Constants.BOOLEAN_YES;
+		          		}
+			    		
+			    		activityRo.updateActivity(pce.source, currUser);            	
+		            }
+		          }   
+		        //任务质量filter选中除All选项外，给过滤出的活动质量再进行修改，不能侦听到update事件，只能侦听到remove事件。      		
+		    	}else if(event.kind == CollectionEventKind.REMOVE){
+		    		for each (var activity:ActivityVO in event.items){
+		    			if(activity){
+		    				activityRo.updateActivity(activity, currUser);
+		    			}
+		    		}
+		    	}
+		    }
+		    
+		    
+		    private function onGanttDataGridChange():void
+		    {
+		        var resource:Object = ganttDataGrid.selectedItem;
+		        if (resource && GanttUtil.isResource(resourceChart, resource))
+		          selectedResource = resource;
+		        else
+		          selectedResource = null;
+		
+		        // Synchronize the selection on the gantt sheet: unselect the task unless
+		        // it is a task of the selected resource.		        
+		        if ((resource == null)
+		            || (selectedActivity && (resourceChart.getResource(selectedActivity) != resource)))
+		        {
+		          selectedActivity = null;
+		          ganttSheet.selectedItem = null;
+		        }
+		    }		    
+		    
+		    
+			private function onGanttSheetChange(resourceChart:ResourceChart):void
+			{      
+				var ganttSheet:GanttSheet = resourceChart.ganttSheet;
+				var ganttDataGrid:GanttDataGrid = resourceChart.dataGrid;
+		        var activity:Object = ganttSheet.selectedItem;
+				selectedActivity = activity as ActivityVO;
+		        
+		         if (activity)
+		        {
+		          ganttDataGrid.selectedItem = resourceChart.getResource(activity);
+		          highlight(resourceChart, activity);
+		          selectedResource = resourceChart.getResource(activity);
+		        }           		
+		  	}		    
+		    
+			private function resourceDGStyle(data:Object, column:AdvancedDataGridColumn):Object{
+				var user:UserVO = data as UserVO;
+				var deleted:Boolean = false;
+				var released:Boolean = false;
+				
+				if(user != null){
+					if(user.deleted == Constants.BOOLEAN_YES){
+						deleted = true;
+						
+					}
+					
+					for each(var projm:ProjectMemberVO in model.releasedProjectMembers){
+						if(projm.userId == user.id && projm.projectId == model.GLOBAL_SELECTED_PROJECT.id){
+							released = true;
+							break;
+						}
+					}					
+					
+					if(deleted){
+						if(released){
+							return {color: 0xff5151, fontWeight:"bold", textAlign: "center" };
+						}
+						else{
+							return {color: 0xff5151, fontWeight:"bold", textAlign: "left" };
+						}						 
+					}	
+					else{
+						if(released){
+							return {color: 0x888888, fontWeight:"bold", textAlign: "center" };
+						}
+					}			
+				}
+				return null;
+			}	
+			
+			private function onMenuItemSelected(event:ContextMenuEvent):void{
+				if(selectedActivity){
+  					var activityCollection:ICollectionView = ICollectionView(resourceChart.taskDataProvider);														  					
+/*   					var siblings:ArrayCollection = new ArrayCollection(ganttSheet.getSiblingTasks(ganttSheet.itemToTaskItem(selectedActivity)));
+  					for each(var activity:ActivityVO in siblings){
+  						activity.zOrder = 0;
+  						activityCollection.itemUpdated(activity);
+  					} */
+
+					if(event.currentTarget.caption == "Move To Front"){
+						selectedActivity.zOrder = 1;
+					}
+					if(event.currentTarget.caption == "Move To Back"){
+						selectedActivity.zOrder = -1;
+					}
+					  					
+  					activityCollection.itemUpdated(selectedActivity);	  					
+				}
+			}
+		    //==============================
+		    //Drop Events
+		    //==============================	
+		  	private var editingCursor:Class;
+		  	private var editingCursorId:int=-1;
+		    private function removeEditingCursor():void
+		    {            
+		      if (editingCursorId != -1){
+		        cursorManager.removeCursor(editingCursorId);
+		        editingCursorId = -1;
+		        editingCursor = null;
+		      }
+		    }  	
+		  	
+		  	private function onGanttSheetItemRollOver(event:GanttSheetEvent):void{
+		  		if(model.shiftKey && isActivityEditable(event.item as ActivityVO)){		
+				    // Hide previous cursor.
+				    removeEditingCursor();		
+		  			editingCursorId = CursorManager.setCursor(ImageEnum.IMAGECLASS_CUT, CursorManagerPriority.MEDIUM);
+		  			editingCursor = ImageEnum.IMAGECLASS_CUT;
+		  		}
+		  	}
+		  	
+		  	private function onGanttSheetItemRollOut(event:GanttSheetEvent):void{
+		  		removeEditingCursor();
+		  	}
+		  	
+		    private function onGanttSheetItemClick(event:GanttSheetEvent):void
+		    {
+				var item:Object = event.item;
+				if (item){
+					var ganttSheet:GanttSheet = event.currentTarget as GanttSheet;
+					ganttSheet.scrollToItem(item);
+				}
+				
+		  		if(model.shiftKey && isActivityEditable(event.item as ActivityVO)){
+		  			updateActivity(event.item, event.itemRenderer.data.resource);
+		  		}	
+		  	}			    
+		    
+		    public function updateActivity(item:Object, user:UserVO=null):void {
+		        var updateActivityPopup:UpdateActivityPopup = new UpdateActivityPopup();
+		        updateActivityPopup = UpdateActivityPopup(createPopUp(UpdateActivityPopup));
+		        PopUpManager.centerPopUp(updateActivityPopup);		        
+		        
+		        updateActivityPopup.user 	= user;		        
+		        if(item is TaskVO){
+		        	updateActivityPopup.taskId= item.id;
+		        }
+		        if(item is ActivityVO){
+		        	updateActivityPopup.taskId= item.taskId;
+		        }		        
+		        
+		        dispatchEvent(new PopupEvent(PopupEvent.POP_UP));
+		    }   	
+ 	
+		    
+		    private function updateGanttSheet(changedActivities:ArrayCollection):void{
+		    	for each(var changedActivity:ActivityVO in changedActivities){
+			    	for each(var activity:ActivityVO in resourceChart.taskDataProvider){
+			    		if(activity.id == changedActivity.id){
+			    			activity.startTime == changedActivity.startTime;
+			    			activity.endTime   == changedActivity.endTime;
+			    			activity.assignedEffort == changedActivity.assignedEffort;
+			    			ICollectionView(resourceChart.taskDataProvider).itemUpdated(activity);
+			    		}			    		
+			    	}
+			    }
+		    }	
+		    
+		    private var item:Object;
+     	 	private var editedItem:Object;
+	      	private var oldResourceId:String;		    	      	
+		    private function onItemEditEnd(event:GanttSheetEvent):void{
+		       var taskItem:TaskItem = event.itemRenderer.data as TaskItem;
+		       var text:String;
+		       item = event.item;
+		       if(tempItemBeforeEdit.startTime < model.metaData.activityLockedTime){
+		       		event.preventDefault();
+		       		editedItem=item;
+		       		editedItem.resourceId=String(tempItemBeforeEdit.resourceId);
+		       		ICollectionView(resourceChart.taskDataProvider).itemUpdated(editedItem);		          				          		
+		       		ganttDataGrid.selectedItem = resourceChart.getResource(editedItem);	
+		       		Alert.show(resourceManager.getString("Language","alert.activity.edit_locked"));
+			       	model.ctrlKey = false;	
+			       	return;
+		       }
+		       if(taskItem.startTime < model.metaData.activityLockedTime){
+		       		event.preventDefault();
+		       		editedItem=item;
+		       		editedItem.resourceId=String(tempItemBeforeEdit.resourceId);
+		       		ICollectionView(resourceChart.taskDataProvider).itemUpdated(editedItem);		          				          		
+		       		ganttDataGrid.selectedItem = resourceChart.getResource(editedItem);	
+		       		text = StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT));
+		       		Alert.show(text);
+			       	model.ctrlKey = false;	
+			       	return;
+		       }
+		       if (item.resourceId != taskItem.resourceId){		
+		           	editedItem = item;
+		           	oldResourceId = String(item.resourceId);
+		           		       	       
+			       	if(isResourceInProject(taskItem.resourceId as String)){
+			       		
+			       	    if(item.actualEndTime == null){
+	  			           	text = StringUtil.substitute(resourceManager.getString("Language","confirm.reassign"),
+				                            taskItem.resource.name,
+				                            Alert.yesLabel, Alert.noLabel);		           
+			    			confirm(text, resourceManager.getString("Language","title.confirmation"), reassignConfirmClose);
+			       	    }else{
+			       	    	text = "task already started";
+			       	    	confirm(text, resourceManager.getString("Language","title.confirmation"), reassignConfirmClose);
+			       	    }
+			          	model.ctrlKey = false; //Key up event is not able to catch this, so has to set it manually.
+ 			       	}else{
+			       		event.preventDefault();
+		          		editedItem.resourceId = oldResourceId;
+		          		ICollectionView(resourceChart.taskDataProvider).itemUpdated(editedItem);		          				          		
+		       			ganttDataGrid.selectedItem = resourceChart.getResource(editedItem);				       		
+			       		Alert.show(resourceManager.getString("Language","alert.resource.not_in_project"));
+			       		model.ctrlKey = false; //Key up event is not able to catch this, so has to set it manually.
+			       	}	
+			   	}	       
+		    }	
+		    
+		    private var tempItemBeforeEdit:Object;
+		    private function onItemEditBegin(event:GanttSheetEvent):void{
+		    	tempItemBeforeEdit=ObjectUtil.copy(event.item);
+		    }  
+		    
+	      	private function reassignConfirmClose(event:CloseEvent):void{
+		       if (event.detail == Alert.YES){
+		       } else {
+		          editedItem.resourceId = oldResourceId;
+		          ICollectionView(resourceChart.taskDataProvider).itemUpdated(editedItem);
+		       }
+		       
+		       ganttDataGrid.selectedItem = resourceChart.getResource(editedItem);
+	      	} 
+	      
+	      	private function getAllProductionUsersWithDeletedHandler(e:ResultEvent):void{
+	      		users = e.result as ArrayCollection;
+		    	loadActivities();   	
+		    	updateResourceFilter();
+			}
+	      
+	        private function onItemEditMove(e:GanttSheetEvent):void{
+	      		var taskItem:TaskItem = e.itemRenderer.data as TaskItem;
+	      		var duration:Number = taskItem.endTime.getTime() - taskItem.startTime.getTime();
+	      		var now:Date = new Date(model.metaData.activityLockedTime);
+	      		if(ObjectUtil.dateCompare(now, taskItem.startTime) == 1){
+	      			taskItem.startTime = now;
+	      			taskItem.endTime = new Date(now.getTime() + duration);
+	      		}
+	      	}    
+	      	
+	      	private function onItemEditResize(e:GanttSheetEvent):void{
+	      		var taskItem:TaskItem = e.itemRenderer.data as TaskItem;
+	      		var now:Date = new Date(model.metaData.activityLockedTime);
+	      		if(ObjectUtil.dateCompare(now, taskItem.startTime) == 1){
+	      			taskItem.startTime = now;
+	      		}
+	      	} 		          			    				    							
+		]]>
+	</mx:Script>
+	
+
+	<!--==========================
+	    Services
+	===========================-->  	
+	<mx:RemoteObject id="userRo" destination="ro.user" >
+		<mx:method name="getAllProductionUsers" result="getUsersHandler(event)"/>
+		<mx:method name="getProjectUsers" result="getUsersHandler(event)"/>
+		<mx:method name="getUsersForLead" result="getUsersHandler(event)"/>	
+		<mx:method name="getAllProductionUsersWithDeleted" result="getAllProductionUsersWithDeletedHandler(event)"/>	
+	</mx:RemoteObject>		
+	
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" >
+		<mx:method name="getReleasedProjectMembersByProjectId" result="getReleasedProjectMembersByProjectIdHandler(event)"/>
+		<mx:method name="getAssignedProjectMembersByProjectId" result="getAssignedProjectMembersByProjectIdHandler(event)"/>					
+	</mx:RemoteObject>		
+	
+	<mx:RemoteObject id="activityRo" destination="ro.activity" >
+		<mx:method name="getActivitiesByUsers" result="getActivitiesByUsersHandler(event)"/>			
+	</mx:RemoteObject>	
+	
+		
+	  <!--==========================
+	    Data Binding
+	  ===========================-->			  
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.project"/>		  
+	<mx:Binding source="model.activityViewMode" destination="this.activityViewMode"/>		  
+	<mx:Binding source="model.GLOBAL_SELECTED_TASK" destination="this.selectedTaskItem"/>
+	<mx:Binding source="model.ganttView" destination="this.ganttView"/>
+	<mx:Binding source="model.GLOBAL_CREATED_ACTIVITY" destination="this.createdActivity"/>
+	<mx:Binding source="model.GLOBAL_UPDATED_ACTIVITIES" destination="this.updatedActivities"/>		
+	
+	<mx:Binding source="model.minVisibleTime" destination="this.minVisibleTime"/>
+	<mx:Binding source="model.limitToProjectResource" destination="this.limitToProjectResource"/>  
+	<mx:Binding source="model.limitToProjectActivity" destination="this.limitToProjectActivity"/>
+	<mx:Binding source="model.leadFilter" destination="this.leadFilter"/>
+	<mx:Binding source="model.userInforFilter" destination="this.userInforFilter"/>
+	<mx:Binding source="model.resourceStatusFilter" destination="this.resourceStatusFilter"/>
+	<mx:Binding source="model.activityQualityFilter" destination="this.activityQualityFilter"/>
+	<mx:Binding source="model.isLink" destination="this.isLink"/>	
+	<mx:Binding source="model.isThumb" destination="this.isThumb"/>	
+	<mx:Binding source="model.isShowDelMem" destination="this.isShowDelMem"/>
+	
+	
+	<!--==========================
+	    Page Layout
+	===========================-->	
+	<mx:HDividedBox width="100%" height="100%">		
+	    <ilog:ResourceChart id="resourceChart" width="85%" height="100%" 
+	    	resourceDataProvider="{users}" 
+	  		taskDataProvider="{activities}">
+	        <ilog:dataGrid>
+	          <ilog:GanttDataGrid id="ganttDataGrid"
+	          	rowHeight="22"	 
+	          	change="onGanttDataGridChange()" 		
+				dropEnabled="true"
+	      		dragOver="onDragOver(event)"
+	      		dragDrop="onDragDrop(event)"
+	      		styleFunction="resourceDGStyle"
+				dragEnter="onDragEnter(event)">	      		
+	      		
+	            <ilog:columns>
+	      		<mx:AdvancedDataGridColumn dataField="employeeNo"
+	      			headerText="{resourceManager.getString('Language','label.employee_no')}"/>               
+	              <mx:AdvancedDataGridColumn dataField="name" width="140"
+	              	headerText="{resourceManager.getString('Language','label.name')}"/>
+              	 <mx:AdvancedDataGridColumn dataField="userGroupName" width="140"
+              	    headerText="{resourceManager.getString('Language','label.group')}"/>
+	            </ilog:columns>
+	          </ilog:GanttDataGrid>
+	        </ilog:dataGrid>
+	        
+	        <ilog:ganttSheet>
+	          <ganttClasses:CustomGanttSheet id="ganttSheet"
+	          	taskItemRenderer="com.pearl.normandy.controls.ganttClasses.GanttSheetItemRenderer"          	
+	          	    
+		        dataTipFunction="activityDataTip"
+		        editingTipFunction="activityEditTip"
+		        taskBackToFrontSortFunction="activitySortFunction"
+		        
+		        change="onGanttSheetChange(resourceChart)"
+		        itemRollOver="onGanttSheetItemRollOver(event)"
+		        itemRollOut="onGanttSheetItemRollOut(event)"	          	      	
+	          	itemClick="onGanttSheetItemClick(event)"
+	          	itemDoubleClick="showViewTaskWindow(event.item)"	
+	          	itemEditEnd="onItemEditEnd(event)"	        	 
+	          	itemEditBegin="onItemEditBegin(event)"
+	            itemEditMove="onItemEditMove(event)"
+	            itemEditResize="onItemEditResize(event)"          	          	 
+	          		          	
+	            moveEnabled="true"
+	            resizeEnabled="true"
+	            reassignEnabled="true"
+	           	moveEnabledFunction="activityEditableFunction"
+	           	resizeEnabledFunction="activityEditableFunction"
+	           	reassignEnabledFunction="activityEditableFunction"            
+	            
+	            doubleClickEnabled="true"
+	            showCurrentTimeIndicator="true"		          	
+	            minZoomFactor="{Constants.MIN_ZOOM_HOUR}" 
+	            maxZoomFactor="{Constants.MAX_ZOOM_MONTH}"
+	            snappingTimePrecision="{Constants.SNAPPING_TIME_HOUR}"
+	            
+	            minVisibleTime="{model.minVisibleTime}"
+	            maxVisibleTime="{model.maxVisibleTime}"
+	            nonWorkingDays="{model.nonWorkingDays}"
+	            nonWorkingRanges="{model.nonWorkingRanges}"
+	            nonWorkingColor="{ColorEnum.NON_WORKING_COLOR}"
+	            workingTimes="{CalendarConfig.WORKING_TIMES}"/>	            
+	        </ilog:ganttSheet>        
+		</ilog:ResourceChart>
+		
+		<widget:ActivityPanel width="15%" height="100%" 
+			resourceChart="{resourceChart}"
+			activityItem="{selectedActivity}"
+			employeeItem="{selectedResource}"/>
+	</mx:HDividedBox>			
+</mx:Canvas>

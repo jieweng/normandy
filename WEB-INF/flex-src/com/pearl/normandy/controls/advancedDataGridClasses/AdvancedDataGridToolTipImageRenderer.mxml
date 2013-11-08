@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	horizontalAlign="center">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.enum.ImageEnum;
+			
+			private function init():void{
+  				toolImage.toolTip = "                                        "+'<br>'
+  									+"<img height='150' width='150' src='"+TaskVO.getReferenceUrl(data as TaskVO)+"'/>";
+			}
+		]]>
+	</mx:Script>
+
+	<mx:Image id="toolImage" width="16" height="16" mouseOver="init()"
+		source="{data.referenceUrl!=null?ImageEnum.IMAGECLASS_PICTURE:''}"/>
+</mx:HBox>

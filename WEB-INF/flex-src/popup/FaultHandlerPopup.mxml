@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	minWidth="600" 
+	borderAlpha="1" 
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.messaging.messages.ErrorMessage;
+			import mx.managers.PopUpManager;
+			
+			import com.pearl.normandy.utils.DateUtil;
+			
+			[Bindable]
+			private var _message:ErrorMessage;
+			
+/* 			[Bindable]
+			private var projectUserList:ArrayCollection;
+			
+			[Bindable]
+			private var taskList:ArrayCollection;
+			
+			[Bindable]
+			private var activityList:ArrayCollection; */			
+			
+			public function set message(value:ErrorMessage):void{
+				this._message = value;
+				
+/* 				projectUserList = message.extendedData['ProjectUser'];
+				taskList		= message.extendedData['Task'];
+				activityList	= message.extendedData['Activity'];
+				
+				
+				if(projectUserList && projectUserList.length > 0){
+					projectUserVBox.visible 		= true;
+					projectUserVBox.includeInLayout = true;
+				}
+				
+				if(taskList && taskList.length > 0){
+					taskVBox.visible 				= true;
+					taskVBox.includeInLayout 		= true;
+				}
+				
+				if(activityList && activityList.length > 0){
+					activityVBox.visible			= true;
+					activityVBox.includeInLayout	= true;
+				}	 */					
+			}
+			
+			public function get message():ErrorMessage{
+				return this._message;
+			}
+			
+		    //==============================
+		    //Method
+		    //==============================			
+			private function init():void{
+				this.setFocus();				
+			}				
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }				
+		]]>
+	</mx:Script>
+	
+	<mx:Text bottom="10" text="{resourceManager.getString('Language','label.fault_handler_window')}"/>
+		
+<!--	<mx:VBox id="projectUserVBox" width="100%" height="100%" visible="false" includeInLayout="false">
+		<mx:Label text="{resourceManager.getString('Language','label.project_role')}" fontWeight="bold"/>			
+		<mx:AdvancedDataGrid dataProvider="{projectUserList}" width="100%">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="name" headerText="{resourceManager.getString('Language','label.name')}"/>
+				<mx:AdvancedDataGridColumn dataField="projectName" headerText="{resourceManager.getString('Language','label.project_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="projectRoleName" headerText="{resourceManager.getString('Language','label.project_role')}"/>
+				<mx:AdvancedDataGridColumn dataField="supervisor" headerText="{resourceManager.getString('Language','label.lead')}"/>
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+	</mx:VBox>
+	
+	<mx:VBox id="taskVBox" width="100%" height="100%" visible="false" includeInLayout="false" top="10">
+		<mx:Label text="{resourceManager.getString('Language','label.assigned_task')}" fontWeight="bold"/>			
+		<mx:AdvancedDataGrid dataProvider="{taskList}" width="100%">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="projectName" headerText="{resourceManager.getString('Language','label.project_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="id" headerText="{resourceManager.getString('Language','label.task_id')}"/>
+				<mx:AdvancedDataGridColumn dataField="name" headerText="{resourceManager.getString('Language','label.task_name')}"/>
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+	</mx:VBox>
+	
+	<mx:VBox id="activityVBox" width="100%" height="100%" visible="false" includeInLayout="false" top="10">
+		<mx:Label text="{resourceManager.getString('Language','label.started_task')}" fontWeight="bold"/>		
+		<mx:AdvancedDataGrid dataProvider="{activityList}" width="100%">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="taskId" width="70"
+					headerText="{resourceManager.getString('Language','label.task_id')}"/>
+				<mx:AdvancedDataGridColumn dataField="name" width="200"
+					headerText="{resourceManager.getString('Language','label.subtask_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="subtaskStatus" width="60"
+					headerText="{resourceManager.getString('Language','label.subtask_status')}"/>
+				<mx:AdvancedDataGridColumn dataField="resourceName" width="60"
+					headerText="{resourceManager.getString('Language','label.user_name')}"/>
+				<mx:AdvancedDataGridColumn dataField="startTime" labelFunction="formatDateSimple" width="100"
+					 headerText="{resourceManager.getString('Language','label.start_time')}"/>
+			  	<mx:AdvancedDataGridColumn width="30" sortable="false" 
+			  		headerText="{resourceManager.getString('Language','label.feedback')}"
+			  		itemRenderer="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridFeedbackImageRenderer"/> 					
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+	</mx:VBox>	-->
+	
+    <mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button label="{resourceManager.getString('Language','button.close')}" click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>	
+</mx:TitleWindow>

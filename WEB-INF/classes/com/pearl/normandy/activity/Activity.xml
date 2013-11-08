@@ -1,0 +1,766 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Activity">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="Activity"	type="com.pearl.normandy.activity.ActivityTo"/>
+	<typeAlias alias="IdleEmployee"	type="com.pearl.normandy.core.mail.IdleEmployee" />
+
+
+	<!--========================= Select ========================-->
+	<select id="selectActivitiesByUsers" parameterClass="java.util.Map" resultClass="Activity">
+		(select
+			a.ID 					as id,
+      		a.NAME					as name,
+			a.RESOURCE_ID			as resourceId,
+			a.TASK_ID				as taskId,
+			a.PROJECT_ID			as projectId,			
+			a.ACTIVITY_TYPE			as activityType,	
+			a.START_TIME			as startTime,
+			a.END_TIME				as endTime,
+			a.ACTUAL_START_TIME		as actualStartTime,
+			a.ACTUAL_END_TIME		as actualEndTime,
+			a.ACTUAL_STAFF_DAYS		as actualStaffDays,
+			a.ASSIGNED_EFFORT		as assignedEffort,
+			a.REMAINING_EFFORT		as remainingEffort,
+			a.PROGRESS				as progress,
+			a.TRAINING_FLAG			as trainingFlag,
+			a.DELETED				as deleted,
+			a.PAUSED				as paused,
+			a.DESCRIPTION			as description,
+			a.VERSION				as version,
+			a.CREATED_DATE			as createdDate,
+			a.CREATED_BY			as createdBy,
+			a.UPDATED_DATE			as updatedDate,
+			a.UPDATED_BY			as updatedBy,
+			a.MEDAL					as medal,
+			a.PROVED				as proved,
+			a.PROVED_DATE			as provedDate,
+			a.PROVED_BY				as provedBy,
+			a.MEDAL_LOCKED			as medalLocked,
+			a.MEDAL_EDITED			as medalEdited,
+			p.PROJECT_KEY			as projectKey,
+			p.PROJECT_NAME			as projectName,
+			t.MILESTONE				as milestone,			
+			t.OWNER_ID				as taskOwnerId,
+			CONCAT(u3.FIRST_NAME," ",u3.LAST_NAME)	as taskOwnerName,
+			t.TASK_CATEGORY			as taskCategory,
+			t.REFERENCE_URL			as taskReferenceUrl,
+			t.DESCRIPTION			as taskDescription,	
+			t.STATUS_ID				as statusId,		
+			l.LIST_VALUE			as status,
+			CONCAT(u2.FIRST_NAME," ",u2.LAST_NAME)	as createdByName,
+			tp.REFERENCE_URL		as taskParentReferenceUrl
+		from ACTIVITY a left outer join USER u2 on a.CREATED_BY=u2.USER_NAME, USER u, 
+			TASK t left outer join USER u3 on t.OWNER_ID=u3.ID left outer join TASK tp on tp.ID=t.PARENT_ID , 
+			PROJECT p, LIST_OF_VALUE l
+    	where t.ID=a.TASK_ID
+		<dynamic>
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					u.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>
+			<isNotNull prepend="and" property="startDate" open="(" close=")">
+				(a.START_TIME <![CDATA[ > ]]> #startDate# and a.START_TIME <![CDATA[ < ]]> #endDate#)
+				<isNotNull prepend="or" property="endDate">
+					(a.END_TIME <![CDATA[ > ]]> #startDate# and a.END_TIME <![CDATA[ < ]]> #endDate#)
+				</isNotNull>																	 
+			</isNotNull>
+			<isNotNull property="deleted">
+				<isEqual prepend="and" property="deleted" compareValue="N">
+					(a.DELETED is null or a.DELETED != 'Y')
+				</isEqual>			
+			</isNotNull>		
+		</dynamic>   
+    	and a.RESOURCE_ID=u.ID
+    	and t.PROJECT_ID=p.ID
+	    and	t.STATUS_ID = l.ID)
+
+	    union
+	
+	    (select
+			a.ID 					as id,
+	    	a.NAME					as name,
+			a.RESOURCE_ID			as resourceId,
+			a.TASK_ID				as taskId,
+			a.PROJECT_ID   			as projectId,			
+			a.ACTIVITY_TYPE			as activityType,
+			a.START_TIME			as startTime,
+			a.END_TIME				as endTime,
+			a.ACTUAL_START_TIME		as actualStartTime,
+			a.ACTUAL_END_TIME		as actualEndTime,
+			a.ACTUAL_STAFF_DAYS		as actualStaffDays,
+			a.ASSIGNED_EFFORT		as assignedEffort,
+			a.REMAINING_EFFORT		as remainingEffort,
+			a.PROGRESS				as progress,		
+			a.TRAINING_FLAG			as trainingFlag,				
+			a.DELETED				as deleted,
+			a.PAUSED				as paused,
+			a.DESCRIPTION			as description,
+			a.VERSION				as version,
+			a.CREATED_DATE			as createdDate,
+			a.CREATED_BY			as createdBy,
+			a.UPDATED_DATE			as updatedDate,
+			a.UPDATED_BY			as updatedBy,
+			a.MEDAL					as medal,
+			a.PROVED				as proved,
+			a.PROVED_DATE			as provedDate,
+			a.PROVED_BY				as provedBy,
+			a.MEDAL_LOCKED			as medalLocked,
+			a.MEDAL_EDITED			as medalEdited,
+			""						as projectKey,
+			p.PROJECT_NAME 			as projectName,
+			""						as milestone,
+			0						as taskOwnerId,
+			""						as taskOwnerName,
+			""						as taskCategory,
+			""						as taskReferenceUrl,
+			""						as taskDescription,
+			0						as statusId,
+			""						as status,
+			CONCAT(u2.FIRST_NAME," ",u2.LAST_NAME)	as createdByName,
+			""                      as taskParentReferenceUrl
+		from ACTIVITY a left outer join PROJECT p on a.PROJECT_ID = p.ID left outer join USER u2 on a.CREATED_BY=u2.USER_NAME, 
+			 USER u
+    	where (a.TASK_ID=0)
+		<dynamic>
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					u.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[].id#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>
+			<isNotNull prepend="and" property="startDate" open="(" close=")">
+				(a.START_TIME <![CDATA[ > ]]> #startDate# and a.START_TIME <![CDATA[ < ]]> #endDate#)
+				<isNotNull prepend="or" property="endDate">
+					(a.END_TIME <![CDATA[ > ]]> #startDate# and a.END_TIME <![CDATA[ < ]]> #endDate#)
+				</isNotNull>																	 
+			</isNotNull>	
+			<isNotNull property="deleted">
+				<isEqual prepend="and" property="deleted" compareValue="N">
+					(a.DELETED is null or a.DELETED != 'Y')
+				</isEqual>			
+			</isNotNull>				
+		</dynamic>   
+    	and a.RESOURCE_ID=u.ID)
+    	order by endTime    	
+	</select>
+	
+<!--	
+	<select id="selectActivityFeedbackStatus" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+		select
+			count(f.ID)
+		from FEEDBACK f, LIST_OF_VALUE ls
+	    where f.SUBTASK_ID = #value#
+      	and f.status = 'UNMODIFIED'
+	</select>
+-->
+	
+	<select id="selectActivityById" parameterClass="int" resultClass="Activity">
+		select
+			a.ID				as id,
+			a.RESOURCE_ID		as resourceId,
+			a.TASK_ID			as taskId,
+			a.PROJECT_ID		as projectId,			
+			a.NAME				as name,
+			a.ACTIVITY_TYPE		as activityType,
+			a.START_TIME		as startTime,
+			a.END_TIME			as endTime,
+			a.ACTUAL_START_TIME	as actualStartTime,
+			a.ACTUAL_END_TIME	as actualEndTime,
+			a.ACTUAL_STAFF_DAYS	as actualStaffDays,			
+			a.ASSIGNED_EFFORT	as assignedEffort,
+			a.REMAINING_EFFORT	as remainingEffort,
+			a.PROGRESS			as progress,	
+			a.TRAINING_FLAG		as trainingFlag,					
+			a.DELETED			as deleted,
+			a.PAUSED			as paused,
+			a.DESCRIPTION		as description,
+			a.VERSION			as version,
+			a.CREATED_DATE		as createdDate,
+			a.CREATED_BY		as createdBy,
+			a.UPDATED_DATE		as updatedDate,
+			a.UPDATED_BY		as updatedBy,
+			a.Medal				as medal,
+			a.PROVED			as proved,
+			a.PROVED_DATE		as provedDate,
+			a.PROVED_BY			as provedBy,
+			a.MEDAL_LOCKED		as medalLocked,
+			a.MEDAL_EDITED		as medalEdited,
+			p.PROJECT_NAME		as projectName,			
+			t.OWNER_ID			as taskOwnerId,
+			t.TASK_CATEGORY		as taskCategory,
+			CONCAT(u.FIRST_NAME,u.LAST_NAME)      as taskOwnerName,
+			group_concat(distinct u1.FIRST_NAME, u1.LAST_NAME separator ', ') as resourceName
+		from ACTIVITY a left outer join USER u1 on u1.ID=a.RESOURCE_ID 
+			left outer join TASK t on a.TASK_ID = t.ID left outer join USER u on u.ID = t.OWNER_ID
+			left outer join Project p on t.PROJECT_ID = p.ID
+		where a.ID=#value#
+		group by t.ID
+	</select>	
+	
+	
+	<select id="selectActivitiesByTaskId" parameterClass="java.util.Map" resultClass="Activity">
+		select
+			a.ID				as id,
+			a.RESOURCE_ID		as resourceId,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME) as resourceName,
+			a.TASK_ID			as taskId,
+			a.PROJECT_ID		as projectId,			
+			a.NAME				as name,
+			a.ACTIVITY_TYPE		as activityType,
+			a.START_TIME		as startTime,
+			a.END_TIME			as endTime,
+			a.ACTUAL_START_TIME	as actualStartTime,
+			a.ACTUAL_END_TIME	as actualEndTime,
+			a.ACTUAL_STAFF_DAYS	as actualStaffDays,			
+			a.ASSIGNED_EFFORT	as assignedEffort,
+			a.REMAINING_EFFORT	as remainingEffort,
+			a.PROGRESS			as progress,		
+			a.TRAINING_FLAG		as trainingFlag,				
+			a.DELETED			as deleted,
+			a.PAUSED			as paused,
+			a.DESCRIPTION		as description,
+			a.VERSION			as version,
+			a.CREATED_DATE		as createdDate,
+			a.CREATED_BY		as createdBy,
+			a.UPDATED_DATE		as updatedDate,
+			a.MEDAL				as medal,
+			a.MEDAL_LOCKED		as medalLocked,
+			a.MEDAL_EDITED		as medalEdited,
+			a.PROVED			as proved,
+			a.PROVED_DATE		as provedDate,
+			a.PROVED_BY			as provedBy,
+			a.UPDATED_BY		as updatedBy
+		from ACTIVITY a, USER u, TASK t
+		where u.ID=a.RESOURCE_ID
+		and a.TASK_ID=t.ID
+		<dynamic>
+			<isEqual prepend="and" property="deleted" compareValue="N">
+				(a.DELETED is null or a.DELETED != 'Y')
+			</isEqual>	
+			<isEqual prepend="and" property="deleted" compareValue="Y">
+				a.DELETED = 'Y'
+			</isEqual>				
+			<isNotNull prepend="and" property="taskId">
+				a.TASK_ID=#taskId#
+			</isNotNull>						
+		</dynamic>
+		order by endTime
+	</select>
+	
+	<select id="selectAssignedEffortByTaskId" parameterClass="java.lang.Integer" resultClass="java.lang.Double">
+		select
+			sum(a.ASSIGNED_EFFORT)		as assignedEffort
+		from ACTIVITY a
+    	where a.TASK_ID=#taskId# and (a.DELETED is null or a.DELETED != 'Y')
+	</select>
+	
+	<select id="selectAssignedEffortByProjectId" parameterClass="java.lang.Integer" resultClass="java.lang.Double">
+		select
+			sum(a.ASSIGNED_EFFORT)		as assignedEffort
+		from ACTIVITY a
+    	where a.PROJECT_ID=#projectId# and (a.DELETED is null or a.DELETED != 'Y')
+	</select>
+	
+	<select id="selectActivitiesBySummaryTaskId" parameterClass="java.lang.Integer" resultClass="Activity">
+		select
+			a.ID					as id,
+			a.TASK_ID				as taskId,
+			a.PROJECT_ID		as projectId,			
+			a.NAME					as name,
+			a.ACTIVITY_TYPE			as activityType,
+			a.START_TIME			as startTime,
+			a.END_TIME				as endTime,
+			a.ACTUAL_START_TIME		as actualStartTime,
+			a.ACTUAL_END_TIME		as actualEndTime,
+			a.ACTUAL_STAFF_DAYS		as actualStaffDays,			
+			a.ASSIGNED_EFFORT		as assignedEffort,
+			a.REMAINING_EFFORT		as remainingEffort,
+			a.PROGRESS				as progress,		
+			a.TRAINING_FLAG			as trainingFlag,				
+			a.DELETED				as deleted,
+			a.PAUSED				as paused,
+			a.DESCRIPTION			as description,
+			a.VERSION				as version,
+			a.CREATED_DATE			as createdDate,
+			a.CREATED_BY			as createdBy,
+			a.UPDATED_DATE			as updatedDate,
+			a.MEDAL					as medal,
+			a.MEDAL_LOCKED			as medalLocked,
+			a.MEDAL_EDITED			as medalEdited,
+			a.PROVED				as proved,
+			a.PROVED_DATE			as provedDate,
+			a.PROVED_BY				as provedBy,
+			a.UPDATED_BY			as updatedBy
+		from TASK t, ACTIVITY a
+		where t.ID= a.TASK_ID and t.ID=#value#
+	</select>
+	
+	<select id="selectCountActivityForWIP" parameterClass="java.lang.Integer" resultClass="java.lang.Integer">
+		select 
+			count(*)
+		from ACTIVITY a
+		where (a.DELETED is null or a.DELETED != 'Y')
+	    and a.TASK_ID=#value#
+		and (a.ACTUAL_END_TIME is null)
+	</select>
+	
+	<select id="selectNotCompleteActivityByTaskId" parameterClass="java.util.Map" resultClass="Activity">
+		select 
+			a.ID 					as id,
+      		a.NAME					as name,
+			a.RESOURCE_ID			as resourceId,
+			a.TASK_ID				as taskId,
+			a.PROJECT_ID		as projectId,			
+			a.ACTIVITY_TYPE			as activityType,
+			a.START_TIME			as startTime,
+			a.END_TIME				as endTime,
+			a.ACTUAL_START_TIME		as actualStartTime,
+			a.ACTUAL_END_TIME		as actualEndTime,
+			a.ACTUAL_STAFF_DAYS		as actualStaffDays,
+			a.ASSIGNED_EFFORT		as assignedEffort,
+			a.REMAINING_EFFORT		as remainingEffort,
+			a.PROGRESS				as progress,
+			a.TRAINING_FLAG			as trainingFlag,
+			a.DELETED				as deleted,
+			a.PAUSED				as paused,
+			a.DESCRIPTION			as description,
+			a.VERSION				as version,
+			a.CREATED_DATE			as createdDate,
+			a.CREATED_BY			as createdBy,
+			a.UPDATED_DATE			as updatedDate,
+			a.MEDAL					as medal,
+			a.MEDAL_LOCKED			as medalLocked,
+			a.MEDAL_EDITED			as medalEdited,
+			a.PROVED				as proved,
+			a.PROVED_DATE			as provedDate,
+			a.PROVED_BY				as provedBy,
+			a.UPDATED_BY			as updatedBy
+		from ACTIVITY a 
+		where a.TASK_ID=#taskId#
+			and a.RESOURCE_ID=#userId#
+			and a.END_TIME <![CDATA[ < ]]> #endTime#
+			and a.ACTUAL_END_TIME is null
+		order by a.END_TIME
+	</select>
+	
+	
+	
+	<select id="selectRTDActivity" parameterClass="java.util.Map" resultClass="Activity">
+		select * from
+			(select
+				t.ID					as taskId,
+				a.NAME		            as name,
+				t.TASK_CATEGORY			as taskCategory,
+				max(a.END_TIME) 	 	as endTime,
+		        max(a.END_TIME) between	ADDDATE(#startTime#, INTERVAL-WEEKDAY(#startTime#)DAY)
+		        				and ADDDATE(#endTime#, INTERVAL 4-WEEKDAY(#endTime#)DAY) as num
+			from TASK t, ACTIVITY a
+			where t.PROJECT_ID=#projectId#
+			and (a.DELETED IS NULL or a.DELETED !='Y')
+			and a.ACTIVITY_TYPE='Production'
+			and t.TYPE='Production'
+			and a.TASK_ID=t.ID
+			group by t.ID)m
+		where m.num>0
+		order by taskCategory asc
+	</select>	
+
+	<select id="selectActivityForEffort" parameterClass="java.util.Map" resultClass="Activity">
+		select a.resource_id 	   as resourceId,
+		       if(a.activity_type='Feedback', 'Production', a.activity_type)     as activityType,
+			   a.start_time		   as startTime,
+			   a.end_time		   as endTime,
+			   a.assigned_effort   as assignedEffort,
+		       a.actual_staff_days as actualStaffDays
+		from activity a
+		where year(a.start_time) <![CDATA[<=]]> #year#
+		  and year(a.end_time) <![CDATA[>=]]> #year#
+		  and (a.deleted is null or a.deleted != 'Y')
+		  and a.resource_id in 
+			  <iterate property="users" open="(" close=")" conjunction=",">
+				#users[].id#
+			  </iterate>
+		  and a.activity_type in
+			  <iterate property="types" open="(" close=")" conjunction=",">
+			  	#types[]#		  
+			  </iterate>
+		order by resourceId,activityType,startTime,endTime;
+	</select>
+
+	<select id="selectActivityByTime" parameterClass="java.util.Date" resultClass="Activity">
+		select
+			id						as id,
+			start_time				as startTime,
+			end_time				as endTime,
+			actual_staff_days		as actualStaffDays
+		from ACTIVITY 
+		where start_time <![CDATA[<]]>ADDDATE(#date#,INTERVAL 1 DAY) and end_time <![CDATA[>]]> #date#
+		order by start_time, end_time
+	</select>
+	
+	<select id="selectNonProductionActivity" parameterClass="java.util.Map" resultClass="Activity">
+		select 
+			id						as id,
+			project_id				as projectId,
+			activity_type 			as activityType,
+			start_time				as startTime,
+			end_time				as endTime
+		from ACTIVITY 
+		where project_id = #projectId# 	
+			and activity_type in
+			<iterate property="typeList" open="(" close=")" conjunction=",">
+				#typeList[]#			
+			</iterate>
+			and start_time <![CDATA[<]]> current_date
+			and proved = 'Y'
+	</select>
+	
+	<select id="selectOtherActivityForProjectProgress" parameterClass="java.util.Map" resultClass="Activity">
+		select
+			a.id						as id,
+			a.project_id				as projectId,
+			a.activity_type				as activityType,
+			a.start_time				as startTime,
+			a.end_time					as endTime
+		from ACTIVITY a, TASK t
+		where t.project_id = #projectId# 
+			<dynamic>
+				<isNotNull prepend="and" property="milestone">
+					t.milestone = #milestone#			
+				</isNotNull>		
+			</dynamic>
+			and t.id = a.task_id and a.activity_type in ('Production', 'Feedback')
+			and (a.start_time <![CDATA[<]]> current_date and a.end_time <![CDATA[>=]]> current_date)			
+	</select>
+	
+	<select id="selectDifferentYearAndMonthActivitys" parameterClass="java.lang.Integer" resultClass="Activity">
+		SELECT 
+			a.ID 					as id,
+      		a.NAME					as name,
+			a.RESOURCE_ID			as resourceId,
+			a.TASK_ID				as taskId,
+			a.PROJECT_ID			as projectId,			
+			a.ACTIVITY_TYPE			as activityType,
+			a.START_TIME			as startTime,
+			a.END_TIME				as endTime,
+			a.ACTUAL_START_TIME		as actualStartTime,
+			a.ACTUAL_END_TIME		as actualEndTime,
+			a.ACTUAL_STAFF_DAYS		as actualStaffDays,
+			a.ASSIGNED_EFFORT		as assignedEffort,
+			a.REMAINING_EFFORT		as remainingEffort,
+			a.PROGRESS				as progress,
+			a.TRAINING_FLAG			as trainingFlag,
+			a.DELETED				as deleted,
+			a.PAUSED				as paused,
+			a.DESCRIPTION			as description,
+			a.VERSION				as version,
+			a.CREATED_DATE			as createdDate,
+			a.CREATED_BY			as createdBy,
+			a.UPDATED_DATE			as updatedDate,
+			a.MEDAL					as medal,
+			a.MEDAL_LOCKED			as medalLocked,
+			a.MEDAL_EDITED			as medalEdited,
+			a.PROVED				as proved,
+			a.PROVED_DATE			as provedDate,
+			a.PROVED_BY				as provedBy,
+			a.UPDATED_BY			as updatedBy
+		FROM ACTIVITY a
+		WHERE a.PROJECT_ID = #projectId#
+		  AND a.ACTIVITY_TYPE in ('Production', 'Management', 'Paid Leave', 'Project Training')
+		  AND (a.DELETED IS NULL OR a.DELETED != 'Y')
+		  AND (YEAR(a.START_TIME) != YEAR(a.END_TIME) OR MONTH(a.START_TIME) != MONTH(a.END_TIME));
+	</select>
+	
+	<select id="selectIdleEmployee" parameterClass="java.util.Map" resultClass="IdleEmployee">
+		SELECT temp1.userId,
+	       temp1.userName,
+	       temp1.workdays,
+	       temp2.projects,
+	       temp2.recipients
+		FROM
+			(SELECT a.RESOURCE_ID                                                                         AS userId,
+			       u.EMPLOYEE_NO,
+			       CONCAT(u.FIRST_NAME,u.LAST_NAME,'(',u.ENGLISH_FIRST_NAME,' ',u.ENGLISH_LAST_NAME,')')  AS userName,
+			       SUM(F_WORKDAY(IF(a.START_TIME <![CDATA[<=]]> #start#, #start#, a.START_TIME),
+			                     IF(a.END_TIME <![CDATA[>]]> #end#, #end#, a.END_TIME)))                  AS workdays
+			FROM ACTIVITY a,
+			     USER u
+			WHERE a.START_TIME <![CDATA[<]]> #end#
+			  AND a.END_TIME <![CDATA[>]]> #start#
+			  AND a.RESOURCE_ID = u.ID
+			  AND (u.DELETED IS NULL OR u.DELETED != 'Y')
+			GROUP BY a.RESOURCE_ID) temp1,
+
+		(SELECT t1.USER_ID,
+		        t1.userName,
+		        GROUP_CONCAT(DISTINCT t1.PROJECT_NAME)   AS projects,
+		        GROUP_CONCAT(DISTINCT t2.userName)       AS recipients
+		 FROM
+			(SELECT pm.USER_ID,
+			        CONCAT(u.FIRST_NAME, u.LAST_NAME)  AS userName,
+			        pm.PROJECT_ID,
+			        p.PROJECT_NAME
+			FROM PROJECT_MEMBER pm,
+			     PROJECT p,
+			     USER u
+			WHERE pm.USER_ID = u.ID
+			  AND pm.PROJECT_ID = p.ID
+			  AND pm.STATUS='ASSIGNED'
+			  AND p.STATUS='OPEN'
+			  AND (u.DELETED IS NULL OR u.DELETED != 'Y')) t1
+
+			JOIN
+
+			(SELECT pm.PROJECT_ID,
+			        p.PROJECT_NAME,
+			        pm.USER_ID,
+			       	CONCAT(u.FIRST_NAME, u.LAST_NAME, '(', u.ENGLISH_FIRST_NAME, ' ', u.ENGLISH_LAST_NAME, ')') AS userName
+			 FROM PROJECT_MEMBER pm, USER u, PROJECT p
+			 WHERE pm.PRIV_MAIL = 'Y'
+			   AND pm.USER_ID=u.ID
+			   AND pm.PROJECT_ID=p.ID
+			   AND p.STATUS='OPEN'
+			   AND pm.STATUS='ASSIGNED'
+			   AND (u.DELETED IS NULL OR u.DELETED != 'Y')) t2
+			
+			ON t1.PROJECT_ID = t2.PROJECT_ID
+			GROUP BY t1.USER_ID) temp2
+
+		WHERE temp1.userId = temp2.USER_ID 
+		  AND temp1.workdays != #workdays#
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->
+	<insert id="insert" parameterClass="Activity">
+		insert into ACTIVITY
+			(ID,
+			RESOURCE_ID,
+			NAME,			
+			TASK_ID,
+			PROJECT_ID,
+			ACTIVITY_TYPE,
+			START_TIME,
+			END_TIME,
+			ACTUAL_START_TIME,
+			ACTUAL_END_TIME,
+			ACTUAL_STAFF_DAYS,
+			ASSIGNED_EFFORT,
+			REMAINING_EFFORT,
+			PROGRESS,
+			TRAINING_FLAG,
+			DELETED,
+			PAUSED,
+			VERSION,
+			DESCRIPTION,
+			CREATED_DATE,
+			CREATED_BY,
+			MEDAL,
+			MEDAL_LOCKED,
+			MEDAL_EDITED,
+			PROVED,
+			PROVED_DATE,
+			PROVED_BY)
+		values
+			(#id#,
+			#resourceId#,
+			#name#,			
+			#taskId#,
+			#projectId#,
+			#activityType#,
+			#startTime#,
+			#endTime#,
+			#actualStartTime#,
+			#actualEndTime#,
+			#actualStaffDays#,
+			#assignedEffort#,
+			#remainingEffort#,
+			#progress#,
+			#trainingFlag#,
+			#deleted#,
+			#paused#,
+			#version#,
+			#description#,
+			#createdDate#,
+			#createdBy#,
+			#medal#,
+			#medalLocked#,
+			#medalEdited#,
+			#proved#,
+			#provedDate#,
+			#provedBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+	</insert>	
+	
+	
+	<update id="update" parameterClass="Activity">
+		update ACTIVITY set
+			RESOURCE_ID			= #resourceId#,
+			NAME				= #name#,
+			TASK_ID				= #taskId#,
+			PROJECT_ID			= #projectId#,
+			ACTIVITY_TYPE	  	= #activityType#,
+			START_TIME		  	= #startTime#,
+			END_TIME		  	= #endTime#,
+			ACTUAL_START_TIME 	= #actualStartTime#,
+			ACTUAL_END_TIME		= #actualEndTime#,
+			ACTUAL_STAFF_DAYS	= #actualStaffDays#,
+			ASSIGNED_EFFORT		= #assignedEffort#,
+			REMAINING_EFFORT	= #remainingEffort#,
+			PROGRESS			= #progress#,
+			TRAINING_FLAG		= #trainingFlag#,
+			DELETED				= #deleted#,
+			PAUSED				= #paused#,
+			VERSION				= #version#,
+			DESCRIPTION			= #description#,
+			UPDATED_DATE		= #updatedDate#,
+			UPDATED_BY			= #updatedBy#,
+			MEDAL				= #medal#,
+			MEDAL_LOCKED		= #medalLocked#,
+			MEDAL_EDITED		= #medalEdited#,
+			PROVED				= #proved#,
+			PROVED_DATE			= #provedDate#,
+			PROVED_BY			= #provedBy#
+		where ID = #id#
+	</update>
+	
+	<update id="modifyActulStaffDays" parameterClass="java.util.HashMap">
+		update ACTIVITY set 
+			ACTUAL_STAFF_DAYS = #days#
+		where id = #id#
+	</update>
+	
+	<update id="completeActivityByTaskId" parameterClass="java.util.HashMap">
+		update ACTIVITY a set		
+			a.ACTUAL_END_TIME   = now(),
+			a.PROGRESS			= 100		
+		where a.TASK_ID = #taskId#
+		<dynamic>
+			<isNotNull prepend="and" property="activityType">
+				a.ACTIVITY_TYPE=#activityType#
+			</isNotNull>			
+		</dynamic>   		
+	</update>	
+
+	<update id="resetActivityByTaskId" parameterClass="java.lang.Integer">
+		update ACTIVITY a
+			set a.PROGRESS = 0,
+				a.ACTUAL_START_TIME = null, 
+				a.ACTUAL_END_TIME   = null
+		where a.TASK_ID = #value#
+	</update>
+	
+	<update id="resetActualEndTimeByIds" parameterClass="java.util.List">
+		update ACTIVITY a
+			set a.ACTUAL_END_TIME   = null
+		where a.ID in
+			<iterate open="(" close=")" conjunction=",">    
+	         	#[]#
+	    	</iterate>		 
+	</update>	
+
+	<update id="resetActualEndTime" parameterClass="java.lang.Integer">
+		update ACTIVITY a
+			set a.ACTUAL_END_TIME = null
+		where a.TASK_ID = #value#
+	</update>			
+	
+
+	<update id="updateTrainingFlagByTaskId" parameterClass="java.util.Map">
+		update ACTIVITY a set TRAINING_FLAG = #flag# 
+		where a.TASK_ID = #taskId#
+	</update>
+
+	
+	<update id="updateActivityName" parameterClass="java.lang.Integer">
+		update ACTIVITY a, TASK t
+		set a.NAME = ifnull(concat(t.PARENT_NAME,' (',t.TASK_NAME,')'), t.TASK_NAME)
+		where (t.ID = #value# or t.PARENT_ID=#value#) 
+			and a.TASK_ID = t.ID
+	</update>		
+
+	<update id="cancel" parameterClass="java.lang.Integer">
+		update ACTIVITY set DELETED = 'Y'
+		where ID=#value#
+	</update>
+
+
+	<delete id="delete" parameterClass="java.lang.Integer">
+		delete from ACTIVITY
+		where ID=#value#	
+	</delete>
+	
+	<delete id="cancelActivityByTaskIds" parameterClass="java.util.Map">
+    	update ACTIVITY a
+    	set a.DELETED = 'Y'
+    	where
+		<isNotNull property="ids">
+			<isNotEmpty property="ids">			
+				a.TASK_ID in					
+				<iterate property="ids" open="(" close=")" conjunction=",">    
+		         	#ids[].id#
+		    	</iterate>
+		    </isNotEmpty>		 
+		</isNotNull>
+	</delete>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<!--======================================Ready to delete================================-->
+	<select id="selectStartedSubtask" parameterClass="java.util.Map" resultClass="Activity">
+		select
+			a.TASK_ID								as taskId,
+			l.LIST_VALUE 							as status,
+			a.NAME									as name,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)	as resourceName,
+			a.START_TIME							as startTime,
+			a.ACTIVITY_TYPE							as activityType
+		from TASK t, LIST_OF_VALUE l, USER u, ACTIVITY a
+		where (a.DELETED is null or a.DELETED != 'Y')
+		and a.ACTUAL_START_TIME is not null
+		<dynamic>
+			<!--============== Used when deleting Project User=============-->
+			<isNotNull prepend="and" property="resourceId">
+				a.RESOURCE_ID=#resourceId#
+			</isNotNull>	
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>
+			<isNotNull prepend="and" property="supervisorId">				
+				t.OWNER_ID=#supervisorId#
+			</isNotNull>
+			
+			<!--============== Used when deleting Reassigned Task=============-->
+			<isNotNull prepend="and" property="taskId">				
+				t.ID=#taskId#
+			</isNotNull>
+			
+			<isNotNull prepend="and" property="statusId">				
+				t.STATUS_ID != #statusId#
+			</isNotNull>
+		</dynamic>
+		and t.ID=a.TASK_ID
+		and u.ID=a.RESOURCE_ID		
+		and t.STATUS_ID = l.ID
+	</select>		
+</sqlMap>

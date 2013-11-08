@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	label="{resourceManager.getString('Language','label.basic_information')}"
+	xmlns:vo="com.pearl.normandy.vo.*"
+	xmlns:utils="com.pearl.normandy.utils.*" 
+	xmlns:cust="com.pearl.normandy.controls.*"
+	xmlns:ext="com.adobe.flex.extras.controls.*"
+	xmlns:widget="widget.*"
+	width="100%" height="100%"
+	paddingTop="20" paddingBottom="20" paddingLeft="30" paddingRight="30"
+	creationComplete="init()"
+	>
+<!--	<mx:Binding source="dateCalculate.selectedStartTime" destination="task.startTime"/>
+	<mx:Binding source="dateCalculate.selectedEndTime" destination="task.endTime"/>-->
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.rpc.events.ResultEvent;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+
+			import mx.collections.ArrayCollection;
+			import mx.validators.Validator;					
+			
+			import com.pearl.normandy.controls.DateCalculate;
+			import com.pearl.normandy.enum.ImageEnum;							
+			import com.pearl.normandy.component.progressWindow.ProgressBarWindow;
+			import com.pearl.normandy.event.UploadEvent;		
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.vo.ProductionProcessVO;
+			import com.pearl.normandy.vo.ListOfValue;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.FileUpload;			
+			
+			import com.pearl.normandy.event.TaskEvent;
+			import com.pearl.normandy.event.ProcessEvent;
+
+
+		    //==============================
+		    //Attributes
+		    //==============================
+		    [Bindable]
+		    private var selectedProject:ProjectVO;
+		    
+		    [Bindable]
+		    private var task:TaskVO = new TaskVO;
+		    
+		    private var dateCalculate:DateCalculate;
+						
+			[Bindable]
+			private var priorityType:ArrayCollection;
+    			
+    		[Bindable]
+    		private var projectMilestones:ArrayCollection;
+    		
+    		[Bindable]
+    		private var projectTaskCategories:ArrayCollection;
+			
+			   			
+ 		    //==============================
+		    //Methods
+		    //==============================
+    		private function init():void{
+    			selectedProject = model.GLOBAL_SELECTED_PROJECT;
+    			
+				priorityType 	 = model.metaData.priorities;
+				priority.selectedIndex = 1;
+				taskRo.getMilestone(selectedProject.id, false);
+				taskRo.getTaskCategory(selectedProject.id, false);				
+				CairngormEventDispatcher.getInstance().dispatchEvent(ProcessEvent.getProjectProcessEvent(selectedProject, false));
+				CairngormEventDispatcher.getInstance().dispatchEvent(TaskEvent.getProjectTaskGroupEvent(selectedProject));
+    			
+    			
+     			dateCalculate = new DateCalculate();
+    			dateCalculate.startDate = startDate;
+    			dateCalculate.duration = duration;
+    			dateCalculate.startTimeHoursN = startTimeHoursN;
+    			dateCalculate.startTimeMinN = startTimeMinN;
+    			dateCalculate.endDate = endDate;
+    			dateCalculate.endTimeHoursN = endTimeHoursN;
+    			dateCalculate.endTimeMinN = endTimeMinN; 
+    		}		
+    		
+    		public function getTask():TaskVO{
+				task.milestone 			 = milestone.text;
+				if(taskProductionProcess.selectedIndex >= 0){
+					task.productionProcessId = (taskProductionProcess.selectedItem as ProductionProcessVO).id;
+				}
+				else{
+					task.productionProcessId = 0;
+				}
+				task.projectId 			 = selectedProject.id;
+				task.name 				 = taskName.text;
+				task.startTime 			 = dateCalculate.selectedStartTime;
+				task.endTime 			 = dateCalculate.selectedEndTime;				
+				task.type				 = taskType.selectedItem.type;
+				task.statusId			 = Constants.TASK_STATUS_NOTSTARTED_NUM;
+				task.projectKey			 = selectedProject.projectKey;
+				task.taskCategory		 = taskCategory.text;
+				task.taskPriorityId 	 = (priority.selectedItem as ListOfValue).id;
+				task.taskGroup 			 = taskGroup.text;
+				task.description 		 = taskDescription.text;				
+				task.createdDate 		 = new Date();
+				task.createdBy 			 = model.currUser.userName;    	
+				return task;		
+    		}    
+		       			
+			public function validate():Array{			 				
+ 				task.startTime = dateCalculate.selectedStartTime;
+				task.endTime = dateCalculate.selectedEndTime;  
+
+ 				return Validator.validateAll(
+					[taskNameValidation,
+					durationValidation,
+					startTimeValidation,
+					endTimeValidation]);    
+			}			
+    			
+								
+		    //==============================
+		    //Event Handlers
+		    //==============================			  						
+			private function onUploadComplete(event:UploadEvent):void{
+				task.referenceUrl = event.url;
+			}					
+			
+			private function getMilestoneHandler(event:ResultEvent):void{
+				projectMilestones = event.result as ArrayCollection;
+			}
+			
+			private function getTaskCategoryHandler(event:ResultEvent):void{
+				projectTaskCategories = event.result as ArrayCollection; 	
+			}
+		]]>
+	</mx:Script>
+	
+		
+	<utils:FileUpload id="fileUpload" prefix="{selectedProject.projectKey}" creationComplete="fileUpload.init(ProgressBarWindow, browserCanvas)" complete="onUploadComplete(event)"/>
+    <!--==========================
+	    Service
+	  ===========================-->	
+	<mx:RemoteObject id="taskRo" destination="ro.task" fault="faultHandler(event)">
+		<mx:method name="getMilestone" result="getMilestoneHandler(event)"/>
+		<mx:method name="getTaskCategory" result="getTaskCategoryHandler(event)"/>
+	</mx:RemoteObject>		  
+	
+			
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	  		
+    <mx:Form id="taskForm" width="50%" height="100%" borderColor="#FFFFFF">
+        <mx:FormItem label="{resourceManager.getString('Language','label.project_name')}" fontWeight="bold">
+            <mx:Label id="projectName" 
+            	text="{selectedProject.projectName}" 
+            	fontWeight="bold" width="100%"/>
+        </mx:FormItem> 
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.task_name')}">
+            <mx:TextInput id="taskName" width="300"/>
+        </mx:FormItem>     
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.start_date')}">
+        	<mx:HBox width="100%">
+        		<cust:NormandyDateField id="startDate" width="100%"
+					close="dateCalculate.onStartDateChange()"/>
+				<mx:NumericStepper  id="startTimeHoursN" maximum="18" minimum="9" focusOut="dateCalculate.onStartDateChange()" value="9"/>
+				<mx:NumericStepper  id="startTimeMinN" maximum="59" minimum="0" focusOut="dateCalculate.onStartDateChange()"/>
+				<!--<mx:TextInput id="startTimeHoursTxt" text="{selectedStartTime.hours + ':' + selectedStartTime.minutes}" editable="false"/>-->
+        	</mx:HBox>
+        </mx:FormItem> 
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.end_date')}">
+        	<mx:HBox width="100%">
+        		<cust:NormandyDateField id="endDate" width="100%" 
+					close="dateCalculate.onEndDateChange()"/>    
+				<mx:NumericStepper id="endTimeHoursN" maximum="18" minimum="9" focusOut="dateCalculate.onEndDateChange()" value="18"/>
+				<mx:NumericStepper id="endTimeMinN" maximum="59" minimum="0" focusOut="dateCalculate.onEndDateChange()"/>  
+				<!--<mx:TextInput id="endTimeHoursTxt" text="{selectedEndTime.hours + ':' + selectedEndTime.minutes}" editable="false"/>-->
+        	</mx:HBox>
+        </mx:FormItem>
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.duration')}">
+            <mx:TextInput id="duration" width="50"
+				valueCommit="dateCalculate.onDurationCommit()"/> 
+        </mx:FormItem>      
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.task_type')}">
+            <mx:ComboBox id="taskType" width="200" labelField="type" dataProvider="{model.TYPE}"
+            	selectedIndex="{selectedProject.type==Constants.PROJECT_TYPE_TRAINING?1:0}"/>
+        </mx:FormItem>                   
+        <mx:FormItem required="true" label="{resourceManager.getString('Language','label.priority')}">
+            <mx:ComboBox id="priority" dataProvider="{priorityType}" width="200" labelField="listValue"/>
+        </mx:FormItem>          
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_category')}">
+            <mx:ComboBox id="taskCategory" width="200" dataProvider="{projectTaskCategories}" editable="true"/>
+        </mx:FormItem>          	        
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_production')}">
+            <mx:ComboBox id="taskProductionProcess" dataProvider="{model.LOCAL_PROJECT_PROCESSES}" labelField="processName"
+            	prompt="--Select--"
+            	width="200"/>
+        </mx:FormItem> 	                  
+        <mx:FormItem label="{resourceManager.getString('Language','label.milestone')}">
+            <ext:AutoComplete id="milestone" dataProvider="{projectMilestones}" width="300"/>
+        </mx:FormItem>
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_group')}">
+            <ext:AutoComplete id="taskGroup" dataProvider="{model.GLOBAL_PROJECT_TASK_GROUPS}" width="300"/>
+        </mx:FormItem>	        
+        <mx:FormItem label="{resourceManager.getString('Language','label.task_description')}">
+            <mx:TextArea id="taskDescription" width="300" height="150"/>
+        </mx:FormItem>
+    </mx:Form>
+    
+    <mx:VBox width="50%" height="100%">	    		    
+		<!--<mx:Canvas width="100%" height="100%"  id="canvas"
+		horizontalScrollPolicy="auto"  mouseWheel="onMouseWheel(event)"
+		verticalScrollPolicy="auto"  
+		borderStyle="none"  
+		shadowDistance="0" 
+		shadowDirection="center"
+		left="0" right="0" top="0" bottom="0">
+		<mx:Image 
+			id="viewImage"  source = '{(task.referenceUrl == null || task.referenceUrl == "")?"":(model.REFERENCE_TEMP_URL+task.referenceUrl)}'
+			mouseDown="onMouseDown(event)" mouseMove="onMouseMove(event)" mouseUp="onMouseUp(event)" 
+			complete="initImage()"
+		/>
+		</mx:Canvas>-->
+		<mx:ApplicationControlBar width="100%" height="30" horizontalAlign="center" dock="true">
+		</mx:ApplicationControlBar>	
+		<widget:BrowserCanvas id="browserCanvas" width="100%" height="350" 
+			horizontalScrollPolicy="auto" 
+			verticalScrollPolicy="auto"  
+			borderStyle="none"
+			shadowDistance="0"
+			shadowDirection="center"
+			left="0" right="0" top="0" bottom="0"
+			url="{(task.referenceUrl == null || task.referenceUrl == '')?'':(model.metaData.referenceTempUrl+task.referenceUrl)}"
+		/>
+		<mx:ApplicationControlBar width="100%" height="30" horizontalAlign="center" dock="true" styleName="ApplicationControlBarReverse">
+			<mx:HBox width="100%" horizontalAlign="center">	   
+				<mx:Button id="startUpload" label="{resourceManager.getString('Language','button.file.upload')}" 
+					click="fileUpload.browse()"/>
+				<mx:Button label="{resourceManager.getString('Language','button.file.delete')}" enabled="false"/>
+				<mx:Button  mouseDown="browserCanvas.onFit(event)" toolTip="{resourceManager.getString('Language','label.fit.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_FIT}"
+					/>
+				<mx:Button  mouseDown="browserCanvas.onFact(event)" toolTip="{resourceManager.getString('Language','label.actual.size')}" icon="{ImageEnum.IMAGECLASS_ZOOM_ACTUAL}"
+					/>
+				<mx:VRule height="20"/>
+				<mx:Button  mouseDown="browserCanvas.onZoomOut(event)" toolTip="{resourceManager.getString('Language','label.zoom_in')}" icon="{ImageEnum.IMAGECLASS_ZOOM_IN}"
+					/>
+				<mx:Button  mouseDown="browserCanvas.onZoomIn(event)" toolTip="{resourceManager.getString('Language','label.zoom_out')}" icon="{ImageEnum.IMAGECLASS_ZOOM_OUT}"
+					/>  
+			</mx:HBox>
+		</mx:ApplicationControlBar>			
+	</mx:VBox>	    
+	
+	
+	  <!--==========================
+	    Validators
+	  ===========================-->	
+    <mx:StringValidator id="taskNameValidation"
+		source="{taskName}" property="text"/>
+	<mx:NumberValidator id="durationValidation" 
+		source="{duration}" property="text"
+		minValue="0.01"
+		invalidCharError="Can only enter numbers."
+		required="true"/>
+	<mx:DateValidator id="startTimeValidation"
+        source="{startDate}" property="text"/>
+    <mx:DateValidator id="endTimeValidation"
+        source="{endDate}" property="text"/>	
+</mx:HBox>

@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100%" height="100%"
+    borderThickness="1" 
+    borderColor="0xB7BABC" 
+    borderStyle="solid"
+    creationComplete="init()">	
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.events.ListEvent;
+			import mx.controls.Alert;
+			import mx.core.UIComponent;
+			import mx.managers.PopUpManager;
+			import mx.events.CloseEvent;
+			import mx.events.PropertyChangeEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.CollectionEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import com.pearl.normandy.enum.ActivityEnum;
+			import com.pearl.normandy.enum.CheckItemEnum;
+			import com.pearl.normandy.vo.CheckItemVO;			
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.TimesheetVO;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			import popup.CompleteActivityPopup;
+			import popup.SubmitWIPActivityPopup;	
+			import popup.ViewFeedbackPopup;		
+
+		    //==============================
+		    //Data Attributes
+		    //==============================		    							
+			[Bindable]
+			public var selectedExpiredActivities:ArrayCollection;
+			
+			[Bindable]
+			public var activities:ArrayCollection;
+			
+			[Bindable]
+			private var _activity:ActivityVO;
+			
+			[Bindable]
+			public function set activity(value:ActivityVO):void{
+				this._activity = value;
+				if(activity){
+					timeSheetRo.getTimeSheet(model.currUser.id,activity.id);
+					checkItemRo.getCheckItemsByActivity(activity);
+					activityRo.getNotCompleteActivityByTaskId(activity.taskId, model.currUser.id, activity.endTime);
+					initComponents();
+				}
+				else{
+					timesheets 				= null;					
+					checkItems 				= null;
+					startBtn.enabled 		= false;
+					completeBtn.enabled		= false;
+					submitWIPBtn.enabled	= false;					
+					setProgressItems(false);
+				}
+				
+				spent.value = 8;
+				selectedCheckItem = null;
+			}
+					
+			public function get activity():ActivityVO{
+				return this._activity;
+			}
+			
+			[Bindable]
+			private var checkItems:ArrayCollection;
+			
+			[Bindable]
+			private var selectedCheckItem:CheckItemVO;
+			
+			private var entryToBeDeleted:TimesheetVO;
+			
+		    //==============================
+		    //Methods
+		    //==============================  	
+		    private function init():void{
+		    	var myContextMenu:ContextMenu = new ContextMenu();
+		    	removeDefaultItems(myContextMenu);
+				var item:ContextMenuItem = new ContextMenuItem("Delete Entry");
+				myContextMenu.customItems.push(item);
+				item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, menuItemSelectHandler);
+				timeSheetDataGrid.contextMenu = myContextMenu;		    	
+		    }
+		    		
+			private function initComponents():void{										  		
+				if(activity.deleted == Constants.DELETE_YES){
+					startBtn.enabled 			= false;
+					completeBtn.enabled			= false;
+					submitWIPBtn.enabled		= false;					
+				}	
+				else{
+					if(activity.activityType == ActivityEnum.PRODUCTION){
+						if(activity.statusId > Constants.TASK_STATUS_COMPLETE_NUM){
+							startBtn.enabled 		= false;						
+							completeBtn.enabled		= false;						
+							submitWIPBtn.enabled	= false;	
+							
+				    		setProgressItems(true);										
+						}
+						else{
+							if(activity.actualEndTime != null){
+								startBtn.enabled 			= false;
+								completeBtn.enabled			= true;
+								submitWIPBtn.enabled		= true;							
+								
+					    		setProgressItems(true);																
+							}
+							else{
+								if(activity.actualStartTime == null){
+									startBtn.enabled 			= true;
+									completeBtn.enabled			= false;
+									submitWIPBtn.enabled		= false;							
+									
+									setProgressItems(false);									
+								}
+								else{
+									startBtn.enabled 			= false;
+									completeBtn.enabled			= true;
+									submitWIPBtn.enabled		= true;							
+									
+						    		setProgressItems(true);									
+								}																						
+							}
+						
+						}						
+					}
+					else if(activity.activityType == ActivityEnum.FEEDBACK){
+						if(activity.statusId > Constants.TASK_STATUS_SUBMITTED_NUM){
+							startBtn.enabled 		= false;						
+							completeBtn.enabled		= false;						
+							submitWIPBtn.enabled	= false;	
+							
+				    		setProgressItems(true);										
+						}
+						else{
+							if(activity.actualEndTime != null){
+								startBtn.enabled 			= false;
+								completeBtn.enabled			= true;
+								submitWIPBtn.enabled		= true;							
+								
+					    		setProgressItems(true);																
+							}
+							else{
+								if(activity.actualStartTime == null){
+									startBtn.enabled 			= true;
+									completeBtn.enabled			= false;
+									submitWIPBtn.enabled		= false;							
+									
+									setProgressItems(false);									
+								}
+								else{
+									startBtn.enabled 			= false;
+									completeBtn.enabled			= true;
+									submitWIPBtn.enabled		= true;							
+									
+						    		setProgressItems(true);									
+								}																						
+							}					
+						}							
+					}				
+				}	  		
+			}		   
+			
+			private function setProgressItems(value:Boolean):void{
+	    		dateItem.enabled 			= value;
+	    		spentItem.enabled 			= value;
+//	    		remainingItem.enabled 		= value;
+	    		progressItem.enabled		= value;					
+			} 
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================  		   
+		    private function getTimeSheetHandler(event:ResultEvent):void{
+		    	timesheets = event.result as ArrayCollection;
+		    	if(timesheets)
+		    		timesheets.removeEventListener(CollectionEvent.COLLECTION_CHANGE,onResourceChange);
+		    	
+		    	timesheets = event.result as ArrayCollection;	
+		    	
+		    	if(timesheets)
+		    		timesheets.addEventListener(CollectionEvent.COLLECTION_CHANGE,onResourceChange);
+		    }
+		    
+		    private function createEntryHandler(event:ResultEvent):void{
+		    	var timesheet:TimesheetVO = event.result as TimesheetVO;
+		    	timesheets.addItem(timesheet);
+		    }
+		    
+		    private function deleteEntryHandler(event:ResultEvent):void{
+		    	if(entryToBeDeleted){
+		    		timesheets.removeItemAt(timesheets.getItemIndex(entryToBeDeleted));
+		    		entryToBeDeleted = null;
+		    	}
+		    }		    
+		    
+		    private function getCheckItemsByActivityHandler(event:ResultEvent):void{
+		    	checkItems = event.result as ArrayCollection;
+		    }
+		    
+		   	private function getNotCompleteActivityByTaskIdHandler(event:ResultEvent):void{
+		   		selectedExpiredActivities = event.result as ArrayCollection;
+		   	}	
+		   	
+		   	private function createCheckItemHandler(event:ResultEvent):void{		   		
+		   		if(event.result is CheckItemVO){
+			   		if(checkItems==null){
+			   			checkItems = new ArrayCollection();
+			   		}
+			   				   			
+		   			checkItems.addItem(event.result	as CheckItemVO);
+		   		}		   		
+		   	}		   	
+		   	
+		   	private function sendStatusNotificationHandler(event:ResultEvent):void{
+		   		Alert.show(resourceManager.getString('Language','alert.checkitem.send_mail'));
+		   	}	    
+		    
+			//==============================
+		    //Event Handler
+		    //==============================
+/* 		    private function onSpentChange():void{
+		    	var spentHours:Number = spent.value as Number;
+		    	var remainingHours:Number = activity.remainingEffort*8 as Number;
+		    	
+		    	if(remainingHours - spentHours < 0){
+		    		remaining.value = 0;
+		    	}
+		    	else{
+		    		remaining.value = remainingHours - spentHours;
+		    	}
+		    } */
+		    
+			private var submitWIPActivityPopup:SubmitWIPActivityPopup;
+		    private function onSubmitWIPBtnClick():void{
+		    	submitWIPActivityPopup = SubmitWIPActivityPopup(createPopUp(SubmitWIPActivityPopup));
+	    		PopUpManager.centerPopUp(submitWIPActivityPopup);
+	    		submitWIPActivityPopup.activity = activity;
+	    		submitWIPActivityPopup.ok.addEventListener(MouseEvent.CLICK,confirmPartialSubmitHandler);		    			    	
+		    }
+		    
+		    private function confirmPartialSubmitHandler(event:MouseEvent):void{
+		    	checkItemRo.createCheckItem(activity.id, parseHtml(submitWIPActivityPopup.comment.htmlText), model.currUser);
+				PopUpManager.removePopUp(submitWIPActivityPopup);		    	
+		    }
+		    
+		    private function onStartBtnClick():void{
+	    		activity.status = Constants.TASK_STATUS_WIP;
+	    		activity.actualStartTime = new Date();
+	    		activityRo.startActivity(activity);
+		    	initComponents();
+		    }
+		    
+		    private var completeActivityPopup:CompleteActivityPopup;		    
+		    private function onCompleteBtnClick():void{
+	    		completeActivityPopup = CompleteActivityPopup(createPopUp(CompleteActivityPopup));
+    			PopUpManager.centerPopUp(completeActivityPopup);
+    			completeActivityPopup.activity = activity;
+    			completeActivityPopup.selectedExpiredActivities = selectedExpiredActivities;
+    			completeActivityPopup.ok.addEventListener(MouseEvent.CLICK,confirmActivityHandler);		    	
+		    }
+
+		   	private function confirmActivityHandler(event:MouseEvent):void {
+		   		activity.actualEndTime = new Date();
+	    		
+    			activityRo.completeActivity(activity, model.currUser);
+    			checkItemRo.createCheckItem(activity.id, parseHtml(completeActivityPopup.comment.htmlText), model.currUser);
+
+	    		if(completeActivityPopup.rbGroup.selectedValue == 'Y'){
+	    			activityRo.completeActivities(selectedExpiredActivities, model.currUser);	    			
+	    			setActivityStatus();
+	    		}
+				initComponents();
+				PopUpManager.removePopUp(completeActivityPopup);
+			}
+			
+			private function setActivityStatus():void{
+				for(var i:int = 0,j:int = 0;i<activities.length,j<selectedExpiredActivities.length;i++){
+		   			var activity:ActivityVO = activities.getItemAt(i) as ActivityVO;
+		   			var expiredActivity:ActivityVO = selectedExpiredActivities.getItemAt(j) as ActivityVO;
+		   			if(activity.id == expiredActivity.id){
+						activity.actualStartTime = new Date();
+						activity.actualEndTime = new Date();		   				
+		   				activity.status = Constants.TASK_STATUS_COMPLETE;
+		   				
+		   				j++;
+		   			}
+	   			}	
+			}
+		 
+		    private function onTimeSheetSave():void{
+		    	var newTimeSheet:TimesheetVO = new TimesheetVO();
+		    	newTimeSheet.userId 	= model.currUser.id;
+		    	newTimeSheet.taskId 	= _activity.taskId;
+		    	newTimeSheet.activityId = _activity.id;
+		    	newTimeSheet.type 		= activity.activityType;
+		    	newTimeSheet.date 		= date.selectedDate as Date;
+		    	newTimeSheet.spentEffort= spent.value as Number;
+		    	newTimeSheet.version 	= 0;
+		    	newTimeSheet.createdDate= new Date();
+		    	newTimeSheet.createdBy 	= model.currUser.userName;
+		    	
+//		    	activity.remainingEffort= remaining.value/8 as Number;
+		    	activity.progress		= progress.value as int;
+		    	timeSheetRo.createEntry(newTimeSheet, activity);
+		    	
+		    	spent.value = 8;
+		    }
+		    
+		   	
+		   	private function onResourceChange(event:CollectionEvent):void{
+		   		if(event.kind == CollectionEventKind.UPDATE){
+		   			for each (var pce:PropertyChangeEvent in event.items){
+		   				var timeSheetVO:TimesheetVO = pce.source as TimesheetVO; 
+		   				timeSheetRo.updateEntry(timeSheetVO);
+		   			}
+		   		}
+		   	}
+		   	
+		   	private function menuItemSelectHandler(event:ContextMenuEvent):void{
+		   		var entry:TimesheetVO = timeSheetDataGrid.selectedItem as TimesheetVO;		   		
+		   		if(entry){
+		   			entryToBeDeleted = entry;
+		   			timeSheetRo.deleteEntry(entry.id);
+		   		}
+		   	}		   	
+		   	
+		   	private function onSendMailClick():void{
+		   		checkItemRo.sendStatusNotification(selectedCheckItem, model.currUser);
+		   	}		   	
+		   	
+		   	private function onCheckItemADGChange():void{
+		   		selectedCheckItem = checkItemADG.selectedItem as CheckItemVO;
+		   	}		 
+		   	
+			private function onCheckItemADGDoubleClick(event:ListEvent):void{
+		    	var checkItem:CheckItemVO = event.itemRenderer.data as CheckItemVO;
+		    	var viewFeedbackPopup:ViewFeedbackPopup = ViewFeedbackPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), ViewFeedbackPopup, true));
+				PopUpManager.centerPopUp(viewFeedbackPopup);
+				viewFeedbackPopup.checkItemId = checkItem.id;					
+			}		   	  		   
+		]]>
+	</mx:Script>
+	
+	
+    <!--==========================
+	    Services
+	===========================-->
+	<mx:RemoteObject id="activityRo" destination="ro.activity" fault="faultHandler(event)">
+		<mx:method name="getNotCompleteActivityByTaskId" result="getNotCompleteActivityByTaskIdHandler(event)"/>
+		<mx:method name="startActivity"/>
+		<mx:method name="completeActivity"/>
+		<mx:method name="completeActivities"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="timeSheetRo" destination="ro.timeSheet" fault="faultHandler(event)">
+		<mx:method name="getTimeSheet" result="getTimeSheetHandler(event)"/>
+		<mx:method name="createEntry" result="createEntryHandler(event)"/>
+		<mx:method name="deleteEntry" result="deleteEntryHandler(event)"/>
+	</mx:RemoteObject>
+	<mx:RemoteObject id="checkItemRo" destination="ro.checkitem" fault="faultHandler(event)">
+		<mx:method name="createCheckItem" result="createCheckItemHandler(event)"/>
+		<mx:method name="getCheckItemsByActivity" result="getCheckItemsByActivityHandler(event)"/>
+		<mx:method name="sendStatusNotification" result="sendStatusNotificationHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<!--==========================
+	    Attributes
+	===========================-->
+	<mx:ArrayCollection id="timesheets"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<mx:Panel title="{activity.name}" 
+		horizontalScrollPolicy="off"
+		verticalScrollPolicy="auto"	 
+		paddingLeft="15" paddingRight="15"
+		width="100%"  height="100%"
+		backgroundColor="0xEEEEEE" backgroundAlpha="0.7"
+		borderThicknessBottom="0" borderThicknessTop="0" borderThicknessLeft="0" borderThicknessRight="0"
+		borderAlpha="1" cornerRadius="0" dropShadowEnabled="false"			
+		headerColors="[0xEEEEEE, 0xFFFFFF]"
+		borderColor="0x0"
+		borderSides=""
+		headerHeight="21">	
+
+	    <mx:Spacer height="2"/>	
+		<mx:HBox width="100%">
+    		<mx:Button id="startBtn" label="{resourceManager.getString('Language','label.subtask.start')}" 
+    			enabled="false" click="onStartBtnClick()"/>
+    		<mx:Button id="completeBtn" label="{resourceManager.getString('Language','label.subtask.complete')}" 
+    			enabled="false" click="onCompleteBtnClick()"/>			
+		</mx:HBox>
+
+		<mx:HRule width="100%"/>			    
+		<mx:Label text="{resourceManager.getString('Language','label.checkitem')}" fontWeight="bold" textAlign="left"/>			    
+    	<mx:HBox>
+    		<mx:Button id="submitWIPBtn" label="{resourceManager.getString('Language','label.subtask.submit_wip')}" 
+    			click="onSubmitWIPBtnClick()" enabled="false"/> 
+    		<mx:Button id="sendMailBtn" label="{resourceManager.getString('Language','label.checkitem.send_mail')}" click="onSendMailClick()" 
+    			enabled="{selectedCheckItem!=null &amp;&amp; activity.statusId &lt;= Constants.TASK_STATUS_COMPLETE_NUM &amp;&amp; activity.deleted != Constants.DELETE_YES}"/>
+    	</mx:HBox>	    
+		
+		<mx:AdvancedDataGrid id="checkItemADG" dataProvider="{checkItems}"
+			width="100%" height="50%" change="onCheckItemADGChange()"
+			doubleClickEnabled="true"
+			itemDoubleClick="onCheckItemADGDoubleClick(event)">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="createdDate" headerText="{resourceManager.getString('Language','label.checkitem.submitted_time')}" 
+					labelFunction="formatDateSimple"/>
+				<mx:AdvancedDataGridColumn dataField="status" headerText="{resourceManager.getString('Language','label.checkitem.status')}" 
+					styleFunction="checkItemADGStyleFunc"/>
+			</mx:columns>
+		</mx:AdvancedDataGrid>	
+		
+		<mx:Spacer height="5"/>		
+		<mx:HRule width="100%"/>		
+				
+		<mx:Label text="{resourceManager.getString('Language','label.worknote')}" fontWeight="bold" textAlign="left"/>
+		<mx:AdvancedDataGrid id="timeSheetDataGrid" editable="true"
+			width="100%" height="50%"
+			dataProvider="{timesheets}" 
+			rowCount="{timesheets.length}">
+			<mx:columns>
+				<mx:AdvancedDataGridColumn dataField="date"
+					headerText="{resourceManager.getString('Language','label.timesheet.date')}"
+					labelFunction="formatDateShort"
+					itemEditor="mx.controls.DateField"
+	              	editorDataField="selectedDate"
+	              	textAlign="center">
+	<!--              		<mx:itemEditor>
+	              			<mx:Component>
+	              				<mx:DateField selectableRange="{{rangeStart: new Date(new Date().getFullYear(),new Date().getMonth(),1)}}"/>
+	              			</mx:Component>
+	              		</mx:itemEditor>-->
+	              	</mx:AdvancedDataGridColumn>
+				<mx:AdvancedDataGridColumn dataField="spentEffort"
+					headerText="{resourceManager.getString('Language','label.timesheet.spent_effort')}"
+					editorDataField="value"
+					textAlign="center">
+					<mx:itemEditor>
+						<mx:Component>
+							<mx:NumericStepper maximum="24" />
+						</mx:Component>
+					</mx:itemEditor>
+				</mx:AdvancedDataGridColumn>
+			</mx:columns>
+		</mx:AdvancedDataGrid>
+	
+	    <mx:Form width="100%">
+	        <mx:FormItem id="dateItem" enabled="false"
+	        	label="{resourceManager.getString('Language','label.timesheet.date')}:">
+	            <mx:DateField id="date" yearNavigationEnabled="true" selectedDate="{new Date()}"/>
+	            <!--selectableRange="{{rangeStart: new Date(new Date().getFullYear(),new Date().getMonth(),1)}}"-->
+	        </mx:FormItem>
+	        <mx:FormItem id="spentItem" enabled="false"
+	        	label="{resourceManager.getString('Language','label.timesheet.spent_hours')}">
+	            <mx:NumericStepper id="spent" width="89" value="8" 
+	            	maximum="24" />
+	        </mx:FormItem>    
+<!--	    change="onSpentChange()"
+	        keyUp="onSpentChange()"			        
+
+			<mx:FormItem id="remainingItem" enabled="false"
+	        	label="{resourceManager.getString('Language','label.timesheet.remaining_hours')}">
+	            <mx:NumericStepper id="remaining" value="{activity.remainingEffort*8}" maximum="1000" width="89"/>
+	        </mx:FormItem>-->
+	        <mx:FormItem id="progressItem" enabled="false"
+	        	label="{resourceManager.getString('Language','label.timesheet.progress')}">
+	            <mx:HBox>
+	            	<mx:NumericStepper id="progress" value="{activity.progress}" minimum="0" maximum="100" width="89"/><mx:Label text="%"/>
+	            	<mx:Button label="{resourceManager.getString('Language','label.submit')}"
+	            		click="onTimeSheetSave()" 
+	            		toolTip="{resourceManager.getString('Language','label.submit')}"/>
+	            </mx:HBox>
+	        </mx:FormItem>        
+	    </mx:Form>
+    
+    </mx:Panel>
+</mx:Canvas>

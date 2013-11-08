@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ListOfValue">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="ListOfValue"
+		type="com.pearl.normandy.listofvalue.ListOfValueTo" />
+
+	<resultMap id="ListOfValueResult" class="ListOfValue">
+		<result property="id" column="ID" />
+		<result property="listKey" column="LIST_KEY" />
+		<result property="listType" column="LIST_TYPE" />
+		<result property="listValue" column="LIST_VALUE" />
+		<result property="version" column="VERSION" />
+		<result property="createdDate" column="CREATED_DATE" />
+		<result property="createdBy" column="CREATED_BY" />
+		<result property="updatedDate" column="UPDATED_DATE" />
+		<result property="updatedBy" column="UPDATED_BY" />
+	</resultMap>
+	
+	<select id="selectListOfValue" parameterClass="java.util.Map"
+		resultMap="ListOfValueResult">
+		select *
+		from LIST_OF_VALUE l
+		<dynamic prepend="where">
+			<isNotNull prepend="and" property="id">
+				l.ID=#id#
+			</isNotNull>		
+			<isNotNull prepend="and" property="listType">
+				l.LIST_TYPE=#listType#
+			</isNotNull>
+			<isNotNull prepend="and" property="listKey">
+				l.LIST_KEY=#listKey#
+			</isNotNull>
+		</dynamic>
+    </select>
+    
+    <select id="selectTaskCategoriesByProjectId" parameterClass="java.lang.Integer" resultMap="ListOfValueResult">
+   		select
+	    	l.*
+    	from LIST_OF_VALUE l left join GROUP_TASK_CATEGORY g on l.ID = g.TASK_CATEGORY_ID,PROJECT_GROUP pg
+			where pg.PROJECT_ID=#value#
+			and g.GROUP_ID = pg.GROUP_ID
+		and LIST_TYPE = 'TASK CATEGORY'
+		order by l.ID
+    </select>
+    
+
+
+
+
+
+
+    
+    <!--====================Ready to delete =============-->
+    <select id="selectExTaskCategoriesByProjectId" parameterClass="java.lang.Integer" resultClass="java.lang.String">
+	    select 
+	    	group_concat(LIST_VALUE)
+	    from LIST_OF_VALUE
+		where id not in(
+	  		select
+		    	g.TASK_CATEGORY_ID
+	        from GROUP_TASK_CATEGORY g,PROJECT_GROUP pg
+			where pg.PROJECT_ID=#value#
+			and g.GROUP_ID = pg.GROUP_ID)
+		and LIST_TYPE = 'TASK CATEGORY'
+    </select>    
+    
+</sqlMap>

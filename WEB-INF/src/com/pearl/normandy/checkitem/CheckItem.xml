@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="CheckItem">
+
+  	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="CheckItem" type="com.pearl.normandy.checkitem.CheckItemTo"/>
+	
+	<!--============================= Select ============================-->
+	<select id="selectCheckItemsPending" parameterClass="java.lang.Integer" resultClass="CheckItem">
+	select distinct
+		p.ID					as projectId,
+	  	p.PROJECT_NAME			as projectName,
+	  	t.ID					as taskId,
+		t.TASK_NAME				as taskName,
+		t.PARENT_ID				as parentId,
+		t.PARENT_NAME			as parentName,
+		t.TASK_CATEGORY			as taskCategory,
+		t.TASK_GROUP			as taskGroup,
+		t.OWNER_ID   			as ownerId,
+		concat(u2.EMPLOYEE_NO," ", u2.FIRST_NAME, u2.LAST_NAME)		as owner,
+	    lp.LIST_VALUE    	 	as priority,
+	    a.NAME					as activityName,
+	    u.ID					as userId,
+	    concat(u.FIRST_NAME, u.LAST_NAME, " (", u.ENGLISH_FIRST_NAME, " ", u.ENGLISH_LAST_NAME, ")")	as resourceName,
+	    t1.ID					as id,
+	    t1.ACTIVITY_ID			as activityId,
+	    t1.STATUS				as status,
+	    t1.COMMENT				as comment,
+	    t1.CREATED_DATE			as createdDate,
+	    t1.CREATED_BY			as createdBy,
+	    t1.UPDATED_DATE			as updatedDate,
+	    t1.UPDATED_BY			as updatedBy,
+	    t1.DELETED				as deleted
+	from PROJECT p, PROJECT_USER pu, TASK t left outer join USER u2 on u2.ID=t.OWNER_ID,
+	    ACTIVITY a, USER u,
+	    LIST_OF_VALUE lp,
+		(select ci.*
+		from PROJECT_USER pu, TASK t, ACTIVITY a, CHECK_ITEM ci
+		where (t.DELETED is null or t.DELETED != 'Y')
+		  	and pu.USER_ID=#value#
+		  	and pu.PROJECT_ROLE_ID=2
+		  	and pu.PROJECT_ID=t.PROJECT_ID
+		  	and a.TASK_ID=t.ID
+		  	and ci.ACTIVITY_ID=a.ID
+		  	and ci.STATUS='Pending'
+		  	and ci.DELETED='N'
+		
+		union
+		
+		select ci.*
+		from TASK t, ACTIVITY a, CHECK_ITEM ci
+		where (t.DELETED is null or t.DELETED != 'Y')
+		  	and t.OWNER_ID=#value#
+		  	and a.TASK_ID=t.ID
+		  	and ci.ACTIVITY_ID=a.ID
+		  	and ci.STATUS='Pending'
+		  	and ci.DELETED='N') t1
+	
+	where (t.DELETED is null or t.DELETED != 'Y')
+		and p.ID=t.PROJECT_ID
+	  	and pu.PROJECT_ID=t.PROJECT_ID
+	  	and pu.PROJECT_ROLE_ID=2
+		and lp.ID=t.TASK_PRIORITY_ID
+		and u.ID=a.RESOURCE_ID
+	  	and a.TASK_ID=t.ID
+	  	and t1.ACTIVITY_ID=a.ID			
+	</select>	
+	
+	
+	<select id="selectCheckItemsReviewed" parameterClass="java.lang.Integer" resultClass="CheckItem">
+	select distinct
+		p.ID					as projectId,
+	  	p.PROJECT_NAME			as projectName,
+	  	t.ID					as taskId,
+		t.TASK_NAME				as taskName,
+		t.PARENT_ID				as parentId,
+		t.PARENT_NAME			as parentName,
+		t.TASK_CATEGORY			as taskCategory,
+		t.TASK_GROUP			as taskGroup,
+		t.OWNER_ID   			as ownerId,
+		concat(u2.EMPLOYEE_NO," ", u2.FIRST_NAME, u2.LAST_NAME)		as owner,
+	    lp.LIST_VALUE    	 	as priority,
+	    a.NAME					as activityName,
+	    concat(u.FIRST_NAME, u.LAST_NAME, " (", u.ENGLISH_FIRST_NAME, " ", u.ENGLISH_LAST_NAME, ")")	as resourceName,
+	    ci.ID					as id,
+	    ci.ACTIVITY_ID			as activityId,
+	    ci.STATUS				as status,
+	    ci.COMMENT				as comment,
+	    ci.CREATED_DATE			as createdDate,
+	    ci.CREATED_BY			as createdBy,
+	    ci.UPDATED_DATE			as updatedDate,
+	    ci.UPDATED_BY			as updatedBy,
+	    ci.DELETED				as deleted
+	from PROJECT p, PROJECT_USER pu, TASK t left outer join USER u2 on u2.ID=t.OWNER_ID, ACTIVITY a, CHECK_ITEM ci,
+    	USER u, LIST_OF_VALUE lp
+	where ci.STATUS='Reviewed'
+		and pu.USER_ID=#value#
+		and pu.PROJECT_ROLE_ID=5
+		and (t.DELETED is null or t.DELETED != 'Y')
+		and ci.ACTIVITY_ID=a.ID
+		and a.TASK_ID=t.ID
+		and pu.PROJECT_ID = t.PROJECT_ID
+		and pu.PROJECT_ID = p.ID
+		and lp.ID=t.TASK_PRIORITY_ID
+		and u.ID=a.RESOURCE_ID	
+		and ci.DELETED='N'		
+	</select>	
+	
+	<select id="selectCheckItemsComplete" parameterClass="java.lang.Integer" resultClass="CheckItem">
+	select distinct
+		p.ID					as projectId,
+	  	p.PROJECT_NAME			as projectName,
+	  	t.ID					as taskId,
+		t.TASK_NAME				as taskName,
+		t.PARENT_ID				as parentId,
+		t.PARENT_NAME			as parentName,
+		t.TASK_CATEGORY			as taskCategory,
+		t.TASK_GROUP			as taskGroup,
+		t.OWNER_ID   			as ownerId,
+		concat(u2.EMPLOYEE_NO," ", u2.FIRST_NAME, u2.LAST_NAME)		as owner,
+	    lp.LIST_VALUE    	 	as priority,
+	    a.NAME					as activityName,
+	    concat(u.FIRST_NAME, u.LAST_NAME, " (", u.ENGLISH_FIRST_NAME, " ", u.ENGLISH_LAST_NAME, ")")	as resourceName,
+	    ci.ID					as id,
+	    ci.ACTIVITY_ID			as activityId,
+	    ci.STATUS				as status,
+	    ci.COMMENT				as comment,
+	    ci.CREATED_DATE			as createdDate,
+	    ci.CREATED_BY			as createdBy,
+	    ci.UPDATED_DATE			as updatedDate,
+	    ci.UPDATED_BY			as updatedBy,
+	    ci.DELETED				as deleted	
+	from PROJECT p, PROJECT_USER pu, TASK t left outer join USER u2 on u2.ID=t.OWNER_ID, ACTIVITY a, CHECK_ITEM ci,
+    	USER u, LIST_OF_VALUE lp
+	where ci.STATUS='Complete'
+		and pu.USER_ID=#value#
+		and pu.PROJECT_ROLE_ID=1
+		and (t.DELETED is null or t.DELETED != 'Y')
+		and ci.ACTIVITY_ID=a.ID
+		and a.TASK_ID=t.ID
+		and pu.PROJECT_ID = t.PROJECT_ID
+		and pu.PROJECT_ID = p.ID
+		and lp.ID=t.TASK_PRIORITY_ID
+		and u.ID=a.RESOURCE_ID	
+		and ci.DELETED='N'	
+	</select>		
+	
+	
+	<select id="selectCheckItemsByActivityId" parameterClass="java.util.HashMap" resultClass="CheckItem">
+	select
+		p.ID					as projectId,
+	  	p.PROJECT_NAME			as projectName,
+	  	t.ID					as taskId,
+		t.TASK_NAME				as taskName,
+		t.PARENT_ID				as parentId,
+		t.PARENT_NAME			as parentName,
+		t.TASK_CATEGORY			as taskCategory,		
+		t.TASK_GROUP			as taskGroup,
+		t.OWNER_ID   			as ownerId,
+		concat(u2.EMPLOYEE_NO," ", u2.FIRST_NAME, u2.LAST_NAME)		as owner,
+	    lp.LIST_VALUE    	 	as priority,
+	    concat(u.FIRST_NAME, u.LAST_NAME)	as resourceName,	
+	    ci.ID					as id,
+	    ci.ACTIVITY_ID			as activityId,
+	    ci.STATUS				as status,
+	    ci.COMMENT				as comment,
+	    ci.CREATED_DATE			as createdDate,
+	    ci.CREATED_BY			as createdBy,
+	    ci.UPDATED_DATE			as updatedDate,
+	    ci.UPDATED_BY			as updatedBy,
+	    ci.DELETED				as deleted
+	from PROJECT p, TASK t left outer join USER u2 on u2.ID=t.OWNER_ID,
+	    ACTIVITY a, USER u, CHECK_ITEM ci, LIST_OF_VALUE lp	
+	where
+		p.ID=t.PROJECT_ID
+		and t.ID=a.TASK_ID
+		and lp.ID=t.TASK_PRIORITY_ID
+		and u.ID=a.RESOURCE_ID
+	  	and ci.ACTIVITY_ID=a.ID	 
+		and	ci.ACTIVITY_ID=#activityId#
+		and ci.DELETED='N'
+		<dynamic>
+			<isNotNull prepend="and" property="status">
+				ci.STATUS=#status#
+			</isNotNull>					
+		</dynamic>	
+		group by ci.ID;
+	</select>	
+	
+	
+	
+	
+	
+	<!--====================== Insert/Update/Delete =====================-->	
+	<insert id="insert" parameterClass="CheckItem">
+		insert into CHECK_ITEM
+		(ID,
+		ACTIVITY_ID,
+		STATUS,
+		COMMENT,
+		CREATED_DATE,
+		CREATED_BY)		
+		values
+		
+		(#id#,
+		#activityId#,
+		#status#,
+		#comment#,
+		#createdDate#,
+		#createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="CheckItem">
+		update CHECK_ITEM set 
+			STATUS = #status#, 
+			COMMENT = #comment#,
+			UPDATED_DATE = #updatedDate#,
+			UPDATED_BY = #updatedBy#,
+			DELETED = #deleted#
+		where ID = #id#
+	</update>
+	
+	<update id="updateCommentById" parameterClass="CheckItem">
+		update CHECK_ITEM set  
+			COMMENT = #comment#
+		where ID = #id#
+	</update>
+</sqlMap>

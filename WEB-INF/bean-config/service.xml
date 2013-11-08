@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+
+	<!--===================== MetaData ==============-->
+	<bean id="metaDataService" class="com.pearl.normandy.metadata.MetaDataService">
+		<property name="calendarDao" ref="calendarDao" />	
+		<property name="userGroupDao" ref="userGroupDao" />
+		<property name="listOfValueDao" ref="listOfValueDao" />
+		<property name="projectUserDao" ref="projectUserDao" />
+	</bean>	 
+
+	<!--===================== Customer/UserGroup/User ==============-->
+	<bean id="customerService" class="com.pearl.normandy.customer.CustomerService">
+		<property name="customerDao" ref="customerDao" />
+	</bean>	 
+
+	<bean id="userGroupService" class="com.pearl.normandy.usergroup.UserGroupService">
+		<property name="userGroupDao" ref="userGroupDao" />	
+	</bean>	
+
+	<bean id="userAssembler" class="com.pearl.normandy.user.UserAssembler">
+		<property name="userDao" ref="userDao" />
+	</bean>
+	
+	<bean id="userService" class="com.pearl.normandy.user.UserService">
+		<property name="userDao" ref="userDao" />
+		<property name="projectDao" ref="projectDao"/>
+		<property name="userGroupDao" ref="userGroupDao"/>
+		<property name="projectUserDao" ref="projectUserDao" />
+		<property name="projectMemberDao" ref="projectMemberDao" />
+	</bean>
+	
+	<!--=================== Project/Process ===============-->
+	<bean id="projectService" class="com.pearl.normandy.project.ProjectService">
+		<property name="customerDao" ref="customerDao" />
+		<property name="projectMemberService" ref="projectMemberService" />			
+		<property name="projectUserService" ref="projectUserService" />
+		<property name="projectDao" ref="projectDao" />
+		<property name="actionLogService" ref="actionLogService" />
+		<property name="userPrivilegeDao" ref="userPrivilegeDao"/>		
+	</bean>	
+    
+	<bean id="productionProcessService" class="com.pearl.normandy.productionprocess.ProductionProcessService">
+		<property name="productionProcessDao" ref="productionProcessDao" />
+		<property name="processStepDao" ref="processStepDao" />
+		<property name="processStepService" ref="processStepService" />
+	</bean> 
+    
+	<bean id="processStepService" class="com.pearl.normandy.processstep.ProcessStepService">
+		<property name="processStepDao" ref="processStepDao" />
+	</bean>
+
+	
+
+	<!--=================== Project User/Project Group/Project Member =====================-->
+	<bean id="projectUserService" class="com.pearl.normandy.projectuser.ProjectUserService">
+		<property name="projectUserDao" ref="projectUserDao"/>
+		<property name="projectMemberDao" ref="projectMemberDao"/>				
+		<property name="taskDao"  ref="taskDao"/>				
+	</bean>			
+    
+	<bean id="projectMemberService" class="com.pearl.normandy.projectmember.ProjectMemberService">
+		<property name="projectMemberDao" ref="projectMemberDao" />
+		<property name="projectUserDao" ref="projectUserDao" />
+	</bean>
+	
+		
+	<!--====================== Task/Detail/Activity/Comment =========================-->
+	<bean id="taskService" class="com.pearl.normandy.task.TaskService">	 
+		<property name="taskDao" ref="taskDao"/>
+		<property name="taskDetailDao" ref="taskDetailDao"/>	
+		<property name="activityDao" ref="activityDao"/>	
+		<property name="actionLogService" ref="actionLogService" />
+		<property name="projectUserService" ref="projectUserService" />
+		<property name="statusLogService" ref="statusLogService" />	
+		<property name="calendarDao" ref="calendarDao"/>					
+	</bean>	      			      
+    
+	<bean id="taskDetailService" class="com.pearl.normandy.taskdetail.TaskDetailService">
+		<property name="taskDetailDao" ref="taskDetailDao"/>	 
+	</bean>		      
+    
+	
+	<bean id="activityService" class="com.pearl.normandy.activity.ActivityService">
+		<property name="activityDao"  ref="activityDao"/>
+		<property name="taskDao"  ref="taskDao"/>						
+		<property name="taskService"  ref="taskService"/>
+		<property name="actionLogService" ref="actionLogService"/>
+		<property name="calendarDao"  ref="calendarDao"/>		
+	</bean>	
+	
+	<bean id="commentService" class="com.pearl.normandy.comment.CommentService">
+		<property name="commentDao" ref="commentDao"/>		
+	</bean>
+	
+	
+	<!--====================== Baseline =========================-->
+	<bean id="baselineService" class="com.pearl.normandy.baseline.BaselineSevice">
+		<property name="projectDao" ref="projectDao"/>
+		<property name="baselineDao" ref="baselineDao"/>
+	</bean>
+	
+	<!--====================== Report =========================-->
+	<bean id="reportService" class="com.pearl.normandy.report.ReportService">
+		<property name="reportDao" ref="reportDao"/>
+		<property name="projectService" ref="projectService"/>
+		<property name="reportLogService" ref="reportLogService"/>
+		<property name="projectMemberAbilityService" ref="projectMemberAbilityService"/>
+		<property name="activityDao" ref="activityDao"/>
+		<property name="feedbackDao" ref="feedbackDao"/>
+		<property name="calendarDao" ref="calendarDao"/>
+		<property name="userSalaryDao" ref="userSalaryDao"/>
+	</bean>
+	
+	<!--====================== Timesheet/Feedback/FeedbackReference =========================-->
+	<bean id="timeSheetService" class="com.pearl.normandy.timesheet.TimesheetService">
+		<property name="timeSheetDao" ref="timeSheetDao"/>
+		<property name="activityDao" ref="activityDao"/>
+		<property name="taskDao" ref="taskDao"/>						
+	</bean>
+	
+	<bean id="feedbackService" class="com.pearl.normandy.feedback.FeedbackService">
+		<property name="feedbackDao" ref="feedbackDao"/>
+		<property name="feedbackReferenceDao" ref="feedbackReferenceDao" />
+		<property name="feedbackReferenceService" ref="feedbackReferenceService"/>
+	</bean>
+
+	<bean id="feedbackReferenceService" class="com.pearl.normandy.feedbackreference.FeedbackReferenceService">
+		<property name="feedbackReferenceDao" ref="feedbackReferenceDao"/>
+	</bean>
+
+    <!--===================== Check Item / Check Item Log =======================-->    
+    <bean id="checkItemService" class="com.pearl.normandy.checkitem.CheckItemService">
+    	<property name="checkItemDao" ref="checkItemDao"/>
+    	<property name="checkItemFacade" ref="checkItemFacade"/>
+    	<property name="checkItemLogService" ref="checkItemLogService"/>    	
+    	<property name="notification" ref="notification"/>    	    	
+    </bean>
+    
+    <bean id="checkItemLogService" class="com.pearl.normandy.checkitemlog.CheckItemLogService">
+    	<property name="checkItemLogDao" ref="checkItemLogDao"/>    	    	
+    </bean>            
+    
+    <!--===================== LOV =====================-->
+	<bean id="listOfValueService" class="com.pearl.normandy.listofvalue.ListOfValueService">
+		<property name="listOfValueDao" ref="listOfValueDao" />
+	</bean>	
+	
+	<!--===========================Calendar============================-->
+	<bean id="calendarService" class="com.pearl.normandy.calendar.CalendarService">
+		<property name="calendarDao" ref="calendarDao"/>
+		<property name="activityService" ref="activityService"/>
+	</bean>
+
+	
+	<!--====================== Action Log =========================-->	
+	<bean id="actionLogService" class="com.pearl.normandy.actionlog.ActionLogService">
+		<property name="actionLogDao" ref="actionLogDao" />
+	</bean>		
+	<bean id="statusLogService" class="com.pearl.normandy.statuslog.StatusLogService">
+		<property name="statusLogDao" ref="statusLogDao" />
+	</bean>		
+	<bean id="reportLogService" class="com.pearl.normandy.reportlog.ReportLogService">
+		<property name="reportLogDao" ref="reportLogDao" />
+	</bean>
+	
+	<!--======================== Project Time Value =======================-->	
+	<bean id="projectTimeValueService" class="com.pearl.normandy.projectTimeValue.ProjectTimeValueService">
+		<property name="projectTimeValueDao" ref="projectTimeValueDao"/>
+	</bean>	
+	
+	<!--======================== User Contract =======================-->	
+	<bean id="userContractService" class="com.pearl.normandy.userContract.UserContractService">
+		<property name="userContractDao" ref="userContractDao"/>
+	</bean>
+	
+	<!--======================== User Salary =======================-->
+	<bean id="userSalaryService" class="com.pearl.normandy.userSalary.UserSalaryService">
+		<property name="userSalaryDao" ref="userSalaryDao"/>
+	</bean>
+	
+	<!--======================== User Privilege =======================-->
+	<bean id="userPrivilegeService" class="com.pearl.normandy.userPrivilege.UserPrivilegeService">
+		<property name="userPrivilegeDao" ref="userPrivilegeDao"/>
+	</bean>
+	
+	<!--======================== User Punctual =======================-->
+	<bean id="userPunctualService" class="com.pearl.normandy.userpunctual.UserPunctualService">
+		<property name="userPunctualDao" ref="userPunctualDao"/>
+	</bean>
+	
+	<bean id="sysConfigService" class="com.pearl.normandy.sysConfig.SysConfigService">
+		<property name="sysConfigDao" ref="sysConfigDao"/>
+	</bean>
+	
+	<!--======================== Project Member Ability =======================-->
+	<bean id="projectMemberAbilityService" class="com.pearl.normandy.projectmemberability.ProjectMemberAbilityService">
+		<property name="projectMemberAbilityDao" ref="projectMemberAbilityDao"/>
+		<property name="calendarDao" ref="calendarDao"/>
+		<property name="projectDao" ref="projectDao"/>
+	</bean>
+</beans>

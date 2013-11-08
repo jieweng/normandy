@@ -1,0 +1,711 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="User">
+
+ 	<!-- Use type aliases to avoid typing the full classname every time. -->
+ 	<typeAlias alias="User" type="com.pearl.normandy.user.UserTo"/>
+  
+	<select id="selectUser" parameterClass="java.util.Map" resultClass="User">
+   	 	select 
+   	 		u.ID 									as id,
+   	 		u.USER_TYPE								as userType,
+   	 		u.CUSTOMER_ID							as customerId,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  	as name,   
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME,
+				   "(",u.ENGLISH_FIRST_NAME, " ",
+				   u.ENGLISH_LAST_NAME,")")			as fullName,
+			CONCAT(u.FIRST_NAME," ",
+				   u.LAST_NAME," ",
+				   u.ENGLISH_FIRST_NAME," ",
+				   u.ENGLISH_LAST_NAME," ",
+				   u.USER_NAME," ",
+				   u.EMPLOYEE_NO," ",
+				   ug.GROUP_NAME)					as 	searchStr,	 		
+   	 		u.FIRST_NAME							as 	firstName,
+   	 		u.LAST_NAME								as 	lastName,
+   	 		u.ENGLISH_FIRST_NAME					as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME						as 	englishLastName,
+   	 		u.USER_NAME								as	userName,
+   	 		u.LEVEL_ID								as	levelId,
+   	 		u.PASSWORD_HASH							as	passwordHash,
+   	 		u.EMPLOYEE_NO							as	employeeNo,
+   	 		u.EMAIL									as	email,
+   	 		u.MANAGER								as 	manager,
+   	 		u.DELETED								as	deleted,
+   	 		u.VERSION								as	version,
+   	 		ug.ID									as	userGroupId,
+   	 		ug.GROUP_NAME							as	userGroupName,
+   	 		ug.STATE								as	state,
+   	 		ug.PRODUCTION							as	productionGroup,
+   	 		c.ID									as	customerId,
+   	 		c.CUSTOMER_NAME							as	customerName,
+   	 		u.CREATED_DATE							as	createdDate,
+   	 		u.CREATED_BY							as	createdBy,
+   	 		u.UPDATED_DATE							as	updatedDate,
+   	 		u.UPDATED_BY							as	updatedBy,
+   	 		u.ENTRY_DATE							as  entryDate,
+   	 		u.LEAVE_DATE							as  leaveDate,
+	
+			u.EMPLOYEE_DATE							as	employeeDate,
+			u.DEPARTMENT							as	department,
+			u.POSITION								as	position,
+			u.BIRTHDAY								as	birthday,
+			u.GENDER								as	gender,
+			u.RECOMMENDOR_NAME						as 	recommendorName,
+			u.RECOMMENDATION_BONUS					as 	recommendationBonus,
+			u.RECOMMENDATION_BONUS_PAYMENT			as 	recommendationBonusPayment,
+			u.RECOMMENDATION_BONUS_PAYMENT_TIME		as 	recommendationBonusPaymentTime,
+			u.MOBILE								as 	mobile,
+			u.HOME									as 	home,
+			u.PERSONAL_EMAIL						as 	personalEmail,
+			u.ID_NO									as 	idNo,
+			u.ID_ADDRESS							as 	idAddress,
+			u.HUKOU_ADDRESS							as 	hukouAddress,
+			u.SHANGHAI_ADDRESS						as 	shangHaiAddress,
+			u.PAID_LEAVE							as 	paidLeave,
+			u.PHOTO									as	photo
+    	from USER u left outer join CUSTOMER c on u.CUSTOMER_ID = c.ID, USER_GROUP ug
+    	where u.USER_GROUP_ID = ug.ID
+    	
+		<dynamic>
+			<!--======================= Get User By Ids ==========================-->
+			<isNotNull property="ids">
+				<isNotEmpty prepend="and" property="ids">			
+					u.ID in					
+					<iterate property="ids" open="(" close=")" conjunction=",">    
+			         	#ids[]#
+			    	</iterate>
+			    </isNotEmpty>		 
+			</isNotNull>						
+			
+			<!--======================= Get Login User ==========================-->	
+			<isNotNull prepend="and" property="userName">
+				u.USER_NAME = #userName#
+			</isNotNull>			
+			<isNotNull prepend="and" property="passwordHash">
+				u.PASSWORD_HASH = #passwordHash#
+			</isNotNull>			
+			<isNotNull prepend="and" property="email">
+				u.EMAIL = #email#
+			</isNotNull>
+			<isNotNull prepend="and" property="deleted">
+				u.DELETED = #deleted#	
+			</isNotNull>
+			
+			<!--======================= Get Users for APM =======================-->
+			<isNotNull prepend="and" property="userGroupId">
+				ug.ID = #userGroupId#
+			</isNotNull>
+			
+			<!--======================= Get Managers =======================-->
+			<isNotNull prepend="and" property="manager">
+				u.MANAGER = #manager#
+			</isNotNull>												
+		</dynamic>     	
+		
+    	order by u.EMPLOYEE_NO
+	</select>  	
+		
+		
+		
+	<select id="selectProductionGroupUsers" parameterClass="java.lang.Integer" resultClass="User">
+		select distinct				
+			u.ID				as id,	
+			u.USER_TYPE			as	userType,					
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  					as name,   
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+			u.ENGLISH_FIRST_NAME		as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME			as 	englishLastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as	userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy			
+		from USER_GROUP ug,USER u left outer join PROJECT_MEMBER pm on pm.USER_ID=u.ID left outer join PROJECT p on p.ID=pm.PROJECT_ID
+		where (u.DELETED is null or u.DELETED != 'Y') 
+		and u.USER_GROUP_ID=#value#
+		and u.USER_GROUP_ID = ug.ID
+    	group by u.ID
+    	order by u.EMPLOYEE_NO
+	</select>
+	
+	<select id="selectAllProductionGroupUsers" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as	userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME," (",u.ENGLISH_FIRST_NAME," ",u.ENGLISH_LAST_NAME,")")		as name,   
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+   	 		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as	userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy,	
+   	 		ug.GROUP_NAME       as  userGroupName	
+		from USER_GROUP ug,USER u left outer join (select * from PROJECT_MEMBER pm where pm.STATUS is null or pm.STATUS != 'RELEASED') pm on pm.USER_ID=u.ID
+        left outer join PROJECT p on p.ID=pm.PROJECT_ID
+		where (u.DELETED is null or u.DELETED != 'Y')
+		and u.USER_GROUP_ID = ug.ID
+		and (ug.PRODUCTION = 'Y' or ug.ID = 3)
+    	group by u.ID
+    	order by u.EMPLOYEE_NO
+	</select>	
+	
+	<select id="selectAllProductionUsersWithDeleted" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as	userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME," (",u.ENGLISH_FIRST_NAME," ",u.ENGLISH_LAST_NAME,")")		as name,   
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+   	 		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as	userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy,
+   	 		ug.GROUP_NAME       as  userGroupName			
+		from USER_GROUP ug,USER u left outer join 
+			(select * from PROJECT_MEMBER pm where pm.STATUS is null or pm.STATUS != 'RELEASED') pm on pm.USER_ID=u.ID
+        left outer join PROJECT p on p.ID=pm.PROJECT_ID
+		where u.USER_GROUP_ID = ug.ID
+		and ug.PRODUCTION = 'Y'
+    	group by u.ID
+    	order by u.EMPLOYEE_NO
+	</select>
+
+	<select id="selectQAGroupUsers" parameterClass="java.lang.Integer" resultClass="User">
+		select distinct				
+			u.ID				as id,	
+			u.USER_TYPE			as	userType,					
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  					as name,   
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+   	 		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as	userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy			
+		from USER_GROUP ug,USER u left outer join PROJECT_USER pu on pu.USER_ID=u.ID left outer join PROJECT p on p.ID=pu.PROJECT_ID
+		where (u.DELETED is null or u.DELETED != 'Y') 
+		and u.USER_GROUP_ID=#value#
+		and u.USER_GROUP_ID = ug.ID
+    	group by u.ID
+    	order by u.EMPLOYEE_NO
+	</select>
+	
+	
+<!-- Select Users who belongs the same group as AD desiganated
+	DON'T remove
+	<select id="selectProjectUsers" parameterClass="java.util.Map" resultClass="User">		
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  					as name,
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as  userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy,
+   	 		ug.GROUP_NAME       as  userGroupName			
+		from PROJECT p, PROJECT_MEMBER pm, USER u,USER_GROUP ug
+		where u.user_group_id=ug.id and 
+			pm.USER_ID in (
+				select distinct pm.USER_ID 
+				from PROJECT_MEMBER pm 
+				where pm.PROJECT_ID=#projectId# 
+					and pm.GROUP_ID in
+					(select pu.TYPE 
+					from PROJECT_USER pu 
+					where pu.PROJECT_ID=#projectId# 
+						and pu.PROJECT_ROLE_ID=2 
+						and pu.USER_ID=#userId#
+					)	
+				)
+			and p.ID = pm.PROJECT_ID
+	  		and u.ID = pm.USER_ID
+		group by pm.USER_ID
+		order by u.EMPLOYEE_NO
+	</select>	
+-->
+
+	<select id="selectProjectUsers" parameterClass="java.util.Map" resultClass="User">		
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME," (",u.ENGLISH_FIRST_NAME," ",u.ENGLISH_LAST_NAME,")")		as name,
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,
+			u.FIRST_NAME		as 	firstName,
+   	 		u.LAST_NAME			as 	lastName,
+   	 		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+   	 		u.USER_NAME			as	userName,
+   	 		u.LEVEL_ID			as	levelId,
+   	 		u.PASSWORD_HASH		as	passwordHash,
+   	 		u.EMPLOYEE_NO		as	employeeNo,
+   	 		u.EMAIL				as	email,
+   	 		u.MANAGER			as 	manager,
+   	 		u.DELETED			as	deleted,
+   	 		u.VERSION			as	version,
+   	 		u.USER_GROUP_ID		as  userGroupId,
+   	 		u.CUSTOMER_ID		as	customerId,
+   	 		u.CREATED_DATE		as	createdDate,
+   	 		u.CREATED_BY		as	createdBy,
+   	 		u.UPDATED_DATE		as	updatedDate,
+   	 		u.UPDATED_BY		as	updatedBy,
+   	 		ug.GROUP_NAME       as  userGroupName			
+		from PROJECT p, PROJECT_MEMBER pm, USER u,USER_GROUP ug
+		where pm.PROJECT_ID=#projectId#		and u.user_group_id=ug.id 	
+			and p.ID = pm.PROJECT_ID
+	  		and u.ID = pm.USER_ID
+	  		<isNotNull prepend="and" property="isShowDeleted">
+	  			(u.deleted != 'Y' or u.deleted is null)
+	  		</isNotNull>
+		group by pm.USER_ID
+		order by u.EMPLOYEE_NO
+	</select>	
+	
+	<select id="selectUsersByProjectSupervisorId" parameterClass="java.util.Map" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  as name,
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.PASSWORD_HASH		as passwordHash,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy
+		from USER u, PROJECT_USER pu, PROJECT_ROLE pr
+		where pu.USER_ID=u.ID				
+		<isNotNull prepend="and" property="projectId">
+			pu.PROJECT_ID=#projectId#
+		</isNotNull>		
+		<isNotNull prepend="and" property="supervisorId">
+			pu.SUPERVISOR_ID=#supervisorId#
+		</isNotNull>
+		
+		<!--==================Depend on PROJECT ROLE, select specific layer of users===========-->
+		<isNotNull prepend="and" property="role">
+			pr.PROJECT_ROLE_NAME=#role#
+		</isNotNull>		
+		and pu.PROJECT_ROLE_ID=pr.ID	
+	</select>		
+	
+	<select id="selectUsersForLead" parameterClass="java.util.Map" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,			
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME," (",u.ENGLISH_FIRST_NAME," ",u.ENGLISH_LAST_NAME,")")		as name,
+			group_concat(distinct p.PROJECT_NAME order by p.PROJECT_NAME separator ', ') 	as projectsName,
+			group_concat(distinct p.ID order by p.ID separator ',') 	as projectsId,			
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.PASSWORD_HASH		as passwordHash,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy,
+    		ug.GROUP_NAME       as userGroupName
+		from PROJECT p, PROJECT_USER pu, USER u,USER_GROUP ug
+		where u.user_group_id=ug.id and  pu.PROJECT_ID=#projectId#
+		and (pu.SUPERVISOR_ID=#supervisorId# or u.ID=#supervisorId#)
+		and p.ID = pu.PROJECT_ID		
+		and pu.USER_ID=u.ID
+		and pu.STATUS != 'RELEASED'
+		group by pu.USER_ID
+		order by u.EMPLOYEE_NO
+	</select>	
+	
+	<select id="selectUserNotAPM" parameterClass="java.lang.Integer" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,			
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  as name,
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.PASSWORD_HASH		as passwordHash,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy 
+		from USER u,PROJECT_ROLE pr,PROJECT_USER pu
+		where pr.PROJECT_ROLE_NAME in ('AD','Lead','Artist')
+		and pu.PROJECT_ID in (
+		      select 
+		      	PROJECT_ID
+		      from PROJECT_USER pu,PROJECT_ROLE pr
+		      where pr.ID=pu.PROJECT_ROLE_ID
+          and pr.PROJECT_ROLE_NAME='PM'
+          and pu.USER_ID=#value#
+    	)
+		and pr.ID=pu.PROJECT_ROLE_ID
+		and pu.USER_ID=u.ID
+		order by u.ID
+	</select>	
+	
+	<select id="selectQaUsersByTaskId" parameterClass="java.lang.Integer" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,			
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  as name,
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.PASSWORD_HASH		as passwordHash,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy
+		from TASK t, USER u, PROJECT_USER pu
+		where t.ID=#value#
+		and pu.PROJECT_ROLE_ID=5
+	    and pu.PROJECT_ID=t.PROJECT_ID
+	    and pu.USER_ID=u.ID
+	</select>	
+	
+	<select id="selectResourceByTaskId" parameterClass="java.lang.Integer" resultClass="User">
+		select distinct
+			u.ID				as id,
+			u.USER_TYPE			as userType,			
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  as name,
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.PASSWORD_HASH		as passwordHash,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy
+		from ACTIVITY a, USER u
+		where a.TASK_ID=#value#
+		and u.ID=a.RESOURCE_ID
+	</select>
+	
+	
+	<select id="selectAPMByTaskId" parameterClass="java.lang.Integer" resultClass="User">
+		select
+			u.ID				as id,
+			u.USER_TYPE			as userType,			
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  as name,
+   			u.FIRST_NAME		as firstName,
+    		u.LAST_NAME			as lastName,
+    		u.ENGLISH_FIRST_NAME	as 	englishFirstName,
+   	 		u.ENGLISH_LAST_NAME		as 	englishLastName,
+    		u.USER_NAME 		as userName,
+    		u.LEVEL_ID			as levelId,
+    		u.EMPLOYEE_NO		as employeeNo,
+    		u.EMAIL				as email,
+    		u.MANAGER			as manager,
+    		u.DELETED			as deleted,
+    		u.VERSION			as version,
+    		u.CREATED_DATE		as createdDate,
+    		u.CREATED_BY		as createdBy,
+    		u.UPDATED_DATE		as updatedDate,
+    		u.UPDATED_BY		as updatedBy
+		from TASK t, GROUP_TASK_CATEGORY gtc, USER_GROUP ug, USER u 
+		where t.ID=#value#
+			and gtc.TASK_CATEGORY_ID=t.TASK_CATEGORY_ID 
+			and ug.ID=gtc.GROUP_ID and ug.PRODUCTION='Y'
+			and u.USER_GROUP_ID=ug.ID and u.MANAGER='Y';
+	</select>
+	
+	<select id="selectNotProjectUser" resultClass="User">	
+		select 
+			u.ID				as id,
+      		concat(u.FIRST_NAME," ",u.LAST_NAME) 	as name,
+      		u.EMPLOYEE_NO      		as employeeNo,
+      		u.EMAIL			        as email
+		from USER u,USER_GROUP ug
+		where u.ID not in (select distinct USER_ID from PROJECT_MEMBER)
+		and ug.PRODUCTION = 'Y'
+		and (u.DELETED is null or u.DELETED != 'Y')
+		and (u.manager is null or u.manager != 'Y')
+		and u.USER_GROUP_ID=ug.ID
+	</select>
+	
+	<select id="selectRecipients" resultClass="User">
+		SELECT DISTINCT
+			u.ID									as id,
+			u.USER_TYPE								as userType,
+			CONCAT(u.FIRST_NAME," ",u.LAST_NAME)  	as name,
+        	u.FIRST_NAME              				as firstName,
+    		u.LAST_NAME								as lastName,
+    		u.ENGLISH_FIRST_NAME					as englishFirstName,
+        	u.ENGLISH_LAST_NAME            			as englishLastName,
+    		u.USER_NAME 							as userName,
+    		u.LEVEL_ID								as levelId,
+    		u.EMPLOYEE_NO							as employeeNo,
+    		u.EMAIL									as email,
+    		u.MANAGER								as manager,
+    		u.DELETED								as deleted,
+    		u.VERSION								as version,
+    		u.CREATED_DATE							as createdDate,
+    		u.CREATED_BY							as createdBy,
+    		u.UPDATED_DATE							as updatedDate,
+    		u.UPDATED_BY							as updatedBy
+		FROM PROJECT_MEMBER pm, PROJECT p, USER u
+		WHERE pm.PRIV_MAIL = 'Y'
+		  AND pm.STATUS='ASSIGNED'
+		  AND p.ID = pm.PROJECT_ID
+		  AND p.STATUS='open'
+		  AND u.ID = pm.USER_ID
+		  AND (u.DELETED IS NULL OR u.DELETED != 'Y')
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->			
+	<insert id="insert" parameterClass="User">
+		insert into USER
+			(ID,
+			USER_TYPE,
+			CUSTOMER_ID,
+			USER_GROUP_ID,
+			FIRST_NAME,
+			LAST_NAME,
+			ENGLISH_FIRST_NAME,
+			ENGLISH_LAST_NAME,
+			USER_NAME,
+			LEVEL_ID,
+			PASSWORD_HASH,
+			EMPLOYEE_NO,
+			EMAIL,
+			MANAGER,
+			DELETED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY,
+			ENTRY_DATE,
+			LEAVE_DATE,
+	
+			EMPLOYEE_DATE,
+			DEPARTMENT,
+			POSITION,
+			BIRTHDAY,
+			GENDER,
+			RECOMMENDOR_NAME,
+			RECOMMENDATION_BONUS,
+			RECOMMENDATION_BONUS_PAYMENT,
+			RECOMMENDATION_BONUS_PAYMENT_TIME,
+			MOBILE,
+			HOME,
+			PERSONAL_EMAIL,
+			ID_NO,
+			ID_ADDRESS,
+			HUKOU_ADDRESS,
+			SHANGHAI_ADDRESS,
+			PAID_LEAVE,
+			PHOTO)
+		values
+			(#id#,
+			#userType#,
+			#customerId#,
+			#userGroupId#,
+			#firstName#,
+			#lastName#,
+			#englishFirstName#,
+			#englishLastName#,
+			#userName#,
+			#levelId#,
+			#passwordHash#,
+			#employeeNo#,
+			#email#,
+			#manager#,
+			#deleted#,
+			#version#,
+			#createdDate#,
+			#createdBy#,
+			#entryDate#,
+			#leaveDate#,
+	
+			#employeeDate#,
+			#department#,
+			#position#,
+			#birthday#,
+			#gender#,
+			#recommendorName#,
+			#recommendationBonus#,
+			#recommendationBonusPayment#,
+			#recommendationBonusPaymentTime#,
+			#mobile#,
+			#home#,
+			#personalEmail#,
+			#idNo#,
+			#idAddress#,
+			#hukouAddress#,
+			#shangHaiAddress#,
+			#paidLeave#,
+			#photo#
+			)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>	
+	</insert>
+	
+	<update id="update" parameterClass="User">
+		update USER set
+			USER_TYPE			= #userType#,
+			CUSTOMER_ID			= #customerId#,
+			USER_GROUP_ID		= #userGroupId#,
+			FIRST_NAME			= #firstName#,
+			LAST_NAME			= #lastName#,
+			ENGLISH_FIRST_NAME	= #englishFirstName#,
+			ENGLISH_LAST_NAME	= #englishLastName#,
+			USER_NAME			= #userName#,
+			LEVEL_ID			= #levelId#,
+			PASSWORD_HASH		= #passwordHash#,
+			EMPLOYEE_NO			= #employeeNo#,
+			EMAIL				= #email#,
+			MANAGER				= #manager#,
+			DELETED				= #deleted#,
+			VERSION				= #version#,
+			UPDATED_DATE		= #updatedDate#,
+			UPDATED_BY			= #updatedBy#,
+			ENTRY_DATE			= #entryDate#,
+			LEAVE_DATE			= #leaveDate#,
+			
+			EMPLOYEE_DATE		= #employeeDate#,
+			DEPARTMENT			= #department#,
+			POSITION			= #position#,
+			BIRTHDAY			= #birthday#,
+			GENDER				= #gender#,
+			RECOMMENDOR_NAME	= #recommendorName#,
+			RECOMMENDATION_BONUS= #recommendationBonus#,
+			RECOMMENDATION_BONUS_PAYMENT= #recommendationBonusPayment#,
+			RECOMMENDATION_BONUS_PAYMENT_TIME= #recommendationBonusPaymentTime#,
+			MOBILE				= #mobile#,
+			HOME				= #home#,
+			PERSONAL_EMAIL		= #personalEmail#,
+			ID_NO				= #idNo#,
+			ID_ADDRESS			= #idAddress#,
+			HUKOU_ADDRESS		= #hukouAddress#,
+			SHANGHAI_ADDRESS	= #shangHaiAddress#,
+			PAID_LEAVE			= #paidLeave#,
+			PHOTO				= #photo#
+		where ID = #id#;
+	</update>
+	
+	
+	<update id="deleteUser" parameterClass="java.lang.Integer">
+		update USER
+		set	DELETED = 'Y'
+		where ID = #value#;
+	</update>  	
+	
+	<update id="updatePassword" parameterClass="java.util.Map">
+		update USER set	PASSWORD_HASH = #hashNewpasswor#
+		where USER_NAME = #userName#
+		and PASSWORD_HASH = #hashOldpassword#;
+	</update>  
+</sqlMap>

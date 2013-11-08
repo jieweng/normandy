@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" xmlns:code="http://code.google.com/p/flexlib/" creationComplete="init()">
+<mx:Script source="../script/CommonScript.as"/>
+<mx:Script>
+	<![CDATA[
+		import frame.AdminIndex;
+		import mx.validators.Validator;
+		import mx.utils.StringUtil;
+		import com.pearl.normandy.utils.NormandyModel;
+		import com.pearl.normandy.enum.ImageEnum;
+		import mx.collections.ArrayCollection;
+		import view.UserGroupView;
+		import com.pearl.normandy.vo.UserGroupVO;
+		import mx.rpc.events.ResultEvent;
+		
+		[Bindable]
+		private var userGroups:ArrayCollection = new ArrayCollection();
+		
+		private function init():void{
+			var closeMenu:ContextMenu=new ContextMenu();
+			removeDefaultItems(closeMenu);
+			var itemMenu1:ContextMenuItem=new ContextMenuItem("Close");
+			var itemMenu2:ContextMenuItem=new ContextMenuItem("Close All");
+			var itemMenu3:ContextMenuItem=new ContextMenuItem("Close others");
+			closeMenu.customItems.push(itemMenu1);
+			closeMenu.customItems.push(itemMenu2);
+			closeMenu.customItems.push(itemMenu3);
+			itemMenu1.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeSelf);
+			itemMenu2.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeAll);
+			itemMenu3.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT,closeOthers);
+			stn.contextMenu=closeMenu;
+		}
+		
+		private function closeSelf(e:Event):void{
+				if(stn.getChildren().length==0)return;
+				stn.removeChildAt(stn.selectedIndex);
+		}
+		
+		private function closeAll(e:Event):void{
+			if(stn.getChildren().length==0)return;
+			stn.removeAllChildren();
+		}
+		
+		private function closeOthers(e:Event):void{
+			if(stn.getChildren().length==0)	return;
+			var selectIndex:int=stn.selectedIndex;
+			var childNum:int = stn.getChildren().length;
+			for(var i:int=0;i<selectIndex;i++){
+				stn.removeChildAt(0);
+			}
+			for(var j:int=0;j<childNum-selectIndex-1;j++){
+				stn.removeChildAt(1);
+			}
+		}
+		
+		private function createUserGroupHandler(e:ResultEvent):void{
+			var createdUG:UserGroupVO = e.result as UserGroupVO;
+			userGroups.addItem(createdUG);
+			userGroupAdg.selectedItem = createdUG;				
+			var selectedTab:UserGroupView = stn.selectedChild as UserGroupView;
+			selectedTab.label = createdUG.groupName;
+			selectedTab.group = createdUG;
+		}
+		
+		private function updateUserGroupHandler(e:ResultEvent):void{
+			var selectedTab:UserGroupView = stn.selectedChild as UserGroupView;
+			selectedTab.label=StringUtil.trim(selectedTab.g_name.text);
+			selectedTab.g_updatedBy.text = model.currUser.name;
+			selectedTab.g_updatedDate.selectedDate = new Date();
+		}
+		
+		private function onItemDoubleClick():void{
+			var group:UserGroupVO = userGroupAdg.selectedItem as UserGroupVO;
+			var tab:UserGroupView = getTabByGroup(group);
+			if(tab){
+				stn.selectedChild = tab;
+			}else{
+				stn.selectedChild = addTab(group);
+			}
+		}
+		
+		private function getTabByGroup(ug:UserGroupVO):UserGroupView{
+			var children:Array = stn.getChildren();
+			for(var i:int = 0; i < children.length; i++){
+				var tab:UserGroupView = children[i] as UserGroupView;
+				if(ug.id == tab.group.id){
+					return tab;
+				}
+			}
+			return null;
+		}
+		
+		private function addTab(ug:UserGroupVO):UserGroupView{
+			var form:UserGroupView = new UserGroupView();
+			form.group = ug;
+			stn.addChild(form);
+			form.saveBtn.addEventListener(MouseEvent.CLICK, saveUserGroup);
+			return form;
+		}
+		
+		private function saveUserGroup(e:Event):void{
+			var selectedTab:UserGroupView = stn.selectedChild as UserGroupView;
+			var result:Array = Validator.validateAll(selectedTab.validatorArray);
+			if(result.length <= 0){
+				var ug:UserGroupVO = selectedTab.group;
+				ug.groupName       = StringUtil.trim(selectedTab.g_name.text);
+				ug.production      = selectedTab.g_production.selectedLabel;
+				ug.state           = selectedTab.g_state.selectedLabel;
+				if(selectedTab.g_deleted.selectedIndex==0){
+					ug.deleted='Y';
+				}else if(selectedTab.g_deleted.selectedIndex==1){
+					ug.deleted='N';
+				}
+				
+				ug.createdDate	   = selectedTab.g_createdDate.selectedDate;
+				ug.createdBy	   = StringUtil.trim(selectedTab.g_createdBy.text);
+				ug.updatedDate     = selectedTab.g_updatedDate.selectedDate;
+				ug.updatedBy       = StringUtil.trim(selectedTab.g_updatedBy.text);
+				ug.description     = StringUtil.trim(selectedTab.g_description.text);
+				if(ug.id == -1){
+					userGroupRo.createUserGroup(ug);
+				}else{
+					ug.updatedBy = model.currUser.name;
+					ug.updatedDate = new Date();
+					userGroupRo.updateUserGroup(ug);
+				}
+			}				
+		}
+			
+		private function onItemClick():void{
+			var ug:UserGroupVO = userGroupAdg.selectedItem as UserGroupVO;
+			var array:Array = stn.getChildren();
+			for(var i:int = 0; i < array.length; i++){
+				var form:UserGroupView = array[i] as UserGroupView;
+				if(form.group.id == ug.id){
+					stn.selectedIndex = i;
+					break;
+				}
+			}
+		}
+		
+		private function addUserGroup():void{
+			var newUserGroup:UserGroupVO = new UserGroupVO();
+			newUserGroup.id=-1;
+			newUserGroup.version=0;
+			newUserGroup.createdDate = new Date();
+			newUserGroup.createdBy = model.currUser.name;
+			stn.selectedChild = addTab(newUserGroup);
+		}
+		
+	]]>
+</mx:Script>
+	<mx:Binding source="model.metaData.userGroups" destination="this.userGroups"/>
+	<mx:RemoteObject id="userGroupRo" destination="ro.usergroup" fault="faultHandler(event)">
+		<mx:method name="createUserGroup" result="createUserGroupHandler(event)"/>
+		<mx:method name="updateUserGroup" result="updateUserGroupHandler(event)"/>
+	</mx:RemoteObject>
+		
+	<mx:ApplicationControlBar width="100%" height="100%">
+		<mx:HDividedBox width="100%" height="100%">
+			<mx:VBox height="100%">			
+				<mx:AdvancedDataGrid id="userGroupAdg" dataProvider="{userGroups}" itemDoubleClick="onItemDoubleClick()" 
+					doubleClickEnabled="true" itemClick="onItemClick()" height="100%" width="100%">
+					<mx:columns>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.usergroup_name')}" 
+							dataField="groupName" width="130"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.usergroup_production')}"
+							dataField="production" width="100"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.usergroup_created_by')}" 
+							dataField="createdBy" width="100"/>
+						<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.usergroup_state')}" 
+							dataField="state"  width="100"/>
+					</mx:columns>
+				</mx:AdvancedDataGrid>
+				<mx:HBox width="100%" horizontalAlign="right">
+					<mx:Button icon="{ImageEnum.IMAGECLASS_ADD_USER}" click="addUserGroup()"
+						toolTip="{resourceManager.getString('Language', 'tooltip.add_usergroup')}"/>
+				</mx:HBox>						
+			</mx:VBox>
+			<code:SuperTabNavigator id="stn" doubleClickEnabled="true" allowTabSqueezing="false" width="100%" height="100%"/>
+		</mx:HDividedBox>
+	</mx:ApplicationControlBar>	
+</mx:VBox>

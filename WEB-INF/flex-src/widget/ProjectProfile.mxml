@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ns:Pod xmlns:mx="http://www.adobe.com/2006/mxml" creationComplete="init()" 
+	xmlns:ns="com.esria.samples.dashboard.view.*"
+	title="{resourceManager.getString('Language','label.report.project_profile')} - [{project.projectName}]" 
+	width="100%" height="100%"
+	horizontalScrollPolicy="off"
+	verticalScrollPolicy="off"
+	layout="vertical" xmlns:local="*">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.vo.ReportVO;
+			import mx.controls.Alert;
+			import ilog.gantt.TimeUtil;
+			import mx.utils.ObjectUtil;
+			import com.pearl.normandy.utils.TimeHelp;
+			import com.pearl.normandy.utils.ActivityDateUtil;
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.enum.ActivityEnum;
+			import popup.TimesheetSummaryPopup;
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.ResultEvent;
+			import mx.managers.PopUpManager;
+			import mx.events.ListEvent;
+			
+			import com.pearl.normandy.vo.ProjectVO;
+			
+			import popup.ResourceAllocationPopup;
+			import popup.TimesheetSummaryPopup;												
+			
+		    //==============================
+		    //Control Attributes
+		    //==============================	
+		    
+		    private var typeList:ArrayCollection =  new ArrayCollection();
+		        	    
+		    private var _project:ProjectVO;
+			[Bindable]
+			public function set project(value:ProjectVO):void{			
+				this._project = value;
+				startDF.selectedDate = null;
+				endDF.selectedDate = null;
+		    	projectMemberRo.getAssignedProjectMembersByProjectId(project.id);	
+				reportRo.getProjectProgress(project, milestone);				
+				activityRo.getNonProductionActivity(project.id, typeList);
+			}
+			
+			public function get project():ProjectVO{
+				return this._project;
+			}
+
+			private var _milestone:String;
+			[Bindable]
+			public function set milestone(value:String):void{
+				this._milestone = value;
+				startDF.selectedDate = null;
+				endDF.selectedDate = null;
+				reportRo.getProjectProgress(project, milestone);
+				activityRo.getNonProductionActivity(project.id, typeList);
+			}
+			
+			public function get milestone():String{
+				return this._milestone;
+			}			
+			
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================				
+		    [Bindable]
+		    private var profile:ProjectVO	
+		    
+		    [Bindable]
+		    private var members:ArrayCollection;
+		    
+		    [Bindable]
+		    private var earnedValue:Number;
+		    
+		    [Bindable]
+		    private var workEfficiency:Number;
+		    
+		    [Bindable]
+		    private var management:Number;
+		    
+		    [Bindable]
+		    private var projectTraining:Number;
+		    
+		    [Bindable]
+		    private var compensationOff:Number;		
+			//==============================
+		    //Remote Object Handler
+		    //==============================
+
+			private function init():void{
+				typeList.addItem(ActivityEnum.COMPENSATION_OFF);
+				typeList.addItem(ActivityEnum.MANAGEMENT);
+				typeList.addItem(ActivityEnum.PROJECT_TRAINING);
+			}
+			
+		    private function getProjectProgressHandler(event:ResultEvent):void{	
+		    	var result:ArrayCollection = event.result as ArrayCollection;
+		    	activityRo.getOtherActivityForProjectProgress(project.id, milestone);
+		    	if(result && result.length > 0){	  		    			    	
+		    		profile = (event.result as ArrayCollection).getItemAt(0) as ProjectVO;	
+		    		earnedValue = Math.round((profile.plannedStaffDays*profile.progress)*10)/1000;
+//		    		workEfficiency = Math.round((profile.plannedStaffDays*profile.progress)/profile.actualStaffDays);
+		    	}
+		    }
+
+		    private function getAssignedProjectMembersByProjectIdHandler(evt:ResultEvent):void{				
+				members = evt.result as ArrayCollection;
+			}
+			
+			private function getOtherActivityForProjectProgressHandler(e:ResultEvent):void{
+				var result:ArrayCollection = e.result as ArrayCollection;
+				
+				if(result && result.length > 0){
+					var adu:ActivityDateUtil = ActivityDateUtil.getInstance();
+					for each(var act:ActivityVO in result){
+						var start:Date = act.startTime;
+						var end:Date   = new Date();
+						var workingDays:Number = Math.round(adu.getWorkingTimeInMinutes(start, end)/(8*60)*1000)/1000;
+						profile.actualStaffDays += workingDays;
+					}
+				}
+				
+				workEfficiency = Math.round((profile.plannedStaffDays*profile.progress)/profile.actualStaffDays*1000)/1000;
+			}
+			
+			private function getNonProductionActivityHandler(e:ResultEvent):void{
+				var result:ArrayCollection = e.result as ArrayCollection;
+				
+				management 		= 0;
+				projectTraining = 0;
+				compensationOff	= 0;
+				
+				if(result && result.length > 0){
+					var adu:ActivityDateUtil = ActivityDateUtil.getInstance();
+					for each(var act:ActivityVO in result){
+						var start:Date = act.startTime;
+						var end:Date   = act.endTime;
+						var today:Date = TimeHelp.getToday();
+						if(ObjectUtil.dateCompare(end, today) == 1){
+							end = TimeHelp.getPreDate(today);
+						}
+						var workingDays:Number = Math.round(adu.getWorkingTimeInMinutes(start, end)/(8*60)*1000)/1000;
+						if(act.activityType == ActivityEnum.MANAGEMENT){
+							management += workingDays;
+						}else if(act.activityType == ActivityEnum.PROJECT_TRAINING){
+							projectTraining += workingDays;
+						}else if(act.activityType == ActivityEnum.COMPENSATION_OFF){
+							compensationOff += workingDays;
+						}
+					}
+				}
+			}
+
+			//==============================
+		    //Event Handler
+		    //==============================
+		    
+		    private function onResourceNoClick():void{
+		    	var resourceAllocationPopup:ResourceAllocationPopup = ResourceAllocationPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), ResourceAllocationPopup, true));
+				resourceAllocationPopup.project = project;
+				PopUpManager.centerPopUp(resourceAllocationPopup);	
+		    }
+		    
+		    private function onProjectMemberClick():void{
+		    	if(project == null)
+		    	return;
+		    	
+		    	var timesheetSummaryPopup:TimesheetSummaryPopup = TimesheetSummaryPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), TimesheetSummaryPopup, true));
+		    	timesheetSummaryPopup.project = project;
+		    	PopUpManager.centerPopUp(timesheetSummaryPopup);
+		    }
+		    
+		    private function queryBtnClick():void{
+		    	var start:Date = startDF.selectedDate;
+		    	var end:Date = endDF.selectedDate;
+		    	if(start && end){
+		    		if(ObjectUtil.dateCompare(start, end) < 0){
+		    			reportRo.getProjectProgressByTime(project, milestone, start, end);
+		    			reportRo.getOtherActivityDaysByTime(project, typeList, start, end);
+		    		}else{
+		    			Alert.show(resourceManager.getString('Language','alert.report.date_confirmation'));
+		    		}
+		    	}
+		    }
+		    
+		    private function clearBtnClick():void{
+		    	startDF.selectedDate = null;
+		    	endDF.selectedDate = null;
+		    	projectMemberRo.getAssignedProjectMembersByProjectId(project.id);	
+				reportRo.getProjectProgress(project, milestone);
+				activityRo.getNonProductionActivity(project.id, typeList);
+		    }
+		    
+		    private function getProjectProgressByTimeHandler(e:ResultEvent):void{
+		    	var p:ProjectVO = (e.result as ArrayCollection).getItemAt(0) as ProjectVO;
+		    	earnedValue = p.plannedStaffDays;
+		    	actualDayLab.text = p.actualStaffDays.toString();
+		    	workEfficiency = Math.round(p.plannedStaffDays / p.actualStaffDays * 1000) / 10;
+		    	projectTotalLab.text = null;
+		    	projectProgressLab.text = null;
+		    	estimatedLab.text = null;
+		    	aproveLab.text = null;
+		    	totalInvestmentLab.text = null;
+		    }
+		    
+		    private function getOtherActivityDaysByTimeHandler(e:ResultEvent):void{
+		    	var result:ArrayCollection = e.result as ArrayCollection;
+				
+				management 		= 0;
+				projectTraining = 0;
+				compensationOff	= 0;
+				
+				for each(var r:ReportVO in result){
+					if(r.name == ActivityEnum.MANAGEMENT){
+						management = r.value;
+					}
+					if(r.name == ActivityEnum.COMPENSATION_OFF){
+						compensationOff = r.value;
+					}
+					if(r.name == ActivityEnum.PROJECT_TRAINING){
+						projectTraining = r.value;
+					}
+				}
+		    }
+		]]>
+	</mx:Script>
+	
+	<!--==========================
+	  Services
+	===========================-->	
+ 	<mx:RemoteObject id="reportRo" destination="ro.report" showBusyCursor="true">
+ 		<mx:method name="getProjectProgress" result="getProjectProgressHandler(event)"/> 	
+ 		<mx:method name="getProjectProgressByTime" result="getProjectProgressByTimeHandler(event)"/>
+ 		<mx:method name="getOtherActivityDaysByTime" result="getOtherActivityDaysByTimeHandler(event)"/>	
+ 	</mx:RemoteObject>
+ 	
+ 	<mx:RemoteObject id="activityRo" destination="ro.activity">
+ 		<mx:method name="getNonProductionActivity" result="getNonProductionActivityHandler(event)"/>
+ 		<mx:method name="getOtherActivityForProjectProgress" result="getOtherActivityForProjectProgressHandler(event)"/>
+ 	</mx:RemoteObject>
+
+	<mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" fault="faultHandler(event)">
+		<mx:method name="getAssignedProjectMembersByProjectId" result="getAssignedProjectMembersByProjectIdHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:VBox width="50%" height="100%">
+		<mx:HBox width="100%" horizontalAlign="center" paddingBottom="20" enabled="{project!=null}">
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.start_date')}:">
+				<mx:DateField id="startDF"/>
+			</mx:FormItem>
+			<mx:Label text="——"/>
+			<mx:FormItem label="{resourceManager.getString('Language', 'label.end_date')}:">
+				<mx:DateField id="endDF"/>
+			</mx:FormItem>
+			<mx:Button id="queryBtn" label="{resourceManager.getString('Language','label.query')}" click="queryBtnClick()"/>
+			<mx:Button id="clearBtn" label="{resourceManager.getString('Language','label.clear')}" click="clearBtnClick()"/>
+		</mx:HBox>		
+		<mx:HBox>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.total_manday')}:" width="200">
+				<mx:Label id="projectTotalLab" text="{profile.plannedStaffDays}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.completion')}:" width="300">
+				<mx:Label id="projectProgressLab" text="{profile.progress}%"/>
+			</mx:FormItem>
+		</mx:HBox>
+		<mx:HBox>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.earned_value')}:" width="200">
+				<mx:Label text="{earnedValue}"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.actual_work_manday')}:" width="300">
+				<mx:Label id="actualDayLab" text="{Math.round(profile.actualStaffDays*1000)/1000}"/>
+			</mx:FormItem>
+		</mx:HBox>
+		<mx:HBox>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.work_efficiency')}:" width="200">
+				<mx:Label text="{workEfficiency}%"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.estimated_cost')}:" width="300">
+				<mx:Label id="estimatedLab" text="{Math.round(profile.plannedStaffDays*100/workEfficiency*1000)/1000}"/>
+			</mx:FormItem>
+		</mx:HBox>
+		<mx:HBox>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.approval_rate')}:" width="200">
+				<mx:Label id="aproveLab" text="{Math.round(profile.approved*100/profile.planned*1000)/1000}%"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.report.resource_no')}:" width="300">
+				<local:Kelvin_LinkButton label="{members.length}" click="onResourceNoClick()"/>
+			</mx:FormItem>
+		</mx:HBox>
+		
+		<mx:Spacer height="20"/>
+		
+		<mx:FormItem label="{resourceManager.getString('Language','label.report.management')}:" width="200">
+			<mx:Label text="{management}"/>
+		</mx:FormItem>			
+		<mx:FormItem label="{resourceManager.getString('Language','label.report.project_training')}:" width="200">
+			<mx:Label text="{projectTraining}"/>
+		</mx:FormItem>		
+		<mx:FormItem label="{resourceManager.getString('Language','label.report.compensation_off')}:" width="200">
+			<mx:Label text="{compensationOff}"/>
+		</mx:FormItem>			
+		
+		<mx:Spacer height="20"/>
+		
+		<mx:FormItem label="{resourceManager.getString('Language','label.report.total')}:">
+			<mx:Label id="totalInvestmentLab" text="{Number(actualDayLab.text) + management + projectTraining + compensationOff}"/>
+		</mx:FormItem>
+<!--		<mx:HBox width="100%">
+			<local:Kelvin_LinkButton label="{resourceManager.getString('Language','label.report.timesheet')}" 
+				click="onProjectMemberClick()"/>
+		</mx:HBox>-->
+	</mx:VBox>
+</ns:Pod>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="BaselineProject">
+
+	<typeAlias alias="BaselineProject"
+		type="com.pearl.normandy.project.ProjectTo" />
+	
+	<!--========================= Select ========================-->	
+
+	<select id="selectBaselineProjectById" parameterClass="java.lang.Integer" resultClass="BaselineProject">
+		select
+			ID					as id,
+			CUSTOMER_ID			as customerId,
+			PROJECT_NAME		as projectName,
+			URL					as url,
+			DESCRIPTION			as description,
+			TYPE				as type,
+			DELETED				as deleted,
+			VERSION				as version,
+			CREATED_DATE		as createdDate,
+			CREATED_BY			as createdBy,
+			UPDATED_DATE		as updatedDate,
+			UPDATED_BY			as updatedBy,
+			PROJECT_KEY			as projectKey,
+			B_REVISION			as revision
+		from BASELINE_PROJECT
+		where ID = #value#
+	</select>
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insertBaselineProject" parameterClass="java.lang.Integer">
+		insert into BASELINE_PROJECT
+		(ID,
+    	CUSTOMER_ID,
+		PROJECT_NAME,
+		URL,
+		DESCRIPTION,
+		TYPE,
+		DELETED,
+		VERSION,
+		CREATED_DATE,
+		CREATED_BY,
+		UPDATED_DATE,
+		UPDATED_BY,
+		PROJECT_KEY,
+    	B_REVISION)
+
+		select
+        	#value#,
+		  	CUSTOMER_ID,
+			PROJECT_NAME,
+	  		URL,
+		  	DESCRIPTION,
+		  	TYPE,
+			DELETED,
+	  		VERSION,
+		  	CREATED_DATE,
+			CREATED_BY,
+	  		UPDATED_DATE,
+		  	UPDATED_BY,
+			PROJECT_KEY,
+     		BASELINE_REVISION
+    	from PROJECT p
+		where p.ID = #value#
+	</insert>
+	
+	<delete id="deleteBaselineProject" parameterClass="java.lang.Integer">
+		delete from BASELINE_PROJECT
+		where ID = #value#
+	</delete>
+</sqlMap>

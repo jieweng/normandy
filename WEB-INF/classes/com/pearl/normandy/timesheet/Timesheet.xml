@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Timesheet">
+
+  	<!-- Use type aliases to avoid typing the full classname every time. -->
+  	<typeAlias alias="Timesheet" type="com.pearl.normandy.timesheet.TimesheetTo"/>
+	
+	<select id="selectTimeSheet" resultClass="Timesheet">
+		select 
+			ts.ID					as id,
+			ts.USER_ID				as userId,
+			ts.TASK_ID				as taskId,
+			ts.ACTIVITY_ID			as activityId,
+			ts.TYPE					as type,
+			ts.DATE					as date,
+			ts.SPENT_EFFORT			as spentEffort,
+			ts.VERSION				as version,
+			ts.CREATED_DATE			as createdDate,
+			ts.CREATED_BY			as createdBy,
+			ts.UPDATED_DATE			as updatedDate,
+			ts.UPDATED_BY			as updatedBy
+		from TIMESHEET ts
+		where ts.USER_ID=#userId#
+		and ts.ACTIVITY_ID=#activityId#
+		order by ts.DATE
+	</select>
+	
+	<insert id="insert" parameterClass="Timesheet">
+		insert into TIMESHEET
+		(
+		ID,
+		USER_ID,
+		TASK_ID,
+		ACTIVITY_ID,
+		TYPE,
+		DATE,
+		SPENT_EFFORT,
+		VERSION,
+		CREATED_DATE,
+		CREATED_BY
+		)
+		values
+		(
+		#id#,
+		#userId#,
+		#taskId#,
+		#activityId#,
+		#type#,
+		#date#,
+		#spentEffort#,
+		#version#,
+		#createdDate#,
+		#createdBy#
+		)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>
+	</insert>
+	
+	<update id="update" parameterClass="Timesheet">
+		update TIMESHEET ts
+		set ts.USER_ID		= #userId#,
+			ts.TASK_ID		= #taskId#,
+			ts.ACTIVITY_ID	= #activityId#,
+			ts.TYPE			= #type#,
+			ts.DATE			= #date#,
+			ts.SPENT_EFFORT	= #spentEffort#,
+			ts.VERSION		= #version#,
+			ts.UPDATED_DATE	= #updatedDate#,
+			ts.UPDATED_BY	= #updatedBy#
+		where ts.ID = #id#
+	</update>
+	
+	<delete id="delete" parameterClass="java.lang.Integer">
+		delete from TIMESHEET
+		where ID=#value#
+	</delete>
+	
+</sqlMap>

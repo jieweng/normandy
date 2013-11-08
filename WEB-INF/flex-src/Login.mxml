@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%" height="100%" 
+	verticalAlign="middle" horizontalAlign="center" backgroundImage="{Constants.LOGIN_PICTURE_ADDRESS}"
+	creationComplete="init()" xmlns:local="*" backgroundSize="100%">
+	
+	<mx:Script source="script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.enum.ImageEnum;
+			import popup.ResetPasswordPopup;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			import popup.ResetPasswordPopup;
+    		
+		    //==============================
+		    //Control Attributes
+		    //==============================    		
+    		public var resetPasswordPopup:ResetPasswordPopup;
+			public var username:String;
+			public var email:String;
+			
+		    //==============================
+		    //Methods
+		    //==============================	
+		    private function init():void{
+		    	userName.setFocus();
+		    	userName.setSelection(0, 0);
+		    }
+		    		
+			private function login():void{
+				message.text = "";
+				userRo.getLoginUser(userName.text, password.text);
+			}
+			
+			private function onPasswordClick():void{
+				message.text = "";
+				
+				resetPasswordPopup = ResetPasswordPopup(PopUpManager.createPopUp(this, ResetPasswordPopup, true));
+	   			PopUpManager.centerPopUp(resetPasswordPopup);
+	   			
+	   			resetPasswordPopup.ok.addEventListener(MouseEvent.CLICK, getPasswordHandler);
+			}
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================
+		    private function getPasswordHandler(event:MouseEvent):void{
+		    	username = resetPasswordPopup.userName.text;
+	   			email = resetPasswordPopup.email.text;
+	   			
+	   			if(resetPasswordPopup.onValidation())
+	   				userRo.resetPassword(username,email);
+		    }
+		    
+		    private function resetPasswordHandler(event:ResultEvent):void{
+		    	if(event.result == null)
+		    		resetPasswordPopup.error.text = resourceManager.getString('Language','alert.password_fail');
+		    	else{
+		    		message.text = resourceManager.getString('Language','alert.password_success');
+		    		PopUpManager.removePopUp(resetPasswordPopup);
+		    	}
+		    }
+
+			private function getLoginUserHandler(event:ResultEvent):void
+	        {
+	            var user:UserVO = event.result as UserVO;	            
+	            
+				if(user){
+					model.currUser = user;					
+				}else{				
+					message.text = resourceManager.getString('Language','alert.login_fail');
+				}	   
+//				userName.text = "";
+				password.text = "";				         
+	        }	        
+		]]>
+	</mx:Script>
+	
+
+	  <!--==========================
+	    Services
+	  ===========================-->		
+	<mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+		<mx:method name="getLoginUser" result="getLoginUserHandler(event)"/>
+		<mx:method name="resetPassword" result="resetPasswordHandler(event)"/>
+	</mx:RemoteObject> 
+	
+	<!--title="{resourceManager.getString('Language','title.user.login')}" -->
+	  <!--==========================
+	    Page Layout
+	  ===========================-->			
+	<mx:Panel  width="370" height="240" verticalAlign="middle" verticalScrollPolicy="off" horizontalAlign="center"
+		horizontalScrollPolicy="off" title="Normandy System" color="white" borderColor="#F390AC" borderAlpha="0.5">
+		<mx:Form width="100%" verticalGap="15" verticalScrollPolicy="off">
+			<mx:FormItem label="{resourceManager.getString('Language','label.user.name')}" width="100%" color="#a20202" fontWeight="bold">
+				<mx:TextInput id="userName" enter="login()"/>
+			</mx:FormItem>
+			<mx:FormItem label="{resourceManager.getString('Language','label.user.passWord')}" color="#a20202" fontWeight="bold">
+				<mx:TextInput id="password" width="100%" displayAsPassword="true" enter="login()"/>
+			</mx:FormItem>
+		</mx:Form>
+		<mx:Label id="message" width="100%" color="0xFF0000" paddingLeft="10" paddingRight="10"/>
+		<mx:ControlBar horizontalAlign="center">
+			<mx:Button label="{resourceManager.getString('Language','button.user.login')}" fillColors="[#ee2e09, #ee2e09]" borderColor="red"
+			    width="94" fontWeight="bold" click="login()"/>
+			<local:Label_LinkButton text="{resourceManager.getString('Language','title.forget_password')}" click="onPasswordClick()" 
+				buttonMode="true" useHandCursor="true" mouseChildren="false"/>
+		</mx:ControlBar>		  	
+	</mx:Panel>  
+</mx:VBox>

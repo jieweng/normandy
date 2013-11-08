@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:advancedDataGridClasses="com.pearl.normandy.controls.advancedDataGridClasses.*"
+	xmlns:utils="com.pearl.normandy.utils.*"
+	width="100%" height="100%"
+	paddingTop="10" paddingBottom="10" paddingLeft="30" paddingRight="30"
+	creationComplete="init()">
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;		
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.ListEvent;
+			import mx.controls.Alert;
+
+			import com.pearl.normandy.vo.CheckItemVO;
+			import com.pearl.normandy.vo.TaskVO;
+			import com.pearl.normandy.vo.FeedbackVO;
+			import com.pearl.normandy.vo.FeedbackReferenceVO;
+			import com.pearl.normandy.vo.ProjectVO;			
+			import com.pearl.normandy.utils.FileUpload;
+			import com.pearl.normandy.utils.Constants;
+			import com.pearl.normandy.utils.NormandyModel;
+			import com.pearl.normandy.event.UploadEvent;
+
+			import popup.PhotoViewerPopup;
+		    //==============================
+		    //Control Attributes
+		    //==============================
+		    private var photoViewerPopup:PhotoViewerPopup;
+			private var hasPhotoBrower:Boolean = false;
+			
+			[Bindable]
+			public var CATEGORY:String;
+			
+			private var _checkItem:CheckItemVO;
+			[Bindable]
+			public function set checkItem(value:CheckItemVO):void{
+				this._checkItem = value;
+				
+				if(checkItem.id !=0){					
+					feedbackRo.getFeedbackByCheckItemId(checkItem.id);
+				}
+			}
+			
+			public function get checkItem():CheckItemVO{
+				return this._checkItem;
+			}
+			
+			private var _task:TaskVO;
+			[Bindable]
+			public function set task(value:TaskVO):void{
+				this._task = value;
+		    	feedbackRo.getFeedbackByTaskId(task.id, CATEGORY);
+			}
+			
+			public function get task():TaskVO{
+				return this._task;
+			}											
+			
+			[Bindable]
+			private var project:ProjectVO;
+
+		    [Bindable]
+		    private var selectedFeedback:FeedbackVO;			
+			
+			[Bindable]
+			private var selectedFeedbackReference:FeedbackReferenceVO;		
+			
+				
+		    //==============================
+		    //Data Attributes
+		    //==============================			
+			[Bindable]
+			public var feedbacks:ArrayCollection = new ArrayCollection();			
+			
+			[Bindable]
+			private var feedbackReference:ArrayCollection = new ArrayCollection();
+			
+			[Bindable]
+			private var references:ArrayCollection			
+            
+            //==============================
+		    //Upload Image Complete
+		    //=============================
+            private function onUploadComplete(event:UploadEvent):void{
+            	var images:ArrayCollection = event.referenceList;
+            	
+            	var url:String = "";
+            	var feedbackSize:int = feedbacks.length;
+            	for each(var image:FeedbackReferenceVO in images){
+            		var temp:String = image.imageUrl.substring(image.imageUrl.indexOf("_")+1,image.imageUrl.indexOf("_")+4);
+            		if(feedbackSize>0 || image.imageUrl.indexOf("_")==-1 || !new Number(temp)){
+            			feedbackReference.addItem(image);
+            			continue;
+            		}
+            		
+            		image.createdDate = new Date();
+            		image.createdBy = model.currUser.userName;
+            		if(url.indexOf(temp)==-1){
+            			url += temp;
+            			this.addFeedback();
+            			references.addItem(image);
+            		}else{
+            			for each(var feedback:FeedbackVO in feedbacks){
+            				var reference:FeedbackReferenceVO = feedback.feedbackReference.getItemAt(0) as FeedbackReferenceVO;
+        					if(temp == reference.imageUrl.substring(reference.imageUrl.indexOf("_")+1,reference.imageUrl.indexOf("_")+4))
+		            		{
+		            			feedback.feedbackReference.addItem(image);
+		            		}
+            			}
+            		}
+            	}
+			}
+			
+			private function deleteImage(event:Event):void{
+				if(feedbackReferenceTileList.selectedItem){
+					feedbackReference.removeItemAt(feedbackReferenceTileList.selectedIndex);
+					feedbackReferenceTileList.selectedItem = null;
+					selectedFeedbackReference=null;
+				}
+			}
+
+		    //==============================
+		    //Methods
+		    //=============================
+		    private function init():void{
+		    	this.project = model.GLOBAL_SELECTED_PROJECT; 
+		    }
+		    
+            private function addFeedback():void{
+            	selectedFeedback = new FeedbackVO();
+            	
+             	if(task){
+            		selectedFeedback.taskId = task.id;
+            	}
+            	
+            	if(checkItem){
+					selectedFeedback.checkItemId = checkItem.id;
+					selectedFeedback.taskId 	 = checkItem.taskId;
+            	}
+            	
+				selectedFeedback.ownerId = model.currUser.id;
+				selectedFeedback.category = CATEGORY;
+				selectedFeedback.createdDate = new Date();
+				selectedFeedback.ownerName = model.currUser.name;
+				selectedFeedback.createdBy = model.currUser.userName;
+				
+            	selectedFeedback.type = Constants.FEEDBACK_TYPE_TECHNIC;
+            	selectedFeedback.typeValue = Constants.FEEDBACK_TYPE_TECHNIC_ZH;
+            	selectedFeedback.severity = Constants.FEEDBACK_SEVERITY_LOW;
+            	selectedFeedback.severityValue = Constants.FEEDBACK_SEVERITY_LOW_ZH;
+            	selectedFeedback.status = Constants.FEEDBACK_STATUS_UNMODIFIED;
+            	selectedFeedback.statusValue = Constants.FEEDBACK_STATUS_UNMODIFIED_ZH;
+				
+				selectedFeedback.feedbackReference = references = new ArrayCollection();
+
+            	feedbacks.addItem(selectedFeedback);
+            	feedbackAdg.selectedIndex = feedbacks.length-1;
+            }
+            
+            public function deleteFeedback():void{
+            	confirm(resourceManager.getString("Language","alert.delete_feedback"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmDeleteFeedbackHandler);
+            }
+            
+            private function confirmDeleteFeedbackHandler(event:CloseEvent):void {
+            	if (event.detail == Alert.YES){
+           			feedbackRo.deleteFeedbackById(selectedFeedback.id);
+           		}
+            }            
+            
+            private function copyFeedback():void{
+            	var feedback:FeedbackVO = new FeedbackVO();
+            	feedback.taskId = selectedFeedback.taskId;
+            	feedback.checkItemId = selectedFeedback.checkItemId;
+            	feedback.ownerId = selectedFeedback.ownerId;
+            	feedback.category = selectedFeedback.category;
+            	feedback.createdDate = new Date();
+				feedback.createdBy = selectedFeedback.createdBy;
+				feedback.ownerName = selectedFeedback.ownerName;
+				
+            	feedback.type = selectedFeedback.type;
+            	feedback.typeValue = selectedFeedback.typeValue;
+            	feedback.severity = selectedFeedback.severity;
+            	feedback.severityValue = selectedFeedback.severityValue;
+            	feedback.status = selectedFeedback.status;
+            	feedback.statusValue = selectedFeedback.statusValue;
+            	
+            	feedback.feedbackReference = new ArrayCollection();
+            	for each(var ref:FeedbackReferenceVO in selectedFeedback.feedbackReference){
+            		var reference:FeedbackReferenceVO = new FeedbackReferenceVO();
+            		reference.id = ref.id;
+            		reference.url = ref.url;
+            		reference.createdDate = new Date();
+            		reference.createdBy = model.currUser.userName;
+            		feedback.feedbackReference.addItem(reference);
+            	}
+            	feedbacks.addItem(feedback);
+            }
+            
+            
+            
+		    //==============================
+		    //Event Handler
+			//=============================            
+			private function onAdvancedDataGridChange():void{
+				selectedFeedback = feedbackAdg.selectedItem as FeedbackVO;
+				if(selectedFeedback == null)
+					return;
+				
+				if(references == null)
+					references = new ArrayCollection();
+				references = selectedFeedback.feedbackReference;
+			}            
+            
+            private function onDoubleClickFeedbackReferenceTileList(evt:ListEvent):void{
+				
+				if(hasPhotoBrower){
+					return;
+				}
+             	photoViewerPopup = PhotoViewerPopup(PopUpManager.createPopUp(this, PhotoViewerPopup));
+             	PopUpManager.centerPopUp(photoViewerPopup);
+             	photoViewerPopup.selectedTarget = feedbackReferenceTileList;
+             	photoViewerPopup.addEventListener(Event.REMOVED_FROM_STAGE, onPhotoBrowerRemove);
+             	hasPhotoBrower = true
+            }
+            
+            private function onDoubleClickReferenceTileList(evt:ListEvent):void{
+            	
+				if(hasPhotoBrower){
+					return;
+				}
+             	photoViewerPopup = PhotoViewerPopup(PopUpManager.createPopUp(this, PhotoViewerPopup));
+             	PopUpManager.centerPopUp(photoViewerPopup);
+             	photoViewerPopup.selectedTarget = referenceTileList;
+             	photoViewerPopup.addEventListener(Event.REMOVED_FROM_STAGE, onPhotoBrowerRemove);
+             	hasPhotoBrower = true
+            }
+            
+            private function onPhotoBrowerRemove(evt:Event):void{
+            	photoViewerPopup.removeEventListener(Event.REMOVED_FROM_STAGE, onPhotoBrowerRemove);
+            	hasPhotoBrower = false;
+            }
+            
+		    //==============================
+		    //Remote Object Handler
+			//=============================
+			private function getFeedbackByCheckItemIdHandler(event:ResultEvent):void{
+            	feedbacks = event.result as ArrayCollection;
+            	if(feedbacks && feedbacks.length>0){
+            		feedbackAdg.selectedIndex = 0;
+            		selectedFeedback = feedbacks.getItemAt(0) as FeedbackVO;
+            		references = (feedbacks.getItemAt(0) as FeedbackVO).feedbackReference;
+            	}
+            }            
+            
+            private function getFeedbackByTaskIdHandler(event:ResultEvent):void{
+            	feedbacks = event.result as ArrayCollection;
+            	if(feedbacks && feedbacks.length>0){
+            		feedbackAdg.selectedIndex = 0;
+            		selectedFeedback = feedbacks.getItemAt(0) as FeedbackVO;
+            		references = (feedbacks.getItemAt(0) as FeedbackVO).feedbackReference;
+            	}            	
+            }
+			
+			private function addDragDropHandler(event:DragEvent):void {
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				if((event.dragInitiator as TileList).name==referenceTileList.id)
+					return;
+				
+				if(selectedFeedback==null){
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}
+				if(references==null){
+					references = new ArrayCollection();
+					selectedFeedback.feedbackReference = references;
+				}
+				
+				var reference:FeedbackReferenceVO = (event.dragInitiator as TileList).selectedItem as FeedbackReferenceVO;
+				reference.createdDate = new Date();
+				reference.createdBy = model.currUser.userName;
+				references.addItem(reference);
+				
+				selectedFeedbackReference=null;
+            }
+            
+            private function removeDragDropHandler(event:DragEvent):void{
+            	event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				if((event.dragInitiator as TileList).name==feedbackReferenceTileList.id)
+					return;
+				var reference:FeedbackReferenceVO = (event.dragInitiator as TileList).selectedItem as FeedbackReferenceVO;
+				if(reference.id!=0)
+					feedbackReferenceRo.deleteFeedbackReferenceById(reference.id);
+				feedbackReference.addItem(reference);
+            }
+            
+            private function deleteFeedbackHandler(event:ResultEvent):void{
+            	if(!event.result)
+            	return;
+            	
+        		feedbacks.removeItemAt(feedbackAdg.selectedIndex);
+        		references.removeAll();
+        		selectedFeedback=null;
+            }
+            
+            private function serialHandler(item:Object, col:int):String{
+				return (feedbacks.getItemIndex(item) + 1).toString();
+			}		
+		]]>
+	</mx:Script>
+	<!--==========================
+	    Services
+	===========================-->	
+	<mx:RemoteObject id="feedbackRo" destination="ro.feedback">
+		<mx:method name="getFeedbackByCheckItemId" result="getFeedbackByCheckItemIdHandler(event)"/>
+		<mx:method name="getFeedbackByTaskId" result="getFeedbackByTaskIdHandler(event)"/>
+		<mx:method name="deleteFeedbackById" result="deleteFeedbackHandler(event)"/>
+	</mx:RemoteObject>
+	
+	<mx:RemoteObject id="feedbackReferenceRo" destination="ro.feedbackReference">
+		<mx:method name="deleteFeedbackReferenceById"/>
+	</mx:RemoteObject>
+	
+
+
+	
+	<!--==========================
+	    Attributes
+	===========================-->	
+	<utils:FileUpload id="fileUpload" prefix="{project.projectKey}" complete="onUploadComplete(event)"/>
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+		<mx:VBox width="100%" height="50%">
+			<mx:AdvancedDataGrid id="feedbackAdg" width="100%" height="92%" editable="true" 
+				dataProvider="{feedbacks}" rowHeight="30"
+				horizontalScrollPolicy="off"
+				change="onAdvancedDataGridChange()">
+				<mx:columns>
+					<mx:AdvancedDataGridColumn editable="false" sortable="false" width="10" labelFunction="serialHandler"/>
+					<mx:AdvancedDataGridColumn dataField="createdDate" labelFunction="formatDateShort" editable="false" width="40"
+						headerText="{resourceManager.getString('Language','label.feedback.date')}"/>
+					<mx:AdvancedDataGridColumn dataField="ownerName" editable="false" width="30"
+						headerText="{resourceManager.getString('Language','label.member.created_by')}"/>
+	        		<mx:AdvancedDataGridColumn dataField="errorText" editable="true" width="120" 
+	        			headerText="{resourceManager.getString('Language','label.feedback.error.text')}"
+	        			itemEditor="mx.controls.TextInput"
+	        			editorDataField="text"/>
+	        		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.severity')}" width="40" dataField="severityValue"
+	        			itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.SeverityRenderer"
+	        			editorDataField="text"/>		        			
+	        		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.root.cause')}" width="40" dataField="typeValue"
+	        			itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.RootCauseRenderer"
+	        			editorDataField="text"/>		        		
+	        		<mx:AdvancedDataGridColumn headerText="{resourceManager.getString('Language','label.feedback.status')}" width="40" 
+	        			dataField="statusValue"
+	        			itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.FeedbackStatusRenderer"
+	        			editorDataField="text"/>
+				</mx:columns>
+			</mx:AdvancedDataGrid>
+			
+			<mx:HBox width="100%">
+				<mx:Button label="{resourceManager.getString('Language','button.add.feedback')}"
+					toolTip="{resourceManager.getString('Language','button.add.feedback')}"
+					click="addFeedback()"/>
+				<mx:Button label="{resourceManager.getString('Language','button.delete.feedback')}"
+					toolTip="{resourceManager.getString('Language','button.delete.feedback')}"
+					click="deleteFeedback()" enabled="{selectedFeedback==null?false:true}"/>
+				<mx:Button label="{resourceManager.getString('Language','button.copy.feedback')}"
+					toolTip="{resourceManager.getString('Language','button.copy.feedback')}"
+					click="copyFeedback()" enabled="{selectedFeedback==null?false:true}"/>
+			</mx:HBox>
+		</mx:VBox>
+		
+		<mx:HBox width="100%" height="50%">
+			<mx:VBox width="32%" height="100%">
+				<mx:TileList id="feedbackReferenceTileList" width="100%" height="210"
+					rowHeight="92" columnWidth="92"
+					dataProvider="{feedbackReference}"
+					change="{selectedFeedbackReference=feedbackReferenceTileList.selectedItem as FeedbackReferenceVO}"
+					dragEnabled="true" dragMoveEnabled="true" dropEnabled="true"
+					dragDrop="removeDragDropHandler(event)"
+					itemRenderer="renderer.Thumbnail"
+					doubleClickEnabled="true"
+					itemDoubleClick="onDoubleClickFeedbackReferenceTileList(event)">
+				</mx:TileList>
+				<mx:HBox width="100%">
+					<mx:Button label="{resourceManager.getString('Language','button.file.upload')}"
+						toolTip="{resourceManager.getString('Language','button.file.upload')}"
+						click="fileUpload.multiBrowse()"/>
+					<mx:Button label="{resourceManager.getString('Language','button.file.delete')}"
+						toolTip="{resourceManager.getString('Language','button.file.delete')}"
+						click="deleteImage(event)" enabled="{selectedFeedbackReference==null?false:true}"/>
+				</mx:HBox>
+			</mx:VBox>
+
+			<mx:TileList id="referenceTileList" width="68%" height="210"
+				dataProvider="{references}" 
+				rowHeight="205" columnWidth="205"
+				dragEnabled="true" dragMoveEnabled="true" dropEnabled="true"
+				dragDrop="addDragDropHandler(event)"
+				doubleClickEnabled="true"
+				itemRenderer="renderer.Thumbnail"
+				itemDoubleClick="onDoubleClickReferenceTileList(event)">
+			</mx:TileList>
+		</mx:HBox>
+	</mx:VBox>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:widget="widget.*"
+	title="{resourceManager.getString('Language','label.feedback')}"
+	width="1000" height="100%"
+	showCloseButton="true" 
+	close="PopUpManager.removePopUp(this);" >
+
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			
+			import com.pearl.normandy.vo.CheckItemVO;
+			import com.pearl.normandy.utils.Constants;						
+			
+		    //==============================
+		    //Control Attributes
+		    //==============================			
+			[Bindable]
+			public var checkItemId:int;
+			        
+		]]>
+	</mx:Script>
+
+	
+	<!--==========================
+	    Page Layout
+	===========================-->
+
+	<widget:ViewFeedback id="viewFeedbackWidget" width="100%" height="100%" checkItemId="{checkItemId}"/>
+	
+	<mx:ControlBar width="100%" horizontalAlign="center">
+        <mx:Button label="{resourceManager.getString('Language','button.close')}"
+            click="PopUpManager.removePopUp(this);"/>
+    </mx:ControlBar>
+</mx:TitleWindow>

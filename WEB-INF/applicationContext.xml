@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+     http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+     http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+     http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+
+	<import resource="bean-config/service.xml"/>
+	<import resource="bean-config/facade.xml"/>	
+	<import resource="bean-config/dao.xml"/>
+	<import resource="bean-config/aspect.xml"/>	
+	
+	
+	
+	<aop:config>
+    	<aop:pointcut id="inServiceLayer"
+       		expression="execution(* com.pearl.normandy.*.*Service.*(..))"/>
+       		         			
+        <aop:pointcut id="inUpdateCheckItemStatus"
+        	expression="execution(* com.pearl.normandy.checkitem.CheckItemFacade.*(..))
+            			and args(checkItem, updator)"/>             			  
+            			
+		<aop:pointcut id="inUpdateCheckItemFix" 
+			expression="execution(* com.pearl.normandy.checkitem.CheckItemFacade.*(..))
+						and args(checkItems, updator)"/>
+   
+      	<aop:aspect ref="genericAspects">                  
+         	<aop:after-throwing pointcut-ref="inServiceLayer"
+         		throwing="ex"
+                method="exceptionLogging"/>
+                           
+         	<aop:after-returning pointcut-ref="inUpdateCheckItemStatus"
+         		arg-names="checkItem, updator"
+                method="updateCheckItemStatusNotification"/>  
+            
+			<aop:after-returning pointcut-ref="inUpdateCheckItemFix" 
+				arg-names="checkItems, updator"
+				method="updateCheckItemFixNotification"/>                                 
+      	</aop:aspect>
+   	</aop:config>	
+	
+	
+	<!-- enable the configuration of transactional behavior based on annotations -->
+	<tx:annotation-driven transaction-manager="txManager" />
+
+	<!-- PlatformTransactionManager -->
+	<bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="url" value="jdbc:mysql://localhost/normandy?characterEncoding=utf8&amp;autoReconnect=true&amp;noAccessToProcedureBodies=true" />
+		<property name="username" value="normandy_staging" />
+		<property name="password" value="SweetHeart" />
+	</bean>
+	
+	<bean id="sqlMapClient" class="org.springframework.orm.ibatis.SqlMapClientFactoryBean">
+		<property name="configLocation" value="WEB-INF/classes/SqlMapConfig.xml" />
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+</beans>

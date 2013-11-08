@@ -1,0 +1,1210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<advancedPanel:AdvancedPanel xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:ilog="http://www.ilog.com/2007/ilog/flex" 
+	xmlns:code="http://code.google.com/p/flexlib/"
+	xmlns:advancedPanel="com.pearl.normandy.component.advancedPanel.*"
+	xmlns:production="production.*"
+	xmlns:vo="com.pearl.normandy.vo.*"
+ 	xmlns:ibizTree="com.pearl.normandy.component.ibizTree.*"
+ 	xmlns:ibizDataGrid="com.pearl.normandy.component.ibizDataGrid.*"
+	xmlns:events="flash.events.*" 		
+	title="{resourceManager.getString('Language','label.resource_management')} - [{project.projectName}]" 
+	width="1000" height="700" 
+	borderAlpha="1"
+	horizontalAlign="center" verticalAlign="middle" 
+	horizontalScrollPolicy="off" 
+	verticalScrollPolicy="off"
+	headerColors="[#e2e2e2, #e2e2e2]"
+	borderColor="#979494"
+	showControls="true" enableResize="true" 
+	backgroundColor="0xe2e2e2" alpha="1"  
+	borderStyle="none" borderThickness="0"
+	creationComplete="init()"
+	keyDown="onKeyDown(event)">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.utils.StringUtil;
+			import mx.collections.ICollectionView;
+			import mx.controls.advancedDataGridClasses.AdvancedDataGridColumn;
+			import mx.controls.dataGridClasses.DataGridColumn;		
+			import mx.collections.ArrayCollection; 			
+			import mx.controls.Alert;			
+			import mx.events.CloseEvent;			
+			import mx.events.DragEvent;
+			import mx.events.ListEvent;
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;	
+			import mx.states.AddChild;		
+			import mx.rpc.events.FaultEvent;												
+			import mx.rpc.events.ResultEvent;
+
+			import com.pearl.normandy.component.ibizTree.event.MyTreeEvent;
+			import com.pearl.normandy.component.ibizDataGrid.event.UserDataGridEvent;			
+			import com.pearl.normandy.event.ChangeEvent;
+			import com.pearl.normandy.enum.ImageEnum;						
+			import com.pearl.normandy.vo.ProjectMemberVO;
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.vo.ProjectUserVO;
+			import com.pearl.normandy.vo.ProjectVO;
+			import com.pearl.normandy.utils.Constants;			
+			
+			import popup.FaultHandlerPopup;						
+			import popup.ReplaceLeadPopup;			
+			
+			//==============================
+		    // Control Attributes
+		    //==============================
+			private var currUser:UserVO = model.currUser;    
+		    
+		    private const EXTENDEDDATA:String = "extendedData";
+		    private const PROJECTUSER:String = "ProjectUser";
+		    private static const PROJECTUSER_USERID:String = "userId";
+		    private static const USER_ID:String = "id";
+		    
+		    private var myContextMenu:ContextMenu;
+		    private var pmContextMenu:ContextMenu;
+		    private var adContextMenu:ContextMenu;
+		    private var qaContextMenu:ContextMenu;
+		    private var item:ContextMenuItem;
+		   	
+					
+		   	private var _project:ProjectVO;
+		   	[Bindable]
+		 	public function set project(value:ProjectVO):void{			
+				_project = value;	
+				
+//				if(model.currProjectPM){
+//					userRo.getUsersByGroupId(Constants.GROUP_PM_NUM);
+//				}
+//				else if(currUser.productionGroup == Constants.BOOLEAN_YES && currUser.manager == Constants.BOOLEAN_YES){
+//					userRo.getAllProductionUsers();
+//				}
+				if((currUser.productionGroup == Constants.BOOLEAN_YES && currUser.manager == Constants.BOOLEAN_YES) || model.currProjectPM){
+					userRo.getAllProductionUsers();
+				}	
+								
+				projectUserRo.getPMByProjectId(project.id);
+				projectUserRo.getAdByProjectId(project.id);
+				projectUserRo.getQAUserByProjectId(project.id);	
+		    	projectMemberRo.getProjectMembersByProjectId(project.id);							
+			}
+			
+			public function get project():ProjectVO{				
+				return this._project;
+			}
+			
+		   
+			private var newAdUser:UserVO;
+			private var oldAdUser:ProjectUserVO;
+			private var newQaUser:UserVO;
+			private var delProjectMembers:Array;
+			private var isMemberRemove:Boolean = false;
+		    private var dragDropEvent:DragEvent;
+		    private var dragUserList:Array;
+		    
+		    private var replaceLeader:ProjectMemberVO;		    
+		    [Bindable]
+		    private var selectedProjectUser:ProjectUserVO;	
+		    			
+		    			
+			private var _userInforFilter:String="";
+			[Bindable]
+			public function set userInforFilter(value:String):void{
+				_userInforFilter=value;
+				updateCollectionFilter();
+			}
+			
+			public function get userInforFilter():String{
+				return this._userInforFilter;
+			}
+			
+			private var _memberNameFilter:String = "";
+			[Bindable]
+			public function set memberNameFilter(value:String):void{
+				this._memberNameFilter = value;
+				updateMemberFilter();
+			}
+			
+			public function get memberNameFilter():String{
+				return this._memberNameFilter
+			}
+		    
+			//==============================
+		    // Data Attributes
+		    //==============================		    
+			[Bindable]
+			private var users:ArrayCollection;		    
+		    
+		    [Bindable]
+		    private var pms:ArrayCollection;
+		    
+		   	[Bindable]
+		   	private var ads:ArrayCollection;
+		   	
+		   	[Bindable]
+		   	private var qas:ArrayCollection;
+		   	
+		   	[Bindable]
+		   	private var members:ArrayCollection = new ArrayCollection();
+		   	
+			[Bindable]
+			public var projectUser:ProjectUserVO;
+			public var deleteProjectUser:ProjectUserVO;
+		    
+		    //==============================
+		    //Methods
+		    //==============================	
+			
+			private function init():void{
+				this.setFocus();
+				
+				myContextMenu = new ContextMenu();
+		    	removeDefaultItems(myContextMenu);
+				addCustomMenuItems("Member");
+				memberDG.contextMenu = myContextMenu;
+				
+				pmContextMenu = new ContextMenu();
+				removeDefaultItems(pmContextMenu);
+				addPMMenuItems();
+				pmDG.contextMenu = pmContextMenu;
+				
+				adContextMenu = new ContextMenu();
+				removeDefaultItems(adContextMenu);
+				addAdMenuItems();
+				adDG.contextMenu = adContextMenu;
+				
+				qaContextMenu = new ContextMenu();
+				removeDefaultItems(qaContextMenu);
+				addQaMenuItems();
+				qaDG.contextMenu = qaContextMenu;	
+				
+				var currProjectId:int = model.GLOBAL_SELECTED_PROJECT.id;
+	   			for(var i:int=0;i<userProjects.length;i++){
+			   		var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+		   			if(item.id == currProjectId){
+		   				model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(i) as ProjectVO;
+		   				projectCB.selectedIndex = i;
+		   				break;
+		   			}
+	   			}		
+				//Disable project user tree right mouse
+/* 				myContextMenu = new ContextMenu(); 
+				removeDefaultItems();
+				addCustomMenuItems("ProjectUser");
+				projectTree.contextMenu = myContextMenu; */
+			}
+			
+			
+		  	private function updateCollectionFilter():void{
+		    	var collection:ICollectionView = userDataGrid.dataProvider as ICollectionView;
+		    	if (collection.filterFunction == null) {
+		      		collection.filterFunction = collectionFilter;
+		    	}
+		    	collection.refresh();    		
+		  	}
+		  
+		  	private function collectionFilter(item:Object):Boolean {
+		     	var user:UserVO = item as UserVO;
+		   		if(StringUtil.trim(userInforFilter)==""){
+		   				return true;
+	   			}
+	   			var searchArr:Array=StringUtil.trim(userInforFilter).split(" ");
+	   			var pattern:RegExp = / /g;
+	   			var searchStr:String=user.name.replace(pattern, "")+user.employeeNo+user.projectsName;
+	   			if(user.userName!="null"){
+	   				searchStr=searchStr+user.userName;
+	   			}
+	   			if(user.userGroupName!="null"){
+	   				searchStr=searchStr+user.userGroupName;
+	   			}
+	   			if(searchArr.length==0||searchCompare(searchArr,searchStr)){
+	   				return true;
+	   			}		   			
+				else{
+					return false;
+				}
+		  	} 
+		  	
+		  	private function updateMemberFilter():void{
+		  		var collection:ICollectionView = memberDG.dataProvider as ICollectionView;
+		    	if (collection.filterFunction == null) {
+		      		collection.filterFunction = memberFilter;
+		    	}
+		    	collection.refresh();
+		  	} 	
+		  	
+		  	private function memberFilter(item:Object):Boolean {
+		     	var member:ProjectMemberVO = item as ProjectMemberVO;
+		   			
+				if(memberNameFilter == "" || fuzzyCompare(member.name, memberNameFilter)){
+					return true;
+				}else{
+					return false;
+				}				  
+		  	}		
+   
+			private function addCustomMenuItems(type:String):void {
+				if(type == "Member"){
+					if(currUser.productionGroup == Constants.BOOLEAN_YES && currUser.manager == Constants.BOOLEAN_YES){
+						item = new ContextMenuItem("Delete Member");
+						myContextMenu.customItems.push(item);
+						item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, ItemSelectHandler);
+					}
+				}else if(type == "ProjectUser"){
+					item = new ContextMenuItem("Delete User");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onDeleteUser);
+					item = new ContextMenuItem("Replace Leader");
+					myContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onReplaceLead);
+				}
+			}
+			
+			private function onDeleteUser(event:ContextMenuEvent):void{		
+				onClick();
+			}
+			
+			private function onReplaceLead(event:ContextMenuEvent):void{
+				onReplaceLeadWindow();
+			}
+			
+			private function ItemSelectHandler(evt:ContextMenuEvent):void{				
+				onRemoveMembers();
+			}
+			
+			private function addPMMenuItems():void{
+				if(currUser.manager == Constants.BOOLEAN_YES || currUser.userGroupName == Constants.PROJECT_ROLE_PM){
+					item =  new ContextMenuItem("Delete Member");
+					pmContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onDeletePM);
+				}
+			}
+			
+			private function addAdMenuItems():void{
+				if(currUser.manager == Constants.BOOLEAN_YES){
+					item =  new ContextMenuItem("Delete Member");
+					adContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onDeleteAd);
+				}
+			}	
+			
+			private function addQaMenuItems():void{
+				if(currUser.manager == Constants.BOOLEAN_YES){
+					item =  new ContextMenuItem("Delete Member");
+					qaContextMenu.customItems.push(item);
+					item.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, onDeleteQa);
+				}
+			}					
+			
+			private function onDeletePM(event:ContextMenuEvent):void{
+				if(pmDG.selectedItems == null || pmDG.selectedItems.length == 0){
+					return;
+				}
+				
+				if(pms.length > 1){
+					confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+				   				resourceManager.getString("Language","title.confirmation"), confirmRemovePM);
+				}else{
+					Alert.show(resourceManager.getString('Language','alert.delete_project_user'));
+				}
+			}
+			
+			private function confirmRemovePM(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					deleteProjectUser = pmDG.selectedItem as ProjectUserVO;
+					projectUserRo.deleteProjectUser(deleteProjectUser);
+				}
+			}
+			
+			private function deleteProjectUserHandler(event:ResultEvent):void{
+				if(event.result){
+					pms.removeItemAt(pms.getItemIndex(deleteProjectUser));
+					deleteProjectUser = null;
+				}
+			}
+			
+			private function deleteQaHandler(event:ResultEvent):void{
+				if(event.result){
+					qas.removeItemAt(qas.getItemIndex(deleteProjectUser));
+					deleteProjectUser = null;
+				}
+			}			
+			
+			private function onDeleteAd(event:ContextMenuEvent):void{
+				if(adDG.selectedItem == null){
+					return;
+				}
+				
+				projectUserRo.getLeadBySupervisorId(adDG.selectedItem);
+			}	
+			
+			private function onDeleteQa(event:ContextMenuEvent):void{
+				if(qaDG.selectedItems == null || qaDG.selectedItems.length == 0){
+					return;
+				}
+				
+				confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmRemoveQa);
+			}			
+			
+			private function confirmRemoveQa(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					deleteProjectUser = qaDG.selectedItem as ProjectUserVO;
+					projectUserRo.deleteQA(deleteProjectUser);
+				}
+			}				
+			
+			private function confirmRemoveAd(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					deleteProjectUser = adDG.selectedItem as ProjectUserVO;
+					projectUserRo.deleteAd(deleteProjectUser);
+				}
+			}				
+			
+			private function addUserToMember(user:UserVO):void{				
+				for each(var pmVo:ProjectMemberVO in members){
+					if(pmVo.projectId == project.id && pmVo.userId == user.id){
+						return;
+					}    
+				}
+				
+				var addItems:ArrayCollection = new ArrayCollection();
+				var pmv:ProjectMemberVO = new ProjectMemberVO();
+				pmv.name = user.firstName + " " + user.lastName;
+				pmv.userName = user.firstName + " " + user.lastName;
+				pmv.projectId = project.id;
+				pmv.userId = user.id;
+				pmv.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+				pmv.createdBy = currUser.userName;
+				pmv.createdByName = currUser.firstName + " " + currUser.lastName;
+				pmv.createdDate = new Date();
+				addItems.addItem(pmv);
+				members.addItem(pmv);
+				concatProjectName(user);				
+			}
+			
+						
+			private function deleteMembersFromMemberDG(delMembers:Array):void{			
+				var tempProjectMember:ProjectMemberVO;
+				for(var j:int = 0; j < delMembers.length; j++){
+					tempProjectMember = delMembers[j] as ProjectMemberVO;
+					for each(var user:UserVO in users){
+						if(user.id == tempProjectMember.userId){
+							deleteProjectName(user);
+						}
+					}
+					
+					members.removeItemAt(members.getItemIndex(tempProjectMember));
+				}
+			}
+			
+			
+			private function concatProjectName(userVO:UserVO, projectMember:ProjectMemberVO = null):void{								
+				if(projectMember && members != null && members.length > 0){
+					for each(var s:ProjectMemberVO in members){
+						if(projectMember.userId == s.userId){
+							return;
+						}
+					}
+				}
+				
+				if(userVO.projectsName == null || userVO.projectsName == ""){
+					userVO.projectsName = project.projectName;
+				}
+				else{
+					userVO.projectsName += ", " + project.projectName;
+				} 
+			}
+			
+
+			private function deleteProjectName(user:UserVO):void{
+				
+				if(user.projectsName.indexOf(project.projectName) >= 0){
+					var arr:Array = new Array();
+					arr = user.projectsName.split(", ");
+					for(var i:int = 0; i < arr.length; i++){
+						
+						if((arr[i] as String)== project.projectName){
+							arr.splice(i, 1);
+							break;
+						}
+					}
+					user.projectsName = arr.join(", ");
+				}	
+			}	
+			
+			
+		    private function onMouseUp():void{		    
+		    	 var arr:ArrayCollection = projectTree.dataProvider as ArrayCollection;
+		    }		
+		    
+		    private function onAddAndUpdateItem(evt:MyTreeEvent):void{				
+				var item:ProjectUserVO = evt.item as ProjectUserVO;
+				var parent:ProjectUserVO = evt.parent as ProjectUserVO;
+				if(parent){
+					projectUserRo.save(parent); 
+					item.supervisorId = parent.userId;
+				}
+				if(item.createdBy == null){
+					
+					item.createdBy = model.currUser.userName;
+				}else{
+					
+					item.updatedBy = model.currUser.userName;
+				}
+				if(item.createdDate == null){
+				
+					item.createdDate = new Date();
+				}else{
+				
+					item.updatedDate = new Date();
+				}
+				
+				projectUserRo.saveOrUpdate(item);   
+		    }		    			    
+		   	
+		   	private function onClick():void{		   		
+		   		projectTree.isRemove = true;
+
+		   	}	
+			
+/* 			private function onRelease():void{
+		   		if(releaseCombox.selectedLabel == "ON"){
+		   			projectTree.isRelease = "ON";
+		   		}else{
+		   			projectTree.isRelease = "OFF";
+		   		}
+			} */
+			
+			private function onClickProjectTreeItem():void{			
+				selectedProjectUser = projectTree.selectedItem as ProjectUserVO;
+				
+				if(model.taskEditable){
+					//Remove button
+					if(selectedProjectUser.projectRoleId == 2 || (selectedProjectUser.projectRoleId == 3 && selectedProjectUser.children && selectedProjectUser.children.length > 0)){
+						removeBut.enabled = false;
+					}else{
+						removeBut.enabled = true;
+					}
+					
+					//Replace AD button
+					if(selectedProjectUser.projectRoleName == Constants.PROJECT_ROLE_LEAD){
+						replaceLeadBut.enabled = true;						
+					}
+					else{
+						replaceLeadBut.enabled = false;
+					}
+					
+					//Release button
+/* 					if(selectedProjectUser.projectRoleId == 2){
+						releaseCombox.enabled = false;
+					}else{
+						releaseCombox.enabled = true;
+						if(selectedProjectUser.status == Constants.RESOURCE_PROJECT_STATUS_ASSIGNED){
+							releaseCombox.selectedIndex = 0;
+						}else{
+							releaseCombox.selectedIndex = 1;
+						}
+					} */
+				}
+				else{
+					removeBut.enabled = false;
+					replaceLeadBut.enabled = false;
+//					releaseCombox.enabled = false;
+				}
+			}
+			
+			private function onReplaceLeadWindow():void{				
+ 				var replaceLeaders:ArrayCollection = getReplaceLeaders(members);
+				var replaceLeadPopup:ReplaceLeadPopup = ReplaceLeadPopup(PopUpManager.createPopUp(this, ReplaceLeadPopup));
+				replaceLeadPopup.leadUsers = replaceLeaders;
+				PopUpManager.centerPopUp(replaceLeadPopup);
+				replaceLeadPopup.addEventListener(ChangeEvent.LEAD_REPLACE, replaceLeaderFun); 
+				
+			}
+			
+			private function getReplaceLeaders(allMembers:ArrayCollection):ArrayCollection{
+			
+				var replaceLeads:ArrayCollection = new ArrayCollection();
+				var isLead:Boolean = false;
+				for each(var m:ProjectMemberVO in allMembers){
+					isLead = false;
+					for each(var lead:ProjectUserVO in projectUser.children){
+						if(lead.userId == m.userId){
+							isLead = true;
+							continue;
+						}
+					}
+					if(!isLead){
+						replaceLeads.addItem(m);
+					}
+				}
+				return replaceLeads;
+			}
+			
+			private function replaceLeaderFun(evt:ChangeEvent):void{				
+				replaceLeader = evt.data as ProjectMemberVO;
+				projectUserRo.replaceLead(projectTree.selectedItem as ProjectUserVO, replaceLeader);
+			}					
+			
+			//==============================
+		    //Remote Object Handlers
+		    //==============================
+			private function getUsersHandler(evt:ResultEvent):void{    			
+    			users = evt.result as ArrayCollection;
+    		}
+    		
+    		private function getPMByProjectIdHandler(evt:ResultEvent):void{
+    			pms = evt.result as ArrayCollection;
+    		}    				    
+		    				    
+		     private function getAdByProjectIdHandler(evt:ResultEvent):void{		    	
+		    	ads = evt.result as ArrayCollection;
+		    	
+		    	if(ads!=null && ads.length>0){
+		    		var ad:ProjectUserVO = ads.getItemAt(0) as ProjectUserVO;
+		    		projectUserRo.getProjectUserHierarchical(project.id, ad);
+		    	}			    	
+		    }  
+		    
+		    private function getQAUserByProjectIdHandler(evt:ResultEvent):void{
+		    	qas = evt.result as ArrayCollection;		    			    	
+		    }
+		    
+		    private function getProjectMembersByProjectIdHandler(evt:ResultEvent):void{	
+		    	var m:ArrayCollection = evt.result as ArrayCollection;
+		    	if (m){
+		    		for each (var pm:ProjectMemberVO in m) {
+		    			pm.name = pm.userName;
+		    		}
+		    	}			
+		    	members = m;
+//				members = evt.result as ArrayCollection;
+			}
+			
+		   	private function getProjectUserHierarchicalHandler(evt:ResultEvent):void{
+		   		projectUser = evt.result as ProjectUserVO;
+		   		projectTree.isInit = true;
+		   	}			   
+			
+			
+			private function createProjectUserHandler(evt:ResultEvent):void{							
+ 				var newUsers:ArrayCollection = evt.result as ArrayCollection;
+				for each(var puv:ProjectUserVO in newUsers){					
+					if(!pms){
+						pms = new ArrayCollection();
+					}
+					pms.addItem(puv);
+				} 
+			}				
+			
+			
+			private function createADHandler(evt:ResultEvent):void{
+				if(ads==null){				
+					ads = new ArrayCollection();
+				}
+				ads.addItem(evt.result);
+				addUserToMember(newAdUser);  
+			}	
+			
+			private function createQaHandler(evt:ResultEvent):void{
+				if(qas==null){				
+					qas = new ArrayCollection();
+				}
+				qas.addItem(evt.result);
+				addUserToMember(newQaUser); 
+			}							
+			
+			private function replaceADHandler(evt:ResultEvent):void{
+				oldAdUser.userId = newAdUser.id;
+				oldAdUser.firstName = newAdUser.firstName;
+				oldAdUser.lastName  = newAdUser.lastName;
+				oldAdUser.name	  = newAdUser.firstName + " " + newAdUser.lastName;	
+				addUserToMember(newAdUser); 
+			}			
+
+			private function deleteProjectMembersHandler(evt:FaultEvent):void{
+			
+				var errorMsg:ErrorMessage = evt.message as ErrorMessage;
+				if(errorMsg.hasOwnProperty(EXTENDEDDATA) && errorMsg.extendedData && (errorMsg.extendedData[PROJECTUSER] as ArrayCollection).length > 0){
+					var projectUserList:ArrayCollection = errorMsg.extendedData[PROJECTUSER] as ArrayCollection;
+					var tempProjectMember:ProjectMemberVO;
+
+					for each(var projectUser:ProjectUserVO in projectUserList){
+						for(var i:int = 0; i < delProjectMembers.length; i++){
+						
+							tempProjectMember = delProjectMembers[i] as ProjectMemberVO;
+							if(tempProjectMember.userId == projectUser.userId){
+								delProjectMembers.splice(i, 1);
+								i--;
+							}
+						}
+					}
+					deleteMembersFromMemberDG(delProjectMembers);
+					var faultHandlerPopup:FaultHandlerPopup = FaultHandlerPopup(PopUpManager.createPopUp(UIComponent(this.parentApplication), FaultHandlerPopup, true));
+					PopUpManager.centerPopUp(faultHandlerPopup);
+					faultHandlerPopup.message = errorMsg;
+				}else{
+					if(!errorMsg.extendedData){
+						faultHandler(evt);
+					}else{
+						deleteMembersFromMemberDG(delProjectMembers);
+					}
+				}	
+			}
+			
+			
+			private function saveProjectMembersHandler(evt:ResultEvent):void{				
+				var memberList:Array = evt.result.source as Array;
+				if(memberList && memberList.length != 0){
+    				memberList.sortOn(ResourceAllocationPopup.PROJECTUSER_USERID, Array.NUMERIC | Array.DESCENDING);
+    				dragUserList.sortOn(ResourceAllocationPopup.USER_ID, Array.NUMERIC | Array.DESCENDING);
+    			}else{
+    				return;
+    			}
+    			 
+				for(var i:int = 0; i < memberList.length; i++){
+				
+					concatProjectName(dragUserList[i] as UserVO, memberList[i] as ProjectMemberVO);
+				}
+				for each(var member:ProjectMemberVO in memberList){
+					
+					if(!members){
+						members = new ArrayCollection();
+					}
+					members.addItem(member);
+				}
+			}		
+			
+			private function getLeadBySupervisorIdHandler(event:ResultEvent):void{
+				var result:ArrayCollection = event.result as ArrayCollection;
+				if(result == null || result.length==0){
+					confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+						resourceManager.getString("Language","title.confirmation"), confirmRemoveAd);					
+				}
+				else{
+					Alert.show(resourceManager.getString("Language","alert.delete_ad"));
+				}
+			}
+			
+			private function deleteAdHandler(event:ResultEvent):void{
+				if(event.result){
+					ads.removeItemAt(ads.getItemIndex(deleteProjectUser));
+					deleteProjectUser = null;
+				}				
+			}
+			
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onAdDGChange(evt:ListEvent):void{
+		    	var ad:ProjectUserVO = evt.itemRenderer.data as ProjectUserVO;
+		    	projectUserRo.getProjectUserHierarchical(project.id, ad);
+		    }
+		    
+			private function onPMDGDragDrop(evt:DragEvent):void{				
+				evt.preventDefault();
+				evt.currentTarget.hideDropFeedback(evt);
+				if(evt.dragInitiator != userDataGrid || !project){
+					return;
+				}
+				dragUserList = evt.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				if(dragUserList == null || dragUserList.length == 0){
+					return;
+				}
+				dragDropEvent = evt;
+				
+				var tempUser:UserVO;
+				for each(var puv:ProjectUserVO  in pms){
+					for(var i:int = 0; i < dragUserList.length; i++){
+						tempUser = dragUserList[i] as UserVO;
+						if(tempUser.id == puv.userId){
+							dragUserList.splice(i, 1);
+							i--;
+						}
+					}
+				}
+				
+				var newProjectUser:ProjectUserVO;
+				var projectUserList:ArrayCollection;
+				if(dragUserList.length > 0){
+					projectUserList = new ArrayCollection();
+				}else{
+					return;
+				}
+				for(var j:int; j < dragUserList.length; j++){
+					tempUser = dragUserList[j] as UserVO;
+					newProjectUser = new ProjectUserVO();
+					newProjectUser.name = tempUser.firstName + " " + tempUser.lastName;
+					newProjectUser.projectId = project.id;
+					newProjectUser.userId = tempUser.id;
+					newProjectUser.projectRoleId = Constants.PROJECT_ROLE_PM_NUM;
+					newProjectUser.projectRoleName = tempUser.userGroupName;
+					newProjectUser.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+					newProjectUser.createdBy = currUser.userName;
+					newProjectUser.createdDate = new Date();
+					projectUserList.addItem(newProjectUser);										
+				}
+				projectUserRo.createProjectUser(projectUserList);	
+				
+				
+				//Create Project Member entry for PM
+				for each(var pmv:ProjectMemberVO  in members){
+					for(i = 0; i < dragUserList.length; i++){
+						tempUser = dragUserList[i] as UserVO;
+						if(tempUser.id == pmv.userId){
+							dragUserList.splice(i, 1);
+							i--;
+						}
+					}
+				}
+				var newProjectMember:ProjectMemberVO;
+				var projectMemberList:ArrayCollection;
+				if(dragUserList.length > 0){
+					projectMemberList = new ArrayCollection();
+				}else{
+					return;
+				}
+				for(j=0; j < dragUserList.length; j++){
+					tempUser = dragUserList[j] as UserVO;
+					newProjectMember = new ProjectMemberVO();
+					newProjectMember.name = tempUser.firstName + " " + tempUser.lastName;
+					newProjectMember.projectId = project.id;
+					newProjectMember.userId = tempUser.id;
+					newProjectMember.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+					newProjectMember.createdBy = currUser.userName;
+					newProjectMember.createdByName = currUser.firstName + " " + currUser.lastName;
+					newProjectMember.createdDate = new Date();
+					projectMemberList.addItem(newProjectMember);
+					
+				}
+				projectMemberRo.saveProjectMembers(projectMemberList);							
+			}		    
+		    			
+		  	private function onAdDGDragOver(event:DragEvent):void {
+		  		if(event.ctrlKey){
+			  		var dropTarget:DataGrid=DataGrid(event.currentTarget);
+					var dropIndex:int = dropTarget.calculateDropIndex(event);
+					if(ads == null || dropIndex >= ads.length){
+						dropTarget.selectedIndex = -1;
+					}
+					else{
+						dropTarget.selectedIndex = dropIndex;
+					}
+		  		}
+		  	}		    			
+		    			
+			private function onAdDGDragDrop(evt:DragEvent):void{				
+				evt.preventDefault();
+				evt.currentTarget.hideDropFeedback(evt);
+				if(evt.dragInitiator != userDataGrid || !project){
+					return;
+				}
+				var dropTarget:DataGrid=DataGrid(evt.currentTarget);
+				var items:Array = evt.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				if(items == null || items.length != 1){
+					return;
+				}
+				dragDropEvent = evt;
+				
+ 				for each(var puv:ProjectUserVO in ads){
+					if(puv.userId == (items[0] as UserVO).id){	
+						return;						
+					}
+				} 
+				
+				if(evt.ctrlKey){					
+					if(dropTarget.selectedItem as ProjectUserVO){
+						oldAdUser = dropTarget.selectedItem as ProjectUserVO;
+						confirm(StringUtil.substitute(resourceManager.getString("Language","alert.replace_ad"), oldAdUser.name),
+							resourceManager.getString("Language","title.confirmation"), confirmReplaceAD);
+					}					
+				}
+				else{
+					newAdUser = items[0] as UserVO;
+					var pu:ProjectUserVO = new ProjectUserVO();
+					pu.name = newAdUser.firstName + " " + newAdUser.lastName;
+					pu.userId = newAdUser.id;					
+					pu.projectId = project.id;					
+					pu.projectRoleId = Constants.PROJECT_ROLE_AD_NUM;
+					pu.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+					pu.createdBy = currUser.userName;
+					pu.createdDate = new Date();
+					projectUserRo.createAD(pu);
+				}
+			}
+
+
+			private function onMemberDragDrop(evt:DragEvent):void{				
+				evt.preventDefault();
+				evt.currentTarget.hideDropFeedback(evt);
+				if(evt.dragInitiator != userDataGrid || !project){
+					return;
+				}
+				dragUserList = evt.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				if(dragUserList == null || dragUserList.length == 0){
+					return;
+				}
+				var tempUser:UserVO;
+				for each(var pmv:ProjectMemberVO  in members){
+					for(var i:int = 0; i < dragUserList.length; i++){
+						tempUser = dragUserList[i] as UserVO;
+						if(tempUser.id == pmv.userId){
+							dragUserList.splice(i, 1);
+							i--;
+						}
+					}
+				}
+				var newProjectMember:ProjectMemberVO;
+				var projectMemberList:ArrayCollection;
+				if(dragUserList.length > 0){
+					projectMemberList = new ArrayCollection();
+				}else{
+					return;
+				}
+				for(var j:int; j < dragUserList.length; j++){
+					tempUser = dragUserList[j] as UserVO;
+					newProjectMember = new ProjectMemberVO();
+					newProjectMember.name = tempUser.firstName + " " + tempUser.lastName;
+					newProjectMember.userName = tempUser.firstName + " " + tempUser.lastName;
+					newProjectMember.projectId = project.id;
+					newProjectMember.userId = tempUser.id;
+					newProjectMember.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+					newProjectMember.createdBy = currUser.userName;
+					newProjectMember.createdByName = currUser.firstName + " " + currUser.lastName;
+					newProjectMember.createdDate = new Date();
+					projectMemberList.addItem(newProjectMember);
+					
+				}
+				projectMemberRo.saveProjectMembers(projectMemberList);
+			}			
+			
+			private function onQaDGDragDrop(evt:DragEvent):void{				
+				evt.preventDefault();
+				evt.currentTarget.hideDropFeedback(evt);
+				if(evt.dragInitiator != userDataGrid || !project){
+					return;
+				}
+				var dropTarget:DataGrid=DataGrid(evt.currentTarget);
+				var items:Array = evt.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+				if(items == null || items.length != 1){
+					return;
+				}
+				dragDropEvent = evt;
+				
+ 				for each(var puv:ProjectUserVO in qas){
+					if(puv.userId == (items[0] as UserVO).id){	
+						return;						
+					}
+				} 
+				
+				newQaUser = items[0] as UserVO;
+				var pu:ProjectUserVO = new ProjectUserVO();
+				pu.name = newQaUser.firstName + " " + newQaUser.lastName;
+				pu.userId = newQaUser.id;					
+				pu.projectId = project.id;					
+				pu.projectRoleId = Constants.PROJECT_ROLE_QA_NUM;
+				pu.status = Constants.RESOURCE_PROJECT_STATUS_ASSIGNED;
+				pu.createdBy = currUser.userName;
+				pu.createdDate = new Date();
+				projectUserRo.createQa(pu);
+			}			
+   
+   
+			private function confirmReplaceAD(evt:CloseEvent):void{
+			
+				if(evt.detail == Alert.YES){
+					var items:Array = dragDropEvent.dragSource.dataForFormat(Constants.FORMAT_ITEMS) as Array;
+					if(items == null || items.length == 0){
+						return;
+					}
+					newAdUser = items[0] as UserVO;
+					
+					if(oldAdUser.userId == newAdUser.id){
+						return;
+					}
+					projectUserRo.replaceAD(oldAdUser, newAdUser);
+				}else if(evt.detail == Alert.CANCEL){
+					return;
+				}
+			}      
+			
+			
+			private function onRemoveMembers():void{				
+				if(memberDG.selectedItems == null || memberDG.selectedItems.length == 0){
+					return;
+				}
+				confirm(resourceManager.getString("Language","alert.delete_projectmember"),
+			   				resourceManager.getString("Language","title.confirmation"), confirmRemoveMembers);
+			}
+			
+			private function confirmRemoveMembers(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					delProjectMembers = memberDG.selectedItems as Array;
+					isMemberRemove = true;
+					projectMemberRo.deleteProjectMembers(delProjectMembers, project.id);
+				}
+			}	
+
+			private function resourceStatusLabelFunc(item:Object, column:AdvancedDataGridColumn):String{
+				if(item.status == Constants.RESOURCE_PROJECT_STATUS_ASSIGNED){
+					return Constants.RESOURCE_PROJECT_STATUS_ON;
+				}
+				else if(item.status == Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+					return Constants.RESOURCE_PROJECT_STATUS_OFF;
+				}
+				else{
+					return item.status;
+				}
+			}	
+			
+		    private function resourceStatusStyleFunc(item:Object, column:AdvancedDataGridColumn):Object{
+		    	if(item!=null && item.status == Constants.RESOURCE_PROJECT_STATUS_RELEASED){
+		    		return	{color: 0xc72020, fontWeight:"bold", textAlign: "center" };			
+		    	}
+		    	else{
+		    		return	{color: 0x81ba55, fontWeight:"bold", textAlign: "center" };
+		    	}
+		    }	
+		    
+		   	private function replaceLeadHandler(evt:ResultEvent):void{
+		   		if(evt.result){
+		   			var children:ArrayCollection = selectedProjectUser.children;
+		   			if(children && children.length > 0){
+		   				for each(var p:ProjectUserVO in children){
+			   				p.supervisorId = replaceLeader.userId;
+			   			}
+		   			}
+/* 		   			selectedProjectUser.firstName = replaceLeader.firstName;
+		   			selectedProjectUser.lastName = replaceLeader.lastName; */
+		   			selectedProjectUser.userId = replaceLeader.userId;
+		   			selectedProjectUser.name = replaceLeader.name;
+		   			
+		   		}
+		   	}
+		   	
+		   	
+		    //==============================
+		    //Event Handler
+		    //==============================
+		    private function onKeyDown(event:KeyboardEvent):void{
+		    	if(event.keyCode == Keyboard.ESCAPE){
+		    		PopUpManager.removePopUp(this);
+		    	}
+		    }
+		    
+		[Bindable]    
+	    private var _userProjects:ArrayCollection;	    
+	    public function set userProjects(value:ArrayCollection):void{
+	    	this._userProjects = value;
+	    	
+			if(userProjects && userProjects.length > 0){					
+								
+				var currProjectId:int;				
+				//if current project not exists, set first project as default
+				if(model.GLOBAL_SELECTED_PROJECT == null){
+					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(0) as ProjectVO;				 	
+				}								
+				//if current project already exists, navigate the drop down list and refresh
+				//this logic mostly is used by refresh function
+				else{
+					currProjectId = model.GLOBAL_SELECTED_PROJECT.id;
+					
+					var match:Boolean = false;				
+	   				for(var i:int=0;i<userProjects.length;i++){
+			   			var item:ProjectVO = userProjects.getItemAt(i) as ProjectVO;
+		   				if(item.id == currProjectId){
+		   					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(i) as ProjectVO;
+		   					projectCB.selectedIndex = i;
+		   					match = true;
+		   					break;
+		   				}
+	   				}
+	   				
+	   				//if current select project list is not in refreshed list
+	   				//set the first project as default
+	   				if(!match){
+	   					projectCB.selectedIndex = 0;
+	   					model.GLOBAL_SELECTED_PROJECT = userProjects.getItemAt(0) as ProjectVO;
+	   				}
+	   			}
+			}	    	
+	    }
+	    
+	    public function get userProjects():ArrayCollection{
+	    	return this._userProjects;
+	    }	
+	    
+	    private function onProjectChange(evt:ListEvent):void{	    
+	    	model.GLOBAL_SELECTED_PROJECT = projectCB.selectedItem as ProjectVO;
+	    }
+		   				
+		]]>
+	</mx:Script>
+	
+	 <!--==========================
+	    Services
+	  ===========================-->		
+	  
+	  <mx:RemoteObject id="userRo" destination="ro.user" fault="faultHandler(event)">
+	  	<mx:method name="getUsersByGroupId" result="getUsersHandler(event)"/>
+		<mx:method name="getAllProductionUsers" result="getUsersHandler(event)"/>
+	  </mx:RemoteObject>
+	    
+	  <mx:RemoteObject id="projectUserRo" destination="ro.projectuser" fault="faultHandler(event)">
+	    <mx:method name="getPMByProjectId" result="getPMByProjectIdHandler(event)"/>
+	  	<mx:method name="getAdByProjectId" result="getAdByProjectIdHandler(event)"/>  
+	  	<mx:method name="getQAUserByProjectId" result="getQAUserByProjectIdHandler(event)"/>    
+	  	<mx:method name="getProjectUserHierarchical" result="getProjectUserHierarchicalHandler(event)"/>
+	  	<mx:method name="getLeadBySupervisorId" result="getLeadBySupervisorIdHandler(event)"/>
+	  	<mx:method name="createProjectUser" result="createProjectUserHandler(event)"/>  
+	  	<mx:method name="createAD" result="createADHandler(event)"/>
+	  	<mx:method name="createQa" result="createQaHandler(event)"/>	  	
+	  	<mx:method name="changeSupervisorByNewAD" />  
+	  	<mx:method name="replaceLead" result="replaceLeadHandler(event)"/> 
+	  	<mx:method name="replaceAD" result="replaceADHandler(event)"/>
+	  	<mx:method name="deleteProjectUser" result="deleteProjectUserHandler(event)"/>
+	  	<mx:method name="deleteAd" result="deleteAdHandler(event)"/>
+	  	<mx:method name="deleteQA" result="deleteQaHandler(event)"/>     	  	
+	  </mx:RemoteObject>  
+	  
+	  <mx:RemoteObject id="projectMemberRo" destination="ro.projectMember" fault="faultHandler(event)">
+	  	<mx:method name="getProjectMembersByProjectId" result="getProjectMembersByProjectIdHandler(event)"/>
+	  	<mx:method name="deleteProjectMembers" fault="deleteProjectMembersHandler(event)"/>
+	  	<mx:method name="saveProjectMembers"  result="saveProjectMembersHandler(event)"/>
+	  </mx:RemoteObject>
+	  
+	  
+	  <!--==========================
+	    Data Binding
+	  ===========================-->
+	<mx:Binding source="model.GLOBAL_SELECTED_PROJECT" destination="this.project"/> 
+	<mx:Binding source="model.GLOBAL_USER_PROJECTS" destination="this.userProjects"/>	  
+	  
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	  
+	<mx:HDividedBox width="100%" height="100%">	
+		<mx:VBox width="30%" height="100%" paddingTop="6">
+			<mx:HBox width="100%">
+				<mx:Button id="removeBut" label="{resourceManager.getString('Language','label.remove')}"  
+					click="onClick()" enabled="false"         
+					toolTip="{resourceManager.getString('Language','label.remove')}"/>
+				<mx:Button id="replaceLeadBut" label="{resourceManager.getString('Language', 'title.replace_lead')}" 
+					click="onReplaceLeadWindow()" enabled="false"
+					toolTip=""/>	
+				<mx:ComboBox id="projectCB" width="130" dropdownWidth="200" labelField="projectName" 
+					dataProvider="{_userProjects}" labelFunction="projectLabelFunc"/>
+					
+<!--				<mx:ComboBox id="releaseCombox" close="onRelease()" enabled="false">   
+					<mx:dataProvider>
+						<mx:Object label = "ON"/>
+						<mx:Object label = "OFF"/>
+					</mx:dataProvider>
+				</mx:ComboBox>-->
+			</mx:HBox>  
+			<ibizTree:Tree id="projectTree"     
+		    	width="100%" height="100%"
+		    	folderOpenIcon="{ImageEnum.IMAGECLASS_USER_GROUP}"
+		    	folderClosedIcon="{ImageEnum.IMAGECLASS_USER_GROUP}"
+		    	defaultLeafIcon="{ImageEnum.IMAGECLASS_USER}"      	
+		    	labelField="name"
+		    	dragEnabled="{model.taskEditable}" 
+		    	dropEnabled="true"  	 
+		    	dragMoveEnabled="{model.taskEditable}"
+		    	addItem="onAddAndUpdateItem(event)"  
+		    	dataProvider="{projectUser}"
+		    	change="onClickProjectTreeItem()"   
+			/>
+		</mx:VBox>	
+	
+		<mx:VBox width="30%" height="100%" >
+			<mx:DataGrid id="pmDG" dataProvider="{pms}"
+				width="100%" height="15%"
+				dragEnabled="false"				 				   				
+				dragMoveEnabled="false" 
+				dropEnabled="{model.currProjectPM}"
+				dragDrop="onPMDGDragDrop(event)">
+				<mx:columns>
+					<mx:DataGridColumn dataField="name"  sortable="false" headerText="Producer/PM:"/>		
+	      		</mx:columns>		
+			</mx:DataGrid>				
+		
+			<mx:DataGrid  id="adDG" dataProvider="{ads}" 
+				width="100%" height="15%"
+				change="onAdDGChange(event)"      
+				dragEnabled="false"				     	  		  	   				
+				dragMoveEnabled="false" 
+				dropEnabled="{(currUser.productionGroup == Constants.BOOLEAN_YES) &amp;&amp; (currUser.manager == Constants.BOOLEAN_YES)}"
+				dragOver="onAdDGDragOver(event)"
+				dragDrop="onAdDGDragDrop(event)">
+				<mx:columns>
+					<mx:DataGridColumn dataField="name"  sortable="false" headerText="Supervisor/AD:"/>	      				
+				</mx:columns>
+			</mx:DataGrid>
+			
+			<mx:DataGrid  id="qaDG" dataProvider="{qas}" 
+				width="100%" height="15%"     
+				dragEnabled="false"				     	  		  	   				
+				dragMoveEnabled="false" 
+				dropEnabled="{currUser.manager == Constants.BOOLEAN_YES}"
+				dragDrop="onQaDGDragDrop(event)">
+				<mx:columns>
+					<mx:DataGridColumn dataField="name"  sortable="false" headerText="QA:"/>	      				
+				</mx:columns>
+			</mx:DataGrid>			
+			
+<!--				<mx:Button label="{resourceManager.getString('Language','label.remove')}" 
+					toolTip="{resourceManager.getString('Language','label.remove')}"
+					click="onRemoveMembers()"/>  -->
+			<ibizDataGrid:UserDataGrid id="memberDG" width="100%" height="55%" 
+				editable="{(currUser.productionGroup == Constants.BOOLEAN_YES) &amp;&amp; (currUser.manager == Constants.BOOLEAN_YES)
+							|| (model.currProjectPM) || (model.currProjectAd)}"
+				dataProvider="{members}" 
+				dragEnabled="{model.taskEditable}"
+				dropEnabled="{(currUser.productionGroup == Constants.BOOLEAN_YES) &amp;&amp; (currUser.manager == Constants.BOOLEAN_YES)}"
+				dragDrop="onMemberDragDrop(event)">
+				<ibizDataGrid:columns>
+					<mx:AdvancedDataGridColumn  dataField="name" editable="false"
+					  			headerText="{resourceManager.getString('Language','label.member.name')}"/>
+					<mx:AdvancedDataGridColumn dataField="createdByName" editable="false"
+					  			headerText="{resourceManager.getString('Language','label.member.created_by')}"/>
+					<mx:AdvancedDataGridColumn dataField="status" sortable="true" editable="true"
+					  			headerText="{resourceManager.getString('Language','label.member.status')}"
+					  			labelFunction="resourceStatusLabelFunc"
+					  			styleFunction="resourceStatusStyleFunc"
+					  			itemEditor="com.pearl.normandy.controls.advancedDataGridClasses.AdvancedDataGridResourceStatusItemRenderer"
+					  			editorDataField="text"/>
+				</ibizDataGrid:columns>
+			</ibizDataGrid:UserDataGrid >
+			
+			<mx:HBox width="100%">															
+				<code:PromptingTextInput id="memberNameTI" width="150" prompt="{resourceManager.getString('Language','label.search.by_resource_name')}" 
+					change="{memberNameFilter = memberNameTI.text}"/>
+			</mx:HBox>						
+		</mx:VBox>
+				
+		<mx:VBox width="40%" height="100%">
+			<mx:HBox width="100%">	
+				<code:PromptingTextInput id="searchTI" width="300" prompt="{resourceManager.getString('Language','label.search_user')}" 
+					change="{userInforFilter = searchTI.text}"/>			
+			</mx:HBox>				
+									
+       		<ibizDataGrid:UserDataGrid2 id="userDataGrid" dataProvider="{users}"
+      			width="100%" height="100%"
+	      		dragEnabled="{((currUser.productionGroup == Constants.BOOLEAN_YES) &amp;&amp; (currUser.manager == Constants.BOOLEAN_YES)
+	      						|| model.currProjectPM)}" 
+				dragMoveEnabled="false"
+				allowMultipleSelection="true">
+		      	<ibizDataGrid:columns>
+		      		<mx:DataGridColumn dataField="employeeNo" width="80" headerText="{resourceManager.getString('Language','label.employee_no')}"/>      	
+		      		<mx:DataGridColumn dataField="name" width="80"	headerText="{resourceManager.getString('Language','label.name')}"/>
+		  			<mx:DataGridColumn dataField="projectsName"	headerText="{resourceManager.getString('Language','label.current_project')}"/> 
+		      	</ibizDataGrid:columns>
+	     	</ibizDataGrid:UserDataGrid2>
+		</mx:VBox>
+	</mx:HDividedBox>    	
+</advancedPanel:AdvancedPanel>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 	
+	xmlns:summary="report.summary.*" 
+	xmlns:views="views.*" 
+	xmlns:widget="widget.*"
+	width="100%" height="100%">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.ProjectVO;
+
+			 
+			[Bindable]
+			public var project:ProjectVO;
+			
+			[Bindable]
+			public var milestone:String;
+		]]>
+	</mx:Script>
+ 	
+ 	
+	<!--==========================
+	  Variables
+	===========================--> 	
+	<mx:ArrayCollection id="projects"/>
+	
+	
+	<!--==========================
+	  Binding
+	===========================-->
+	<mx:Binding source="projectProgress.project" destination="this.project"/>
+	<mx:Binding source="projectProgress.milestone" destination="this.milestone"/>  		
+ 	
+	<!--==========================
+	    Page Layout
+	===========================-->
+	<views:Index width="100%" height="100%">
+		<views:cans>
+			<mx:Canvas id="canvas" width="100%" height="100%" backgroundColor="0xFFFFFF">
+				<widget:ProjectProgress id="projectProgress" projects="{projects}" width="100%" height="100%"/>
+				<widget:ProjectProfile project="{project}" milestone="{milestone}" width="100%" height="100%"/>
+				<widget:ProjectBurnDown project="{project}" milestone="{milestone}" width="100%" height="100%"/>
+				<widget:ProjectDeliveryPlan project="{project}" width="100%" height="100%"/>		
+				<widget:ProjectStatusDistribution project="{project}" milestone="{milestone}" width="100%" height="100%"/>
+				<widget:FeedbackSummary milestone="{milestone}" project="{project}" width="100%" height="100%"/>
+			</mx:Canvas>
+		</views:cans>
+	</views:Index>
+</mx:VBox>

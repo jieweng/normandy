@@ -1,0 +1,727 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Report">
+  	 
+  	<typeAlias alias="Project" type="com.pearl.normandy.project.ProjectTo"/>
+  	<typeAlias alias="Report" type="com.pearl.normandy.report.ReportTo"/>
+  	<typeAlias alias="ReportDetail" type="com.pearl.normandy.report.ReportDetailInfo"/>
+  	<typeAlias alias="ReportEfficiencyQuality" type="com.pearl.normandy.report.ReportEfficiencyQuality"/>
+  	
+  	<!--========================= Select ========================-->
+  	<select id="selectProjectDetailInfo" parameterClass="java.util.Map" resultClass="ReportDetail">
+		select
+			p.id, 
+			p.milestone, 
+			p.task_category,  
+			p.task_name 				as Name, 
+			p.start_time 				as Plan_Start, 
+			p.end_time 					as Plan_End, 
+			p.planned_staff_days 		as Plan_Duration,
+			a.Actual_Start, 
+			a.Actual_End, 
+			a.Acutal_Duration,
+			b.Total_Iteration,
+			b.Fix_Time, 
+			concat(p.progress, '%') 	as Progress, 
+			ls.list_value as Status,
+			l.list_value as Priority
+		
+		from task p	left outer join	
+			(select 
+				t.id, 
+			 	if(t.parent_id=0,t.id,t.parent_id)		as parentid1, 
+			 	min(ap.start_time) 						as Actual_Start, 
+			 	max(ap.end_time) 						as Actual_End, 
+			 	ifnull(sum(ap.actual_staff_days), 0) 	as Acutal_Duration
+			  from task t, (select * from activity where project_id=#projectId# and activity_type='Production') ap
+			  where t.project_id=#projectId# and (t.deleted is null or t.deleted!='Y') and ap.task_id=t.id
+			  group by parentid1
+			  order by t.milestone, t.task_name) a on (a.parentid1=p.id or a.id=p.id)
+		
+		left outer join
+			(select 
+				p.id,
+				if(p.parent_id=0,p.id,p.parent_id)		as parentid2,
+				count(af.id) 							as Total_Iteration,
+				ifnull(sum(af.actual_staff_days), 0) 	as Fix_Time
+			 from task p, (select * from activity where project_id=#projectId# and activity_type='Feedback') af			
+			 where p.project_id=#projectId# and (p.deleted is null or p.deleted!='Y') and af.task_id=p.id
+			 group by parentid2
+			 order by p.milestone, p.task_name) b on (b.parentid2=p.id or b.id=p.id)
+		
+		left outer join	list_of_value l on l.id=p.task_priority_id
+		left outer join	list_of_value ls on ls.id=p.status_id
+		
+		where p.project_id=#projectId# and p.parent_id=0 and (p.deleted is null or p.deleted!='Y')
+		group by p.id
+		order by p.id;
+
+  	</select>
+	<select id="selectTaskStatus" parameterClass="java.util.Map" resultClass="Report">	
+		select 
+			t.TASK_CATEGORY as category, 
+			l.LIST_VALUE as name, 
+			count(*) as value
+		from TASK t, LIST_OF_VALUE l
+		where
+		 	t.PARENT_ID = 0	
+	    	<dynamic>
+				<isNotNull prepend="and" property="taskCategory">
+					t.TASK_CATEGORY = #taskCategory#
+				</isNotNull>
+				<isNotNull prepend="and" property="projectId">
+					t.PROJECT_ID = #projectId#
+				</isNotNull>
+				<isNotNull prepend="and" property="milestone">
+					t.MILESTONE = #milestone#
+				</isNotNull>			
+			</dynamic> 
+			and t.STATUS_ID=l.ID
+			and (t.DELETED IS NULL OR t.DELETED !='Y')
+			group by category, name;	
+	</select>
+	
+<!--================== Ready For Deleted   Zhaoqiaoyang 2012/1/19==================
+
+	<select id="selectUserEffort" parameterClass="java.util.Map" resultClass="Report">
+		select 	
+				t1.userid 						as employeeNo,
+       			t1.name							as name,
+       			t1.year							as year,
+       			concat('Q',t1.quarter)			as quarter,
+       			t1.month						as month,
+       			ifnull(t2.effort,0) 			as effort
+		from
+			(select distinct 
+				a.resource_id 											as userid,
+                concat(u.first_name,u.last_name,'(',u.user_name,')') 	as name,
+                #year#													as year,
+                qm.quarter												as quarter,
+                qm.month												as month
+			from activity a,user u, quarter_month qm
+			where a.resource_id in 
+					<iterate property="users" open="(" close=")" conjunction=",">
+						#users[].id#
+					</iterate>
+      			  and a.resource_id=u.id) t1 
+      	left join
+			(select 
+					a.resource_id 			as userid,
+       				quarter(a.start_time) 	as quarter,
+       				month(a.end_time) 		as month,
+       				sum(a.assigned_effort) 	as effort
+			from activity a
+			where a.resource_id in 
+					<iterate property="users" open="(" close=")" conjunction=",">
+						#users[].id#
+					</iterate>
+      			  and year(a.start_time)=#year#
+      			  and year(a.end_time)=#year#
+      			  and month(a.start_time)=month(a.end_time)
+      			  and a.assigned_effort>0
+      			  and (a.deleted is null or a.deleted != 'Y')
+			group by userid,quarter,month) t2
+  				on t1.userid=t2.userid and t1.month=t2.month
+		order by employeeNo,month
+	</select>
+-->
+	
+	<select id="selectProjectProgress" parameterClass="java.util.Map" resultClass="Project">
+		select
+			project.ID  	 								as id,
+			project.PROJECT_NAME							as projectName,
+			project.STATUS									as status,
+  			project.planned									as planned,
+  			project.progress								as progress,
+			round(project.progress/100*project.planned, 3)	as progressInNum,
+			ifnull(task.approved, 0)						as approved,
+			ifnull(project.plannedStaffDays, 0) 			as plannedStaffDays,
+      		ifnull(activity.actualStaffDays, 0) 			as actualStaffDays
+
+        from
+
+			(select p.ID, 
+					p.STATUS, 
+					p.PROJECT_NAME, 
+					sum(t.PLANNED_STAFF_DAYS+t.PLANNED_FEEDBACK_DAYS) 											as planned,
+					ifnull(truncate(sum(t.PLANNED_STAFF_DAYS) + sum(t.PLANNED_FEEDBACK_DAYS), 3), 0) 			as plannedStaffDays,
+					ifnull(truncate(sum(t.PROGRESS * t.PLANNED_STAFF_DAYS)/sum(t.PLANNED_STAFF_DAYS), 3), 0) 	as progress
+			from PROJECT p,TASK t
+			where (t.DELETED IS NULL OR t.DELETED !='Y')
+				and t.TYPE = 'Production'
+				and t.PARENT_ID = 0
+			<dynamic>
+		    	<isNotNull property="projects">
+		    		<isNotEmpty prepend="and" property="projects">
+						t.PROJECT_ID in
+				    	<iterate property="projects" open="(" close=")" conjunction=",">    
+							#projects[].id#
+						</iterate>
+		    		</isNotEmpty>
+		    	</isNotNull>
+		    	<isNotNull prepend="and" property="milestone">
+		    		t.MILESTONE=#milestone#
+		    	</isNotNull>
+	    	</dynamic>			
+	    	and t.PROJECT_ID = p.ID
+			group by p.ID)							project
+
+			left outer join
+
+			(select total.PROJECT_ID, 
+		    		total.num - ifnull(more.num, 0) as approved 
+		     from 
+	    		(select t.project_id, 
+	    			   sum(t.PLANNED_STAFF_DAYS + t.PLANNED_FEEDBACK_DAYS) as num
+	    		from TASK t
+			 	where t.STATUS_ID = 15 
+		    	   and (t.DELETED IS NULL OR t.DELETED !='Y')
+				   and t.TYPE = 'Production' 
+					<dynamic>
+			    		<isNotNull property="projects">
+			    			<isNotEmpty prepend="and" property="projects">
+								t.PROJECT_ID in
+					    		<iterate property="projects" open="(" close=")" conjunction=",">    
+									#projects[].id#
+								</iterate>
+			    			</isNotEmpty>
+			    		</isNotNull>
+			    		<isNotNull prepend="and" property="milestone">
+			    			t.MILESTONE=#milestone#
+			    		</isNotNull>
+		    		</dynamic>
+		    		group by t.project_id)		total
+		    		
+		    	left join
+		    		
+		    		(select tk.project_id, 
+		    				sum(tk.planned_staff_days + tk.planned_feedback_days) as num
+  					 from (select distinct t.* 
+		    			   from task t, task s
+      					   where t.STATUS_ID = 15 
+		    					and t.ID = s.PARENT_ID
+		    	   				and (t.DELETED IS NULL OR t.DELETED !='Y')
+				   				and t.TYPE = 'Production' 
+								<dynamic>
+			    					<isNotNull property="projects">
+			    						<isNotEmpty prepend="and" property="projects">
+											t.PROJECT_ID in
+					    					<iterate property="projects" open="(" close=")" conjunction=",">    
+												#projects[].id#
+											</iterate>
+			    						</isNotEmpty>
+			    					</isNotNull>
+			    					<isNotNull prepend="and" property="milestone">
+			    						t.MILESTONE=#milestone#
+			    					</isNotNull>
+		    					</dynamic>) tk
+		    					group by tk.project_id)		more
+		    		on total.project_id = more.project_id
+		    	   ) task	on project.ID=task.PROJECT_ID
+
+    		left outer join
+
+			(select t.PROJECT_ID, 
+		    		ifnull(truncate(sum(a.ACTUAL_STAFF_DAYS), 3), 0) as  actualStaffDays
+			from task t, activity a 
+			where a.TASK_ID = t.ID
+			and a.END_TIME <![CDATA[ < ]]> current_date
+			<dynamic>
+		    	<isNotNull property="projects">
+		    		<isNotEmpty prepend="and" property="projects">
+						t.PROJECT_ID in
+				    	<iterate property="projects" open="(" close=")" conjunction=",">    
+							#projects[].id#
+						</iterate>
+		    		</isNotEmpty>
+		    	</isNotNull>
+		    	<isNotNull prepend="and" property="milestone">
+		    		t.MILESTONE=#milestone#
+		    	</isNotNull>
+	    	</dynamic>			
+			group by t.PROJECT_ID) activity	on project.ID=activity.PROJECT_ID
+		order by projectName
+	</select>
+	
+	<select id="selectProjectProgressByTime" parameterClass="java.util.Map" resultClass="Project">
+		SELECT IFNULL(SUM(r.ACTUAL_EFFORT), 0)		as plannedStaffDays,
+			   IFNULL(SUM(r.ACTUAL_DAYS), 0)		as actualStaffDays
+		FROM (
+				SELECT ROUND(f_workday(IF(a.START_TIME <![CDATA[ < ]]> #start#, #start#, a.START_TIME), 
+									   IF(a.END_TIME <![CDATA[ > ]]> ADDDATE(#end#, INTERVAL 1 DAY), 
+									   		CONCAT(SUBSTRING(#end#, 1, 11), '18:00:00'), a.END_TIME)), 3)	as ACTUAL_DAYS,
+					   ROUND(f_workday(IF(a.START_TIME <![CDATA[ < ]]> #start#, #start#, a.START_TIME), 
+									   IF(a.END_TIME <![CDATA[ > ]]> ADDDATE(#end#, INTERVAL 1 DAY), 
+									   		CONCAT(SUBSTRING(#end#, 1, 11), '18:00:00'), a.END_TIME))
+							 * a.PROGRESS / 100 / a.ACTUAL_STAFF_DAYS * a.ASSIGNED_EFFORT, 3)	as ACTUAL_EFFORT
+				FROM ACTIVITY a, TASK t
+				WHERE a.ACTIVITY_TYPE = 'Production'
+				<dynamic>
+					<isNotNull prepend="AND" property="projectId">
+						a.PROJECT_ID = #projectId#				
+					</isNotNull>
+					<isNotNull prepend="AND" property="milestone">
+						t.MILESTONE = #milestone#				
+					</isNotNull>
+					<isNotNull prepend="AND" property="start">
+						a.START_TIME <![CDATA[ < ]]> ADDDATE(#end#, INTERVAL 1 DAY)
+					</isNotNull>	
+					<isNotNull prepend="AND" property="end">
+						a.END_TIME <![CDATA[ > ]]>	#start#			
+					</isNotNull>			
+				</dynamic>
+				AND a.TASK_ID = t.ID) r
+	</select>
+	
+	<select id="selectOtherActivityDaysByTime" parameterClass="java.util.Map" resultClass="Report">
+		SELECT 	ACTIVITY_TYPE	as name,
+				IFNULL(SUM(f_workday(IF(START_TIME <![CDATA[ < ]]> #start#, #start#, START_TIME), 
+									 IF(END_TIME <![CDATA[ > ]]> ADDDATE(#end#, INTERVAL 1 DAY), 
+									 	CONCAT(SUBSTRING(#end#, 1, 11), '18:00:00'), END_TIME))), 0)	as value
+		FROM ACTIVITY
+		<dynamic prepend="WHERE">
+			<isNotNull prepend="AND" property="projectId">
+				PROJECT_ID = #projectId#		
+			</isNotNull>
+			<isNotNull prepend="AND" property="typeList">
+				ACTIVITY_TYPE IN
+				<iterate property="typeList" open="(" close=")" conjunction=",">
+					#typeList[]#			
+				</iterate>	
+			</isNotNull>
+			<isNotNull prepend="AND" property="end">
+				START_TIME <![CDATA[ < ]]> ADDDATE(#end#, INTERVAL 1 DAY)		
+			</isNotNull>
+			<isNotNull prepend="AND" property="start">
+				END_TIME <![CDATA[ > ]]> #start#		
+			</isNotNull>
+		</dynamic>
+		GROUP BY ACTIVITY_TYPE
+	</select>
+	
+	<!--==========================Resource Efficiency Quality Report===============-->
+	<select id="selectEfficiencyQuality" parameterClass="java.util.Map" resultClass="ReportEfficiencyQuality">
+		select
+	  		u.id                                                                                  as userId,
+	  		u.employee_no                                                                         as employeeNo,
+	  		concat(u.first_name,u.last_name,'(',u.english_first_name,' ',u.english_last_name,')') as userName,
+	  		ug.id                                                                                 as groupId,
+		    ug.group_name                                                                         as groupName,
+		  	a.start_time                                                                          as startTime,
+		  	a.end_time                                                                            as endTime,
+		  	a.actual_staff_days                                                                   as actualStaffDays,
+		  	a.assigned_effort                                                                     as assignedEffort,
+		  	a.medal                                                                               as medal,
+		  	a.activity_type																		  as activityType
+		from activity a,user u,user_group ug
+		where a.resource_id = u.id and ug.id = u.user_group_id and (a.deleted is null or a.deleted != 'Y')
+			  and (a.activity_type = 'Production' or a.activity_type = 'Feedback') and a.actual_staff_days != 0
+			  and u.user_group_id in (0,1,13,14,15)
+		      and ((a.start_time <![CDATA[ < ]]> #start# and a.end_time <![CDATA[ > ]]> #end#)
+		      or (a.start_time <![CDATA[ >= ]]> #start# and a.start_time <![CDATA[ <= ]]> #end#)
+		      or (a.end_time <![CDATA[ >= ]]> #start# and a.end_time <![CDATA[ <= ]]> #end#))
+		      <dynamic>
+		      	 <isNotNull prepend="and" property="project">
+		      		a.project_id=#project.id#
+		      	 </isNotNull>
+		      	 <isNotNull prepend="and" property="group">
+		      		u.user_group_id =#group.id#
+		      	 </isNotNull>
+		      </dynamic>
+		order by u.id			      
+	</select>	
+	
+	<!--========================== Burndown Report ==============================-->	
+
+	<select id="selectBaselineBurndown" parameterClass="java.util.Map" resultClass="Report">
+		select sum(effort)		as effort,
+			   $timeUnit$		as day
+		from ( 
+			   select t1.effort - ifnull(t2.effort, 0)				as effort,
+					  t1.date,
+					  t1.day,
+					  t1.week,
+					  t1.month
+			   from (
+						select sum(t.PLANNED_STAFF_DAYS)+sum(t.PLANNED_FEEDBACK_DAYS)                              	as effort,
+           					   max(t.END_TIME)                                                                      as date,
+           					   DATE_FORMAT(t.END_TIME, '%Y/%c/%d')                                                  as day,
+           					   DATE_FORMAT(ADDDATE(t.END_TIME, INTERVAL -WEEKDAY(t.END_TIME) DAY),  '%Y/%c/%d')     as week,
+           					   DATE_FORMAT(ADDDATE(t.END_TIME, INTERVAL -DAYOFMONTH(t.END_TIME)+1 DAY), '%Y/%c/%d') as month
+    					from task t
+						where t.type='Production' 
+							  and (t.deleted is null or t.deleted != 'Y')
+							  <dynamic>
+							   	 <isNotNull prepend="and" property="projectId">
+							   		t.PROJECT_ID = #projectId#
+							   	 </isNotNull>
+							   	 <isNotNull prepend="and" property="milestone">
+							   		t.MILESTONE = #milestone#
+							   	 </isNotNull>
+							  </dynamic>
+						group by day
+					 ) t1
+				
+				left outer join
+					
+					(
+					 	select sum(ts.PLANNED_STAFF_DAYS)+sum(ts.PLANNED_FEEDBACK_DAYS)                            	  as effort,
+				        	   max(ts.END_TIME)                                                                       as date,
+				         	   DATE_FORMAT(ts.END_TIME, '%Y/%c/%d')                                                   as day,
+				         	   DATE_FORMAT(ADDDATE(ts.END_TIME, INTERVAL -WEEKDAY(ts.END_TIME) DAY),  '%Y/%c/%d')     as week,
+				         	   DATE_FORMAT(ADDDATE(ts.END_TIME, INTERVAL -DAYOFMONTH(ts.END_TIME)+1 DAY), '%Y/%c/%d') as month
+    					from(
+							   select distinct t.*
+							   from task t, task s
+							   where (t.deleted is null or t.deleted != 'Y') and (s.deleted is null or s.deleted != 'Y')
+							   		  and t.type='Production' and s.type='Production'
+							   		  <dynamic>
+									   	 <isNotNull prepend="and" property="projectId">
+									   		t.PROJECT_ID = #projectId#
+									   	 </isNotNull>
+									   	 <isNotNull prepend="and" property="milestone">
+									   		t.MILESTONE = #milestone#
+									   	 </isNotNull>
+									  </dynamic>
+									  and t.id = s.parent_id
+							) ts
+						group by day
+					) t2	
+				on t1.date = t2.date and t1.day = t2.day and t1.week = t2.week and t1.month = t2.month			   		
+			 ) tmp
+		group by $timeUnit$
+		order by date desc;
+	</select>
+	
+	<select id="selectCompleteBurndown" parameterClass="java.util.Map" resultClass="Report">
+		select sum(effort)		as effort,
+			   $timeUnit$		as day
+		from (
+			  	select t.ID,
+			  		   t.PLANNED_STAFF_DAYS+t.PLANNED_FEEDBACK_DAYS												as effort,
+			  		   max(sl.DATE)                                                                             as date,
+         			   DATE_FORMAT(max(sl.DATE), '%Y/%c/%e')                                                    as day,
+         			   DATE_FORMAT(ADDDATE(max(sl.DATE), INTERVAL 7-WEEKDAY(max(sl.DATE)) DAY), '%Y/%c/%e')     as week,
+         			   DATE_FORMAT(ADDDATE(LAST_DAY(max(sl.DATE)), INTERVAL 1 DAY), '%Y/%c/%e')                 as month
+      			from TASK t, STATUS_LOG sl
+      			where (t.DELETED is null or t.DELETED != 'Y') and t.TYPE='Production'
+      				<dynamic>
+      					<isNotNull prepend="and" property="projectId">
+      						t.PROJECT_ID=#projectId#
+      					</isNotNull>
+      					<isNotNull prepend="and" property="milestone">
+      						t.MILESTONE=#milestone#
+      					</isNotNull>
+      				</dynamic>
+      				and t.ID=sl.TASK_ID and (sl.STATUS='Complete' or sl.STATUS='Submitted' or sl.STATUS='Approved')
+      			group by t.ID
+			  )tmp
+		group by $timeUnit$
+		order by date desc
+	</select>
+	
+	<select id="selectFeedbackSummaryCause" parameterClass="java.util.Map" resultClass="Report">
+      select f.TYPE as name,
+ 	    count(f.CATEGORY)	as value
+	  from TASK t, FEEDBACK f, LIST_OF_VALUE l 
+	  where f.TASK_ID = t.ID 	  
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>	
+			<isNotNull prepend="and" property="milestone">
+				t.MILESTONE=#milestone#
+			</isNotNull>				
+		</dynamic>
+		and l.LIST_KEY = f.TYPE
+	  	group by f.TYPE
+	  	order by l.ID
+	</select>
+	
+	<select id="selectFeedbackSummaryPriority" parameterClass="java.util.Map" resultClass="Report">
+		select
+		    if(l.LIST_KEY = 'SEVERITY_LOW','Low',if(l.LIST_KEY='SEVERITY_MEDIUM','Medium','High'))  as name,
+		    count(l.LIST_VALUE)  as value
+		from TASK t, FEEDBACK f, LIST_OF_VALUE l
+		where f.TASK_ID = t.ID
+		<dynamic>
+			<isNotNull prepend="and" property="projectId">
+				t.PROJECT_ID=#projectId#
+			</isNotNull>	
+			<isNotNull prepend="and" property="milestone">
+				t.MILESTONE=#milestone#
+			</isNotNull>				
+		</dynamic>			
+	    and f.SEVERITY = l.list_key
+      	group by name
+      	order by l.ID desc
+	</select>
+	
+	<select id="selectTimeSheet" parameterClass="java.util.Map" resultClass="Report">
+		select 
+			m.name,m.day,ifnull(sum(n.value),0) as value,
+			ifnull(n.date,date(concat(#year#,'-',#month#,'-',m.day))) as date 
+		from(select * from
+				(select * FROM T_DATE where day <![CDATA[ <= ]]> day(last_day(concat(#year#,'-',#month#,'-',1))))a,
+				(select distinct u.ID,concat(u.FIRST_NAME,u.LAST_NAME) as name from PROJECT_MEMBER pm,USER u where pm.PROJECT_ID = #projectId# and u.ID = pm.USER_ID)b
+			order by id,day)m 
+			
+			left join
+			
+			(select 
+				ts.USER_ID,t.TASK_NAME,ts.DATE,day(ts.DATE) as day,ts.SPENT_EFFORT as value
+			from TIMESHEET ts,SUBTASK s,TASK t
+			where t.PROJECT_ID = #projectId#
+			and month(ts.DATE) = #month#
+			and year(ts.date) = #year#
+			and ts.SUBTASK_ID = s.ID
+			and s.TASK_ID = t.ID
+			order by ts.USER_ID,ts.DATE
+			)n 
+	   on m.ID = n.USER_ID and m.DAY = n.day
+	   group by name,day
+	   order by name,day
+	</select>
+	
+	<!--==========================工作日（不包括周六、周日、及国定假）==============================-->
+
+	<select id="selectResourceUtilization" parameterClass="java.util.Map" resultClass="Report">
+		select 
+			m.EMPLOYEE_NO   			as employeeNo,
+			m.availability,
+			m.name,
+			m.userGroupName,
+			m.ENTRY_DATE				as entryDate,
+			m.LEAVE_DATE				as leaveDate,
+			m.project,
+			m.projectKey,
+      		m.customerName,
+			m.category  				as category,
+			m.milestone					as milestone,
+			sum(ifnull(n.value,0)) 		as value 
+		from
+	    	(select u.ID,
+				u.ENTRY_DATE,
+				u.LEAVE_DATE,
+				u.EMPLOYEE_NO,
+	    		concat(u.FIRST_NAME,u.LAST_NAME,' (',u.ENGLISH_FIRST_NAME,'  ',u.ENGLISH_LAST_NAME,')') as name,
+				ug.GROUP_NAME                                                                          	as userGroupName,
+	    		f_workday(concat(#year#,'-',#month#,'-',1),last_day(concat(#year#,'-',#month#,'-',1)))
+	    		-
+				f_workday(if(year(entry_date)=#year# and month(entry_date)=#month#,u.entry_date,concat(#year#,'-',#month#,'-',1)),
+				          if(year(leave_date)=#year# and month(leave_date)=#month#,u.leave_date,last_day(concat(#year#,'-',#month#,'-',1)))) as availability,
+	    		p.project,
+				p.projectKey,
+              	p.customerName,
+				p.category,
+				p.milestone 
+		  	from USER u,USER_GROUP ug,
+				(select ID 				as id, 
+					LIST_VALUE 			as project, 
+					''               	as projectKey,
+          			''               	as customerName,
+					'Production2' 		as category,
+					'ms1'				as milestone 
+				from LIST_OF_VALUE l 
+				where l.LIST_TYPE = 'ACTIVITY CATEGORY' 
+					and l.LIST_VALUE in ('Down Time Training', 'QA', 'Recruitment', 'Wait Feedback')
+			 <dynamic>
+			  	  <isNotNull property="productionProjects">
+				      <isNotEmpty prepend="union" property="productionProjects">
+						  select p.ID,
+				      			 p.PROJECT_NAME   as project,
+				      			 p.PROJECT_KEY    as projectKey,
+                     			 c.CUSTOMER_NAME  as customerName,
+				      			 'Production' 	  as category,
+				      			 'ms'		  	  as milestone				      
+						  from PROJECT p, CUSTOMER c
+				      	  where p.CUSTOMER_ID = c.ID and p.PROJECT_NAME in
+				  		  <iterate property="productionProjects" open="(" close=")" conjunction=",">
+				  		  	  #productionProjects[].projectName#
+				  		  </iterate>
+				  	  </isNotEmpty>
+			  	  </isNotNull>
+			  </dynamic>
+			  <dynamic>
+			  	  <isNotNull property="testProjects">
+				      <isNotEmpty prepend="union" property="testProjects">
+						  select p.ID,
+				      			 p.PROJECT_NAME   as project,
+				      			 p.PROJECT_KEY    as projectKey,
+                     			 c.CUSTOMER_NAME  as customerName,
+				      			 'Production1' 	  as category,
+				      			 'ms1'			  as milestone 
+						  from PROJECT p, CUSTOMER c 
+				      	  where p.CUSTOMER_ID = c.ID and p.PROJECT_NAME in
+				  		  <iterate property="testProjects" open="(" close=")" conjunction=",">
+				  		  	  #testProjects[].projectName#
+				  		  </iterate>
+				  	  </isNotEmpty>
+			  	  </isNotNull>
+			  </dynamic>
+			  
+			  union
+			  
+			  select ID                                              as id,
+              	  LIST_VALUE                                         as project,
+			  	  ''                                              	 as projectKey,
+               	  ''                                              	 as customerName,
+              	  'Production3'                                      as category,
+              	  if(l.LIST_VALUE = 'Paid Leave', 'ms1', 'ms2')      as milestone
+          	  from LIST_OF_VALUE l
+			  where l.LIST_TYPE = 'ACTIVITY CATEGORY'
+				  and l.LIST_VALUE in ('Paid Leave', 'Unpaid Leave')
+			 )p
+			 where (u.DELETED is null or u.DELETED = 'N' or (u.DELETED = 'Y' and year(leave_date)=#year# and month(leave_date)>=#month#))
+			 and ug.PRODUCTION = 'Y'
+			 and u.ENTRY_DATE <![CDATA[ <= ]]> last_day(concat(#year#,'-',#month#,'-',1))
+			 and u.USER_GROUP_ID = ug.ID
+		     order by u.EMPLOYEE_NO,category,p.ID
+		 )m
+		
+		left join
+		
+		(select
+		  	u.ID,
+		  	p.PROJECT_NAME   		as project,
+		  	'Production'	 		as category,
+            if(month(u.leave_date) is null,
+				sum(if(month(a.START_TIME)=#month# and month(a.END_TIME)=#month#,a.actual_staff_days,
+        		f_workday(if(month(a.START_TIME)=#month#,a.START_TIME,DATE_FORMAT(a.END_TIME,'%Y-%m-01')),
+                	if(month(a.END_TIME)=#month#,a.END_TIME,last_day(a.START_TIME))))),
+        		sum(if(month(a.START_TIME)=#month# and month(a.END_TIME)=#month# and a.end_time<![CDATA[ < ]]>u.leave_date,a.actual_staff_days,
+        		if(a.start_time<![CDATA[> ]]>u.leave_date,0,
+        		if(a.start_time<![CDATA[ < ]]>u.leave_date and a.end_time>u.leave_date,
+        		f_workday(if(month(a.start_time)=#month#,a.start_time,DATE_FORMAT(a.END_TIME,'%Y-%m-01')),date(u.leave_date)),
+				f_workday(if(month(a.START_TIME)=#month#,a.START_TIME,DATE_FORMAT(a.END_TIME,'%Y-%m-01')),
+                	if(month(a.END_TIME)=#month#,a.END_TIME,last_day(a.START_TIME)))))))
+    		) as value
+		from activity a left join TASK s on a.TASK_ID = s.ID
+        				left join USER u on u.ID = a.RESOURCE_ID
+						left join PROJECT p on a.PROJECT_ID = p.ID
+		where ((year(a.START_TIME) = #year# and month(a.start_time)=#month#) or (year(a.END_TIME) = #year# and month(a.END_TIME)=#month#))
+		and s.PARENT_ID is not null
+		group by u.ID,p.ID,category
+		
+		union
+		
+		select
+		  	u.ID,
+		    a.ACTIVITY_TYPE		as project,
+		  	'Test/Others' 		as catgory,
+		    sum(if(month(a.START_TIME)=#month# and month(a.END_TIME)=#month#,
+		  		a.ACTUAL_STAFF_DAYS,
+        		f_workday(if(month(a.START_TIME)=#month#,a.START_TIME,DATE_FORMAT(a.END_TIME,'%Y-%m-01')),
+                       if(month(a.END_TIME)=#month#,a.END_TIME,last_day(a.START_TIME))))) as value
+		from ACTIVITY a,USER u
+		where a.ACTIVITY_TYPE in ('Down Time Training', 'Paid Leave', 'QA', 'Recruitment', 'Unpaid Leave', 'Wait Feedback')
+		and ((year(a.START_TIME) = #year# and month(a.start_time)=#month#) or (year(a.END_TIME) = #year# and month(a.END_TIME)=#month#))
+		and a.RESOURCE_ID = u.ID
+		group by u.ID,project
+        
+        union
+        		
+        select
+        	u.ID,
+        	p.PROJECT_NAME			as project,
+        	""						as catgory,
+        	if(month(u.leave_date) is null,
+				sum(if(month(a.START_TIME)=#month# and month(a.END_TIME)=#month#,
+        			   a.actual_staff_days,
+        			   f_workday(if(month(a.START_TIME)=#month#, a.START_TIME, DATE_FORMAT(a.END_TIME,'%Y-%m-01')),
+                				 if(month(a.END_TIME)=#month#, a.END_TIME, last_day(a.START_TIME))))),
+        		sum(if(month(a.START_TIME)=#month# and month(a.END_TIME)=#month# and a.end_time<![CDATA[ < ]]>u.leave_date,
+        			   a.actual_staff_days,
+        			   if(a.start_time<![CDATA[> ]]>u.leave_date, 0,
+        				  if(a.start_time<![CDATA[ < ]]>u.leave_date and a.end_time>u.leave_date,
+        					 f_workday(if(month(a.start_time)=#month#,a.start_time,DATE_FORMAT(a.END_TIME,'%Y-%m-01')), date(u.leave_date)),
+							 f_workday(if(month(a.START_TIME)=#month#,a.START_TIME,DATE_FORMAT(a.END_TIME,'%Y-%m-01')),	if(month(a.END_TIME)=#month#,
+        				  																								   a.END_TIME,
+        				  																								   last_day(a.START_TIME)))))))
+    		) as value
+        from ACTIVITY a, PROJECT p, USER u
+        where a.ACTIVITY_TYPE in ('Management', 'Comp Off', 'Project Training')	
+        	and a.PROVED = 'Y'
+        	and u.ID = a.RESOURCE_ID
+        	and p.ID = a.PROJECT_ID	
+        	and ((year(a.START_TIME) = #year# and month(a.start_time)=#month#) or (year(a.END_TIME) = #year# and month(a.END_TIME)=#month#))
+        group by u.ID, p.ID
+       )n
+		on m.ID = n.ID and m.PROJECT = n.PROJECT
+		group by employeeNo, category, project
+		order by employeeNo, category, project
+	</select>
+	
+	<select id="selectProjectByMonth" parameterClass="java.util.Map" resultClass="Project">
+		select distinct 
+			p.ID			as id,
+			p.PROJECT_NAME	as projectName,
+			p.PROJECT_KEY	as projectKey
+		from PROJECT p, ACTIVITY a
+		where ((year(a.START_TIME) = #year# and month(a.START_TIME)=#month#) or (year(a.END_TIME) = #year# and month(a.END_TIME)=#month#))
+			and p.ID = a.PROJECT_ID
+		order by projectName
+	</select>
+	
+	<select id="selectMonthWorkDaysByProjectId" parameterClass="java.lang.Integer" resultClass="Report">
+		SELECT t1.day,
+       		   t2.value
+		FROM
+	  		(SELECT DATE_FORMAT(LAST_DAY(CONCAT(YEAR(START_TIME), '-', MONTH(START_TIME), "-01")), '%Y/%c/%d') as day
+  			FROM ACTIVITY
+  			WHERE PROJECT_ID = #projectId#
+    		  AND ACTIVITY_TYPE in ('Production', 'Management', 'Paid Leave', 'Project Training')
+    		  AND (DELETED IS NULL OR DELETED != 'Y')
+  			GROUP BY day) t1,
+  			(SELECT a.day               	  as day,
+         		    SUM(a.ACTUAL_STAFF_DAYS)  as value
+  			FROM (
+    			SELECT *,
+           		   	   DATE_FORMAT(LAST_DAY(CONCAT(YEAR(START_TIME), '-', MONTH(START_TIME), "-01")), '%Y/%c/%d') as day
+    			FROM ACTIVITY
+    			WHERE PROJECT_ID = #projectId#
+      		    AND ACTIVITY_TYPE in ('Production', 'Management', 'Paid Leave', 'Project Training')
+      		    AND (DELETED IS NULL OR DELETED != 'Y')
+      		    AND YEAR(START_TIME) = YEAR(END_TIME)
+      		    AND MONTH(START_TIME) = MONTH(END_TIME)
+   			) a
+   			GROUP BY day) t2
+		WHERE t1.day = t2.day
+	</select>
+	
+	<!--============================项目人力成本===========================-->
+	<select id="selectResourceCost" parameterClass="java.util.Map" resultClass="Report">
+		SELECT u.ID					as userId,
+			   u.EMPLOYEE_NO      	as employeeNo,
+		       CONCAT(u.FIRST_NAME, u.LAST_NAME,' (',u.ENGLISH_FIRST_NAME,' ',u.ENGLISH_LAST_NAME,')') as name,
+		       SUM(f_workday(IF(a.START_TIME <![CDATA[ < ]]> CONCAT(#year#,'-', #month#, '-', '01'), CONCAT(#year#, '-', #month#, '-', '01'), a.START_TIME),
+		                 	 IF(a.END_TIME <![CDATA[ >]]> CONCAT(LAST_DAY(CONCAT(#year#,'-', #month#, '-', '01')), ' 18:00:00'),
+		                        CONCAT(LAST_DAY(CONCAT(#year#,'-', #month#, '-', '01')), ' 18:00:00'), a.END_TIME)))  as manDays,
+		       0			as salary,
+		       0			as socialBenefit,
+		       0			as insurance
+		FROM ACTIVITY a, USER u
+		WHERE a.START_TIME <![CDATA[ < ]]> ADDDATE(LAST_DAY(CONCAT(#year#, '-', #month#, '-', '01')), INTERVAL 1 DAY)
+		  AND a.END_TIME <![CDATA[ >]]> CONCAT(#year#,'-', #month#, '-', '01')
+		  AND a.RESOURCE_ID = u.ID
+		  AND (a.DELETED IS NULL OR a.DELETED != 'Y')
+  		  AND a.ACTIVITY_TYPE != 'Unpaid Leave'
+	  	  AND a.PROJECT_ID IN	
+	  		<iterate property="projects" open="(" close=")" conjunction=",">
+	  			#projects[].id#
+	  		</iterate>  		
+		GROUP BY u.ID
+		ORDER BY u.EMPLOYEE_NO;
+	</select>
+	 
+	<!--==========================工作日（除周六、周日及国定假）==============================-->
+	<procedure id="selectWorkdayByMonth" parameterClass="java.util.Map" resultClass="java.lang.Integer">
+		<![CDATA[
+			{call p_workday(#year#,#month#)}
+		]]>
+	</procedure>
+</sqlMap>

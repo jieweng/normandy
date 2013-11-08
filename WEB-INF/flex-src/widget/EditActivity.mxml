@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" label="{resourceManager.getString('Language','label.allocation')}"
+	width="100%" height="100%" paddingTop="10" paddingBottom="10" paddingLeft="30" paddingRight="30">
+	
+	<mx:Script source="../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			import com.adobe.cairngorm.control.CairngormEventDispatcher;
+			import mx.controls.TextInput;
+			import mx.controls.Alert;					
+			import mx.collections.ArrayCollection;			
+			import mx.managers.PopUpManager;			
+			import mx.events.CollectionEvent;
+			import mx.events.CollectionEventKind;
+			import mx.events.PropertyChangeEvent;			
+			import mx.rpc.events.ResultEvent;
+
+			
+			import com.pearl.normandy.vo.ActivityVO;
+			import com.pearl.normandy.vo.TaskVO;			
+			import com.pearl.normandy.vo.UserVO;
+			import com.pearl.normandy.event.ActivityOptEvent;			
+			import com.pearl.normandy.enum.ActivityEnum;
+
+			import com.pearl.normandy.utils.Constants;			
+			import com.pearl.normandy.utils.HolidayUtil;						
+			
+			public var errMessage:String = "";
+			public var assignDays:Number = 0;
+			
+            private var currUser:UserVO		= model.currUser;	
+			private var holidayUtil:HolidayUtil = model.holidayUtil;			
+			
+
+		    //==============================
+		    //Control Attributes
+		    //==============================															
+ 			private var _taskId:int;			
+			[Bindable]
+			public function set taskId(value:int):void{
+				this._taskId = value;	
+				taskRo.getTaskById(taskId);
+			}			
+			
+			public function get taskId():int{
+				return this._taskId;
+			} 							
+			
+			
+		    //==============================
+		    //Data Attributes
+		    //==============================
+			[Bindable]
+			private var activity:ActivityVO;
+			
+			[Bindable]
+			private var task:TaskVO;						    
+		
+		
+			[Bindable]
+			private var assignedActivities:ArrayCollection;
+									
+			[Bindable]
+			private var deletedActivities:ArrayCollection;
+			
+			[Bindable]
+			private var changedActivies:ArrayCollection = new ArrayCollection();						
+			
+			
+			private var _user:UserVO;
+			[Bindable]
+			public function set user(value:UserVO):void{
+				this._user = value;			
+			}
+			
+			public function get user():UserVO{
+				return this._user;
+			}
+			
+			[Bindable]
+			private var remainingWork:Number;
+			
+		    //==============================
+		    //Remote Object Handlers
+		    //==============================	
+		    private function getTaskByIdHandler(event:ResultEvent):void{
+		    	task = event.result as TaskVO;
+		    	
+		    	if(task){
+			    	activityRo.getActivitiesByTaskId(task.id);
+			    	activityRo.getDeletedActivitiesByTaskId(task.id);	    		    				    					    		
+		    	}
+		    }
+		    			
+		
+	        private function getActivitiesByTaskIdHandler(event:ResultEvent):void{
+				assignedActivities = event.result as ArrayCollection;
+				
+				if(assignedActivities){																				
+					assignedActivities.removeEventListener(CollectionEvent.COLLECTION_CHANGE, onActivityChange);				
+				
+					if(user && activity == null){
+						activity = new ActivityVO();
+						activity.projectId		= task.projectId;
+						activity.projectName	= task.projectName;
+						activity.projectKey		= task.projectKey;
+						activity.milestone		= task.milestone;
+		 				activity.taskId 		= task.id;
+		 				
+		 				if(task.parentId == 0){
+		 					activity.name 		= task.name;
+		 				}
+		 				else{
+							activity.name 		= task.parentName + " (" + task.name + ")";
+						}	
+						 					 						
+						activity.resourceId 	= user.id;
+						activity.resourceName 	= user.firstName + " " + user.lastName;
+						activity.startTime		= task.startTime;
+						activity.endTime		= task.endTime;
+		 				activity.status			= task.status;
+		 				activity.statusId		= task.statusId;					
+						activity.taskOwnerId	= task.ownerId;
+						activity.taskOwnerName  = task.owner;
+						activity.taskCategory	= task.taskCategory;
+						activity.taskReferenceUrl = task.referenceUrl;
+						activity.createdDate	= new Date();
+						activity.createdBy		= currUser.userName;	 
+						activity.createdByName	= currUser.firstName+" "+currUser.lastName;
+						
+						if(activity.startTime<model.metaData.activityLockedTime){
+							activity.endTime = new Date(model.metaData.activityLockedTime.getTime() + activity.endTime.getTime() - activity.startTime.getTime());
+							activity.startTime = new Date(model.metaData.activityLockedTime.getTime());
+						}
+						
+						if(assignedActivities && assignedActivities.length > 0){
+							activity.assignedEffort = 0;
+						}
+						else{
+							activity.assignedEffort = task.plannedStaffDays + task.plannedFeedbackDays;
+						}
+										
+						activity.actualStaffDays = holidayUtil.getWorkingDaysByMinutes(activity.startTime, activity.endTime);
+						//activity.remainingEffort = holidayUtil.getWorkingDays(activity.startTime, activity.endTime);
+					 	activity.remainingEffort = activity.actualStaffDays;
+	
+						if(task.isFeedback == Constants.BOOLEAN_YES){
+							activity.activityType= ActivityEnum.FEEDBACK;
+						}
+						else{
+							activity.activityType= ActivityEnum.PRODUCTION;
+						}	 				
+		 				
+		 				if(task.type == Constants.PROJECT_TYPE_TRAINING){
+		 					activity.trainingFlag = Constants.BOOLEAN_YES;
+		 				}
+		 				
+		        		//Set activity progress to 100%
+		        		if((activity.activityType==ActivityEnum.PRODUCTION && task.statusId >= Constants.TASK_STATUS_COMPLETE_NUM)
+		   					||(activity.activityType==ActivityEnum.FEEDBACK && task.statusId == Constants.TASK_STATUS_APPROVED_NUM)){
+		        			activity.progress = 100;
+		        		}	 				
+		        			 				
+						
+						assignedActivities.addItem(activity);
+						assignedActivityADG.selectedIndex = assignedActivities.length;
+					}				
+																						
+					assignedActivities.addEventListener(CollectionEvent.COLLECTION_CHANGE, onActivityChange);
+					getRemainingWork();
+				}	        	
+	        }		
+	        
+	       	private function validateNewFun():Boolean{	        	
+	        	errString.text = "";
+	        	
+ 	        	if(activity){
+ 	        		var act:ActivityVO = activity;
+	        		if(act.startTime == null){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.missing_start_time');
+	        			return false;
+	        		}
+	        		else if(act.endTime == null){	        			
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.missing_end_time');
+	        			return false;
+	        		}
+	        		else if(act.endTime <= act.startTime){
+	        			
+	        			errString.text = errMessage = "end time can not be less than start time.";
+	        			return false;
+	        		}	        		
+	        		else if(isNaN(act.assignedEffort) || (act.assignedEffort == 0 && act.activityType != ActivityEnum.FEEDBACK)){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.empty_effort');
+	        			return false;
+	        		}
+	        		else if(act.assignedEffort < 0){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.negative_effort');
+	        			return false;
+	        		}
+	        		if(act.startTime<model.metaData.activityLockedTime){
+	        			errString.text = errMessage = StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT));
+				        return false;
+	        		}
+	        	}
+	        	return true;
+	        }
+	        
+	        
+	        private function getDeletedActivitiesByTaskIdHandler(event:ResultEvent):void{
+				deletedActivities = event.result as ArrayCollection;	
+				
+				if(deletedActivities.length > 0){
+					deletedActivityVBox.visible = true;
+					deletedActivityVBox.includeInLayout = true;
+				}			
+				getRemainingWork();	        	
+	        }
+	        
+	        
+		    //==============================
+		    //Event Handlers
+		    //==============================	        
+	        private function onActivityChange(event:CollectionEvent):void{	        	
+	        	if (event.kind == CollectionEventKind.UPDATE){
+		          for each (var pce:PropertyChangeEvent in event.items)
+		          {
+		          	var item:ActivityVO = pce.source as ActivityVO;
+		          	
+		          	if(item.id != 0){
+		          		if(!changedActivies.contains(item)){
+		          			changedActivies.addItem(item);
+		          		}  		        		
+ 		          	}        	
+ 		          	getRemainingWork();
+		          }   		
+	        	}
+	        }	        
+	        
+
+	        
+		    //==============================
+		    //Methods
+		    //==============================	        			
+			private function getRemainingWork():void{
+				var sum:Number = task.plannedStaffDays + task.plannedFeedbackDays;
+				
+				if(assignedActivities && assignedActivities.length > 0){
+					for each(var item:ActivityVO in assignedActivities){
+						sum -= item.assignedEffort;
+					}
+				}
+				
+				if(deletedActivities && deletedActivities.length > 0){
+					for each(item in deletedActivities){
+						sum -= item.assignedEffort;
+					}
+				}
+				
+				remainingWork = sum;				
+			}
+	   
+	        
+	        public function save():Boolean{
+	        	
+	        	if(!validateFun()){
+	        		return false;
+	        	}
+	        	
+	        	var oldActualStaffDays:Number;
+	        	var newActualStaffDays:Number
+	        	var deviation:Number;
+	        	
+	        	if(changedActivies!=null && changedActivies.length>0){	        		
+	        		for each(var changedActivity:ActivityVO in changedActivies){
+	          			oldActualStaffDays = changedActivity.actualStaffDays;
+	          			newActualStaffDays = holidayUtil.getWorkingDaysByMinutes(changedActivity.startTime, changedActivity.endTime);
+	          			
+	          			//根据当前计算出来的actualStaffDays来调整剩余的工作时间。
+	          			deviation = changedActivity.remainingEffort + newActualStaffDays - oldActualStaffDays;
+		          		changedActivity.remainingEffort = deviation<0?0:deviation;	 	        			
+	        			changedActivity.actualStaffDays = newActualStaffDays;
+	        		}
+	        		
+	        		CairngormEventDispatcher.getInstance().dispatchEvent(ActivityOptEvent.updateActivitiesEvent(changedActivies, model.currUser));	
+	        	}
+	        	
+	        	
+ 	        	if(activity){
+ 	        		if(!validateNewFun()){
+	        			return false;
+	        		}	        		
+	        		//Set activity actualEndTime
+	        		if((activity.activityType==ActivityEnum.PRODUCTION && task.statusId >= Constants.TASK_STATUS_COMPLETE_NUM)
+	   					||(activity.activityType==ActivityEnum.FEEDBACK && task.statusId == Constants.TASK_STATUS_APPROVED_NUM)){
+	        			activity.actualEndTime = new Date();
+	        		}		        		   		
+	        		
+          			oldActualStaffDays = activity.actualStaffDays;
+          			newActualStaffDays = holidayUtil.getWorkingDaysByMinutes(activity.startTime, activity.endTime);
+          			
+          			//根据当前计算出来的actualStaffDays来调整剩余的工作时间。
+          			deviation = activity.remainingEffort + newActualStaffDays - oldActualStaffDays;
+	          		activity.remainingEffort = deviation<0?0:deviation;		        		
+	        		activity.actualStaffDays = newActualStaffDays;	
+	        		CairngormEventDispatcher.getInstance().dispatchEvent(ActivityOptEvent.createActivityEvent(activity, currUser));       	    		
+	        	} 	   
+	        	
+	        	return true;     	      	
+	        } 		
+	        
+	        private function validateFun():Boolean{	        	
+	        	var assignDays:Number = 0;
+	        	errString.text = "";
+	        	
+ 	        	for each(var act:ActivityVO in changedActivies){	        	
+	        		if(act.startTime == null){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.missing_start_time');
+	        			return false;
+	        		}
+	        		else if(act.endTime == null){	        			
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.missing_end_time');
+	        			return false;
+	        		}
+	        		else if(act.endTime <= act.startTime){
+	        			
+	        			errString.text = errMessage = "end time can not be less than start time.";
+	        			return false;
+	        		}	        		
+	        		else if(isNaN(act.assignedEffort) || (act.assignedEffort == 0 && act.activityType != ActivityEnum.FEEDBACK)){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.empty_effort');
+	        			return false;
+	        		}
+	        		else if(act.assignedEffort < 0){	        		
+	        			errString.text = errMessage = resourceManager.getString('Language','alert.activity.negative_effort');
+	        			return false;
+	        		}
+	        		if(act.startTime<model.metaData.activityLockedTime){
+	        			errString.text = errMessage = StringUtil.substitute(resourceManager.getString("Language","alert.activity.error_end_time"),
+				                            DateUtil.format(model.metaData.activityLockedTime, DateUtil.SHORT));
+				        return false;
+	        		}
+	        	}
+	        	
+	        	for each(var actObj:ActivityVO in assignedActivities){	        	
+	        		assignDays += actObj.assignedEffort;
+	        	}
+	        	
+	        	if(deletedActivities && deletedActivities.length > 0){	        		
+	        		for each(var delActObj:ActivityVO in deletedActivities){	        
+		        		assignDays += delActObj.assignedEffort;
+		        	}
+	        	}
+	        	
+	        	if(compareNumber(assignDays, (task.plannedStaffDays+task.plannedFeedbackDays)) == 1){	        	
+	        		errString.text = errMessage = resourceManager.getString('Language','alert.activity.effort_inconsistency');
+	        		return false;
+	        	}	         	
+	        	return true;
+	        }	        
+	        
+		]]>
+	</mx:Script>
+	
+	
+    <!--==========================
+	    Services
+	  ===========================-->
+	<mx:RemoteObject id="taskRo" destination="ro.task" fault="faultHandler(event)">
+		<mx:method name="getTaskById" result="getTaskByIdHandler(event)"/>
+	</mx:RemoteObject>		  
+
+	<mx:RemoteObject id="activityRo" destination="ro.activity" fault="faultHandler(event)">
+		<mx:method name="getActivitiesByTaskId" result="getActivitiesByTaskIdHandler(event)"/>
+		<mx:method name="getDeletedActivitiesByTaskId" result="getDeletedActivitiesByTaskIdHandler(event)"/>
+	</mx:RemoteObject>	
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->	
+	<mx:Label text="{task.parentId==0?task.name:(task.parentName+' ('+task.name+')')}" fontWeight="bold"/>
+	
+	<mx:VBox id="deletedActivityVBox" width="100%" height="100%" visible="false" includeInLayout="false">			
+		<mx:Label text="{resourceManager.getString('Language','label.activity.cancelled')}" fontWeight="bold" top="10"/>
+	    <mx:AdvancedDataGrid dataProvider="{deletedActivities}"
+	    	width="100%" height="100%">
+	    	<mx:columns>
+	    		<mx:AdvancedDataGridColumn dataField="resourceName" sortable="false" width="60"
+	    			headerText="{resourceManager.getString('Language','label.name')}"/>
+	    		<mx:AdvancedDataGridColumn dataField="startTime" width="150"
+	    			headerText="{resourceManager.getString('Language','label.start_date')}"
+	    			labelFunction="formatDateSimple">
+	    		</mx:AdvancedDataGridColumn>    		
+	    		<mx:AdvancedDataGridColumn dataField="endTime" width="150"
+	    			headerText="{resourceManager.getString('Language','label.end_date')}"
+	    			labelFunction="formatDateSimple">
+	    		</mx:AdvancedDataGridColumn>
+	    		<mx:AdvancedDataGridColumn dataField="assignedEffort" width="50"
+	    			headerText="{resourceManager.getString('Language','label.planned_staff_days')}"/>
+	    		<mx:AdvancedDataGridColumn dataField="progress" width="50"
+	    			headerText="{resourceManager.getString('Language','label.progress')}"/>	    			
+			  	<mx:AdvancedDataGridColumn width="30" editable="false"
+			  		itemRenderer="renderer.dataGrid.FeedbackRenderer">
+			  	<mx:headerRenderer>
+			  		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalAlign="middle">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{ImageEnum.IMAGECLASS_FEEDBACK}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	   			  			
+			  		</mx:Component>
+			  	</mx:headerRenderer>			  		 			  	
+			  	</mx:AdvancedDataGridColumn> 	    			
+	    	</mx:columns>    	
+	    </mx:AdvancedDataGrid>
+	</mx:VBox>	 
+	
+	   
+	<mx:HBox width="100%" >
+    	<mx:Label text="{resourceManager.getString('Language','label.planned_staff_days') + ': ' + task.plannedStaffDays}" 
+			fontWeight="bold"/>
+    	<mx:Label text="{resourceManager.getString('Language','label.planned_feedback_days') + ': ' + task.plannedFeedbackDays}" 
+			fontWeight="bold"/>							
+		<mx:Label color="0xFF0000" id="errString" />
+    </mx:HBox>
+	<mx:HBox width="100%" >
+    	<mx:Label text="{resourceManager.getString('Language','label.remaining_work') + ': ' + remainingWork}"
+			fontWeight="bold"/>							
+    </mx:HBox>	  
+    
+      	
+    <mx:DataGrid id="assignedActivityADG" dataProvider="{assignedActivities}"
+    	enabled="true" editable="true"
+    	width="100%" height="100%">
+    	<mx:columns>
+    		<mx:DataGridColumn dataField="resourceName" editable="false" sortable="false" width="60" textAlign="center"
+    			headerText="{resourceManager.getString('Language','label.name')}"
+    			itemRenderer="renderer.dataGrid.ResourceRenderer">
+    		</mx:DataGridColumn>
+    		<mx:DataGridColumn dataField="startTime" width="150" textAlign="center"
+    			headerText="{resourceManager.getString('Language','label.start_date')}"
+    			itemRenderer="renderer.dataGrid.StartTimeRenderer"
+    			rendererIsEditor="true"    		
+    			editorDataField="selectedDate">  			
+    		</mx:DataGridColumn>
+    		
+    		<mx:DataGridColumn dataField="endTime" width="150" textAlign="center"
+    			headerText="{resourceManager.getString('Language','label.end_date')}"
+    			itemRenderer="renderer.dataGrid.EndTimeRenderer"
+    			rendererIsEditor="true"
+    			editorDataField="selectedDate">			
+    		</mx:DataGridColumn>
+
+    		<mx:DataGridColumn dataField="assignedEffort" width="50" textAlign="center"
+    			headerText="{resourceManager.getString('Language','label.planned_staff_days')}" editable="false">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:TextInput change="onEffortChange(event)" enabled="{data.startTime>=model.metaData.activityLockedTime}" editable="{data.startTime>=model.metaData.activityLockedTime}">
+              				<mx:Script source="../script/CommonScript.as"/>
+              				<mx:Script>
+              					<![CDATA[
+              						private function onEffortChange(event:Event):void{
+              							data.assignedEffort = Number(event.currentTarget.text);
+              						}
+              					]]>
+              				</mx:Script>
+              			</mx:TextInput>              			
+              		</mx:Component>
+              	</mx:itemRenderer>
+    		</mx:DataGridColumn>
+    		
+    		<mx:DataGridColumn dataField="progress" width="50" textAlign="center"
+    			headerText="{resourceManager.getString('Language','label.progress')}"
+    			rendererIsEditor="true"
+    			editorDataField="value" editable="false">
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:NumericStepper minimum="0" maximum="100"  change="onProgressChange(event)">
+              				<mx:Script>
+              					<![CDATA[
+              						import com.pearl.normandy.utils.NormandyModel;
+              						[Bindable]
+              						private var _data:Object;
+	              						[Bindable]
+	              						public override function set data(value:Object):void{
+	              							this._data = value;
+	              							this.value = data.progress;	 
+	              							this.enabled=_data.startTime>=NormandyModel.getInstance().metaData.activityLockedTime;
+	              						}
+	              						
+	              						public override function get data():Object{
+	              							return this._data;
+	              						}
+              						private function onProgressChange(event:Event):void{
+              							data.progress = Number(event.currentTarget.value);
+              						}
+              					]]>
+              				</mx:Script>
+              			</mx:NumericStepper>
+              		</mx:Component>
+              	</mx:itemRenderer>    			
+    		</mx:DataGridColumn>    		
+    			
+		  	<mx:DataGridColumn dataField="activityType" width="30" editable="true"
+			  	editorDataField="activityType">
+			  	<mx:headerRenderer>
+			  		<mx:Component>
+              			<mx:HBox horizontalAlign="center" verticalAlign="middle">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{ImageEnum.IMAGECLASS_FEEDBACK}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	   			  			
+			  		</mx:Component>
+			  	</mx:headerRenderer>			  	
+              	<mx:itemRenderer>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="center">             				
+	              			<mx:Image width="16" height="16"
+	              				source="{data.activityType==ActivityEnum.FEEDBACK?ImageEnum.IMAGECLASS_FEEDBACK:''}">
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import com.pearl.normandy.enum.ImageEnum;
+	              						import com.pearl.normandy.enum.ActivityEnum;
+	              					]]>
+	              				</mx:Script>
+	              			</mx:Image>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemRenderer> 
+              	<mx:itemEditor>
+              		<mx:Component>
+              			<mx:HBox horizontalAlign="center">             				
+	              			<mx:CheckBox id="feedbackCB" change="onChange(event)" enabled = "{data.startTime>=model.metaData.activityLockedTime}">
+	              			<mx:Script source="../script/CommonScript.as"/>
+	              				<mx:Script>
+	              					<![CDATA[
+	              						import mx.controls.CheckBox;
+	              						import com.pearl.normandy.enum.ActivityEnum;
+	              						
+	              						[Bindable]
+	              						public var activityType:String=ActivityEnum.PRODUCTION;
+	              						private var _data:Object;
+	              						[Bindable]
+	              						public override function set data(value:Object):void{
+	              							this._data = value;	 
+	              							
+	              							if(data.activityType==ActivityEnum.FEEDBACK){
+	              								feedbackCB.selected = true;
+	              								activityType = ActivityEnum.FEEDBACK;
+	              							}
+	              						}
+	              						
+	              						public override function get data():Object{
+	              							return this._data;
+	              						}
+	              						
+	              						private function onChange(event:Event):void{
+	              							var cb:CheckBox = event.currentTarget as CheckBox;
+	              							if(cb.selected){
+	              								data.activityType = ActivityEnum.FEEDBACK;
+	              								activityType 	  = ActivityEnum.FEEDBACK;
+	              							}
+	              							else{
+	              								data.activityType = ActivityEnum.PRODUCTION;
+	              								activityType      =ActivityEnum.PRODUCTION
+	              							}
+	              						}
+	              					]]>
+	              				</mx:Script>
+	              			</mx:CheckBox>
+              			</mx:HBox>	              			              			
+              		</mx:Component>
+              	</mx:itemEditor>   		  		
+		  	</mx:DataGridColumn>   
+    			 			
+    	</mx:columns>    	
+    </mx:DataGrid>		
+</mx:VBox>

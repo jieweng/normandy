@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	width="100" height="100"
+	horizontalAlign="center" 
+	paddingTop="5" paddingBottom="0">
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			private var model:NormandyModel = NormandyModel.getInstance();
+		]]>
+	</mx:Script>
+
+	<mx:Image
+		width="100%" height="100%"
+		source="{(data.id==0?model.metaData.referenceTempUrl:model.metaData.referenceUrl)+data.url}" />
+</mx:VBox>

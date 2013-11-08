@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Canvas xmlns:mx="http://www.adobe.com/2006/mxml" verticalScrollPolicy="off" horizontalScrollPolicy="off" width="400" height="600"
+	creationComplete="init()">
+	<mx:Script>
+		<![CDATA[
+			import mx.managers.PopUpManager;
+			import com.pearl.normandy.event.CheckBoxChangeEvent;
+			import mx.collections.ArrayCollection;
+		
+			[Bindable]
+			public var dp:ArrayCollection = new ArrayCollection([
+				{label:"Production", 	   value:1, selected:true},
+				{label:"Management", 	   value:2, selected:false},
+				{label:"Project Training", value:3, selected:false},
+				{label:"Comp Off", 	 	   value:4, selected:false},
+				{label:"Paid Leave", 	   value:5, selected:false},
+				{label:"Unpaid Leave", 	   value:6, selected:false},
+				{label:"Wait Feedback",	   value:7, selected:false},
+				{label:"Recruitment", 	   value:8, selected:false}
+			]);
+			
+			private var ac:ArrayCollection = new ArrayCollection([
+				{label:"Production", value:1, selected:true}
+			]);
+			
+			private function init():void{
+				addEventListener(CheckBoxChangeEvent.CHANGE, checkBoxChangeHandler);
+			}
+			
+			private function checkBoxChangeHandler(e:CheckBoxChangeEvent):void{
+				var obj:Object = e.object;
+				if(obj.selected){
+					var isIn:Boolean = false;
+					for(var i:int = 0; i < ac.length; i++){
+						var item:Object = ac.getItemAt(i) as Object;
+						if(item.value == obj.value){
+							isIn = true;
+							break;
+						}
+					}
+					if(!isIn){
+						ac.addItem(obj);
+					}
+				}else{
+					for(var j:int = 0; j < ac.length; j++){
+						var temp:Object = ac.getItemAt(j) as Object;
+						if(temp.value == obj.value){
+							ac.removeItemAt(j);
+							if(ac.length == 0){
+								 ac = new ArrayCollection([{label:"Production", value:1, selected:true}]);
+							}
+							break;
+						}
+					}
+				}	
+			}
+			
+			private function okBtnClick():void{
+				var e:CheckBoxChangeEvent = new CheckBoxChangeEvent(CheckBoxChangeEvent.RESULT, ac, true);
+				dispatchEvent(e);
+				PopUpManager.removePopUp(this);
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:VBox width="100%" verticalGap="0">
+		<mx:DataGrid id="dg" dataProvider="{dp}" headerHeight="0" verticalGridLines="false" height="210" width="135" borderStyle="solid" 
+			borderSides="left right top">
+			<mx:columns>
+				<mx:DataGridColumn dataField="selected" width="20">
+					<mx:itemRenderer>
+						<mx:Component>
+							<mx:HBox horizontalAlign="right">
+								<mx:CheckBox id="checkBox" selected="{data.selected}" change="onChange()">
+									<mx:Script>
+										<![CDATA[
+											import mx.collections.ArrayCollection;
+											import com.pearl.normandy.event.CheckBoxChangeEvent;
+											
+											private function onChange():void{
+												data.selected = checkBox.selected;	
+												
+												if(data.selected == false){
+													var collection:ArrayCollection = outerDocument.dp;
+													var selectedNum:int = 0;
+													for each(var obj:Object in collection){
+														if(obj.selected == true){
+															selectedNum++;
+														}
+													}
+													if(selectedNum == 0){
+														collection.getItemAt(0).selected = true;
+														collection.refresh();
+													}
+												}
+												
+												var e:CheckBoxChangeEvent = new CheckBoxChangeEvent(CheckBoxChangeEvent.CHANGE, data, true); 
+												dispatchEvent(e);										
+											}
+										]]>
+									</mx:Script>
+								</mx:CheckBox>
+							</mx:HBox>
+						</mx:Component>
+					</mx:itemRenderer>
+				</mx:DataGridColumn>
+				<mx:DataGridColumn dataField="label" width="115" textAlign="left"/>
+			</mx:columns>
+		</mx:DataGrid>
+		<mx:HBox verticalGap="0" horizontalGap="0" borderStyle="solid" borderThickness="1" width="135" horizontalAlign="center" 
+				 borderSides="left right bottom">
+			<mx:Button id="okBtn" click="okBtnClick()" label="OK" cornerRadius="0" width="100%"/>
+			<mx:Button id="cancelBtn" click="PopUpManager.removePopUp(this);" cornerRadius="0" width="100%" label="Cancel"/>
+		</mx:HBox>
+	</mx:VBox>
+</mx:Canvas>

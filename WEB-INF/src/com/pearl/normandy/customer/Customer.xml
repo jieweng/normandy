@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"      
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Customer">
+
+	<!-- Use type aliases to avoid typing the full classname every time. -->
+	<typeAlias alias="Customer"
+		type="com.pearl.normandy.customer.CustomerTo" />
+
+	<resultMap id="CustomerResult" class="Customer">
+		<result property="id" column="ID" />
+		<result property="customerName" column="CUSTOMER_NAME" />
+		<result property="description" column="DESCRIPTION" />
+		<result property="deleted" column="DELETED" />
+		<result property="version" column="VERSION" />
+		<result property="createdDate" column="CREATED_DATE" />
+		<result property="createdBy" column="CREATED_BY" />
+		<result property="updatedDate" column="UPDATED_DATE" />
+		<result property="updatedBy" column="UPDATED_BY" />
+	</resultMap>
+	
+	<select id="selectAllCustomer" resultMap="CustomerResult">
+		select * from CUSTOMER c
+		where (c.DELETED is null or c.DELETED != 'Y') 
+		order by c.CUSTOMER_NAME;
+	</select>
+	
+	<select id="selectCustomerByName" parameterClass="java.lang.String" resultMap="CustomerResult">
+		select * from CUSTOMER c
+		where (c.DELETED is null or c.DELETED != 'Y') 
+		and c.CUSTOMER_NAME = #value#
+	</select>	
+	
+	<!--========================= Insert/Update/Delete ========================-->	
+	<insert id="insert" parameterClass="Customer">
+		insert into CUSTOMER
+			(ID, 
+			CUSTOMER_NAME, 
+			DESCRIPTION, 
+			DELETED,
+			VERSION,
+			CREATED_DATE,
+			CREATED_BY)
+		values
+			(#id#,
+			 #customerName#,
+			 #description#,
+			 #deleted#,
+			 #version#,
+			 now(),
+			 #createdBy#)
+		<selectKey resultClass="int" keyProperty="id">
+			SELECT @@IDENTITY AS ID
+		</selectKey>		
+	</insert>	
+</sqlMap>

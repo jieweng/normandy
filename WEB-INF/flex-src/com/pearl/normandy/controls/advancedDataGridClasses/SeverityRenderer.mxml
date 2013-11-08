@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	height="100%" width="100%" 
+	horizontalAlign="center"
+	verticalScrollPolicy="off" horizontalScrollPolicy="off">
+	
+	<mx:Script>
+		<![CDATA[
+			import com.pearl.normandy.vo.ListOfValue;
+			import mx.collections.ArrayCollection;		        
+			import com.pearl.normandy.utils.NormandyModel;
+			
+			[Bindable]			
+			private var severities:ArrayCollection = NormandyModel.getInstance().metaData.severities;
+			
+			[Bindable]
+			public var text:String;
+			
+			private var _data:Object;
+			[Bindable]
+			public override function set data(value:Object):void{
+				this._data = value;
+				text = data.severityValue;
+				
+				for(var i:int=0;i<severities.length;i++){
+					var severity:ListOfValue = severities.getItemAt(i) as ListOfValue;
+				
+					if(severity.listKey == data.severity){
+						severityCB.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			public override function get data():Object{
+				return this._data;
+			}
+			
+			private function onChange(event:Event):void{
+				data.severity = (event.currentTarget as ComboBox).selectedItem.listKey;
+				text = data.severityValue = (event.currentTarget as ComboBox).selectedItem.listValue;
+			}     		                                                  			
+		]]>
+	</mx:Script>	
+	
+	<mx:ComboBox id="severityCB" width="100%" dataProvider="{severities}"
+		labelField="listValue"
+		change="onChange(event)"/>
+</mx:HBox>

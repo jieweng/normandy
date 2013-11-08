@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+	height="100%" width="100%"
+	horizontalAlign="left"
+	horizontalScrollPolicy="off">
+	
+	<mx:Script source="../../../../../script/CommonScript.as"/>
+	<mx:Script>
+		<![CDATA[
+
+
+			import mx.controls.Alert;
+			import mx.collections.ArrayCollection;			
+			import mx.events.CloseEvent;
+			import mx.events.ListEvent;
+						
+			import com.pearl.normandy.vo.ListOfValue;
+			import com.pearl.normandy.vo.TaskVO;			
+			import com.pearl.normandy.utils.Constants;			
+  			import com.pearl.normandy.utils.NormandyModel;
+  			
+			import popup.SetTaskStatusWIPPopUp;  			
+  			
+  			[Bindable]
+  			private var taskStatuses:ArrayCollection = NormandyModel.getInstance().metaData.taskStatuses;
+  			
+  			private var preStatusLov:ListOfValue;
+  			private var statusLov:ListOfValue;
+  			
+  			[Bindable]
+  			public var text:String;
+  			
+  			private var _data:Object;
+  			[Bindable]
+  			public override function set data(data:Object):void{
+  				this._data = data;
+  				
+  				for(var i:int=0; i<taskStatuses.length; i++){
+  					if(data.statusId == taskStatuses.getItemAt(i).id){
+  						statusCB.selectedIndex = i;
+  						text = taskStatuses.getItemAt(i).listValue;
+  						preStatusLov = taskStatuses.getItemAt(i) as ListOfValue;
+  						break;
+  					}
+  				}
+  			}
+  			
+  			public override function get data():Object{
+  				return this._data;
+  			}
+  			
+  			private function onStatusCBChange(event:ListEvent):void{
+  				statusLov = statusCB.selectedItem as ListOfValue;
+  				
+  				//User changes status back to Not-Started
+  				if(statusLov.listValue == Constants.TASK_STATUS_NOTSTARTED){
+  					confirm(resourceManager.getString('Language','alert.subtask.set_notstarted'),
+  					resourceManager.getString("Language","title.confirmation"), confirmNotStartedHandler);
+  				}
+  				else if(statusLov.listValue == Constants.TASK_STATUS_APPROVED){
+  					confirm(resourceManager.getString('Language','alert.subtask.set_approved'),
+  					resourceManager.getString("Language","title.confirmation"), confirmApprovedHandler);					
+  				}  				  				
+  				//User changes later status back to WIP
+  				else if(statusLov.listValue == Constants.TASK_STATUS_WIP && statusLov.id < preStatusLov.id){
+					var setTaskStatusWIPPopup:SetTaskStatusWIPPopUp = SetTaskStatusWIPPopUp(PopUpManager.createPopUp(UIComponent(this.parentApplication), SetTaskStatusWIPPopUp, true));
+			        PopUpManager.centerPopUp(setTaskStatusWIPPopup);
+			        setTaskStatusWIPPopup.task = data as TaskVO;	
+			        setTaskStatusWIPPopup.ok.addEventListener(MouseEvent.CLICK, confirmWIPHandler);		        
+				
+  				}
+  				//User changes status from Not-Started or WIP to Complete
+  				else if(statusLov.id >= Constants.TASK_STATUS_COMPLETE_NUM && preStatusLov.id < Constants.TASK_STATUS_COMPLETE_NUM){
+  					confirm(resourceManager.getString('Language','alert.subtask.set_complete'),
+  					resourceManager.getString("Language","title.confirmation"), confirmAfterCompleteHandler);  					
+  				}
+  				else{
+  					taskRo.updateTaskStatus((data as TaskVO).id, statusLov.id);
+			     	setValue();  					
+  				}  				
+  			}
+  			
+  			private function setValue():void{
+  				text = statusCB.selectedLabel;
+  				data.status = statusCB.selectedLabel;
+  				data.statusId = statusCB.selectedItem.id;  				
+  			}
+  			
+		    private function confirmNotStartedHandler(event:CloseEvent):void{
+			     if (event.detail == Alert.YES){
+			     	taskRo.setStatusNotStarted((data as TaskVO).id);
+			     	setValue();
+			     } 		      
+		    } 	
+		    
+		    private function confirmWIPHandler(event:MouseEvent):void{
+			     	setValue();		    	
+		    }
+		    
+		    private function confirmAfterCompleteHandler(event:CloseEvent):void{
+			     if (event.detail == Alert.YES){
+			     	taskRo.setStatusAfterComplete((data as TaskVO).id, statusLov.id);
+			     	setValue();
+			     } 		      
+		    } 	
+		    
+		    private function confirmApprovedHandler(event:CloseEvent):void{
+			     if (event.detail == Alert.YES){
+			     	taskRo.setStatusApproved((data as TaskVO).id);
+			     	setValue();
+			     } 		      
+		    } 		    	      			
+		]]>
+	</mx:Script>	
+	
+	<!--==========================
+	    Services
+	  ===========================-->	
+	<mx:RemoteObject id="taskRo" destination="ro.task" fault="faultHandler(event)">
+		<mx:method name="updateTaskStatus"/>
+		<mx:method name="setStatusNotStarted"/>
+		<mx:method name="setStatusAfterComplete"/>
+		<mx:method name="setStatusApproved"/>
+	</mx:RemoteObject>
+	
+	
+	  <!--==========================
+	    Page Layout
+	  ===========================-->
+	
+	<mx:ComboBox id="statusCB" dataProvider="{taskStatuses}" labelField="listValue"
+		change="onStatusCBChange(event)" dropdownWidth="100"/>
+</mx:HBox>
